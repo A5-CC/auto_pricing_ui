@@ -15,12 +15,12 @@ This doc walks through the setup to deploy a static Next.js 15 website automatic
 
 - `output` option to `'export'` so that Next.js generates a static HTML export of the site.
 - `trailingSlash` so that all URLs end with a slash, which is important for static hosting on GitHub Pages.
-- `basePath` and `assetPrefix` to match the repository name (`/auto_analyst_ui`). This ensures that all routes and static assets are correctly prefixed and accessible from the subpath GitHub Pages uses.
+- `basePath` and `assetPrefix` to match the repository name (`/auto_pricing_ui`). This ensures that all routes and static assets are correctly prefixed and accessible from the subpath GitHub Pages uses.
 - `images.unoptimized` to `true` because GitHub Pages cannot handle Next.js's default image optimization.
 
 With these settings, the static site will be generated and ready to serve from the following URL:
 
-`https://a5-cc.github.io/auto_analyst_ui/`
+`https://a5-cc.github.io/auto_pricing_ui/`
 
 ### 2. CI/CD workflow with GitHub Actions
 
@@ -33,11 +33,11 @@ It is triggered by a push to the `main` branch.
 Test the deployment by running the following commands:
 
 ```bash
-curl -I https://a5-cc.github.io/auto_analyst_ui/next.svg
+curl -I https://a5-cc.github.io/auto_pricing_ui/next.svg
 ```
 
 ```bash
-curl -I https://a5-cc.github.io/auto_analyst_ui/
+curl -I https://a5-cc.github.io/auto_pricing_ui/
 ```
 
 If both commands return HTTP 200, the deployment is successful.
@@ -47,7 +47,7 @@ If both commands return HTTP 200, the deployment is successful.
 Check the current status of the deployment using the GitHub CLI:
 
 ```bash
-gh api repos/A5-CC/auto_analyst_ui/pages/builds -q '.[0].status'
+gh api repos/A5-CC/auto_pricing_ui/pages/builds -q '.[0].status'
 ```
 
 This command will return the status of the most recent build. Common status values include:

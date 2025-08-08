@@ -1,0 +1,9 @@
+## AUTO_PRICING_UI context
+
+AUTO_PRICING_UI is a Next.js-based dashboard for competitive pricing intelligence in the self-storage industry. The application provides real-time monitoring and analysis of competitor pricing data through interactive visualizations and data grids. Built as a static export application optimized for GitHub Pages deployment, it connects to the AUTO_ANALYST backend pipeline that scrapes, normalizes, and processes competitor pricing data from storage facility websites.
+
+The platform features two core interfaces: a pipeline monitoring dashboard (`/runs`) that shows the status of data collection runs with the ability to trigger manual updates, and an interactive pricing analysis grid (`/pricing`) that enables filtering, sorting, and exporting of competitor pricing data across multiple dimensions. The UI is built with Tailwind CSS and shadcn/ui components, ensuring consistent design patterns and responsive layouts across desktop and tablet views.
+
+The frontend follows a client-side data processing model where all filtering, sorting, and analysis happens in the browser after fetching structured data from the backend API. This approach enables fast interactions and reduces server load while maintaining full compatibility with static hosting. The application implements an evolutionary schema pattern that gracefully handles new pricing fields as they're discovered, ensuring the UI remains functional as competitor data sources expand their offerings.
+
+The strategic vision is to provide storage facility operators and pricing analysts with immediate visibility into competitive pricing landscapes, enabling data-driven pricing decisions through intuitive interfaces. By transforming complex pricing data into actionable visual insights, AUTO_PRICING_UI reduces the time spent manually tracking competitors from hours to minutes, while providing historical trend analysis and export capabilities for deeper strategic planning.
