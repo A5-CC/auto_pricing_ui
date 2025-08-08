@@ -1,0 +1,44 @@
+name: Deploy static Next site to GitHub Pages
+
+on:
+  push:
+    branches: [main]          # when merges to main, deploy to github pages
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_BASE_PATH: /auto_analyst_ui
+      NEXT_PUBLIC_API_URL: https://18.189.253.176.sslip.io
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run build
+      - run: echo > out/.nojekyll
+
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: out }
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4             # publishes the artifact
