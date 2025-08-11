@@ -1,5 +1,5 @@
 import { DashboardData } from "@/components/analytics/types"
-import { UploadResponse, JobStatus, DocMeta } from "./types"
+import { UploadResponse, JobStatus, DocMeta, RunResponse, RunStatus, URLDumpDetail, URLDumpSummary } from "./types"
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || ''
 
@@ -21,6 +21,7 @@ async function fetchWithError(url: string, options?: RequestInit): Promise<Respo
   return response
 }
 
+//FIXME: This is from auto analyst fork; remove the type and all references to it
 export async function uploadFiles(files: File[]): Promise<UploadResponse> {
   const formData = new FormData()
   files.forEach(file => {
@@ -35,11 +36,13 @@ export async function uploadFiles(files: File[]): Promise<UploadResponse> {
   return response.json()
 }
 
+//FIXME: This is from auto analyst fork; remove the type and all references to it
 export async function checkJobStatus(jobId: string): Promise<JobStatus> {
   const response = await fetchWithError(`${API_BASE_URL}/job-status/${jobId}`)
   return response.json()
 }
 
+//FIXME: This is from auto analyst fork; remove the type and all references to it
 export async function getDocumentList(): Promise<DocMeta[]> {
   const response = await fetchWithError(`${API_BASE_URL}/list-jobs`)
   const data = await response.json()
@@ -47,6 +50,7 @@ export async function getDocumentList(): Promise<DocMeta[]> {
   return data.documents || data
 }
 
+//FIXME: This is from auto analyst fork; remove the type and all references to it
 export async function getSummaryById(docId: string): Promise<DashboardData> {
   const response = await fetchWithError(`${API_BASE_URL}/summary/${docId}`)
   return response.json()
@@ -82,4 +86,40 @@ export async function getVersionInfo(): Promise<{ version: string; release_date:
   } catch {
     return null
   }
+}
+
+// Runs page API
+export async function getLatestRunStatus(): Promise<RunStatus> {
+  const response = await fetchWithError(`${API_BASE_URL}/competitors/run-status/latest`)
+  return response.json()
+}
+
+export async function getRunHistory(): Promise<{ runs: RunStatus[] }> {
+  const response = await fetchWithError(`${API_BASE_URL}/competitors/run-status/history`)
+  return response.json()
+}
+
+export async function triggerPipelineRun(force = false): Promise<RunResponse> {
+  const response = await fetchWithError(`${API_BASE_URL}/competitors/run`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ force })
+  })
+  return response.json()
+}
+
+// URL Dumps explorer API
+export async function getURLDumps(limit = 30): Promise<URLDumpSummary[]> {
+  const response = await fetchWithError(`${API_BASE_URL}/competitors/competitor-urls?limit=${limit}`)
+  return response.json()
+}
+
+export async function getURLDumpDetail(timestamp: string): Promise<URLDumpDetail> {
+  const response = await fetchWithError(`${API_BASE_URL}/competitors/competitor-urls/${timestamp}`)
+  return response.json()
+}
+
+export async function getLatestURLDump(): Promise<URLDumpDetail | null> {
+  const response = await fetchWithError(`${API_BASE_URL}/competitors/competitor-urls/latest/detail`)
+  return response.json()
 }
