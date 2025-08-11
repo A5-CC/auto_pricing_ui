@@ -1,5 +1,5 @@
 import { DashboardData } from "@/components/analytics/types"
-import { UploadResponse, JobStatus, DocMeta, RunResponse, RunStatus, URLDumpDetail, URLDumpSummary } from "./types"
+import { UploadResponse, JobStatus, DocMeta, RunResponse, RunStatus, URLDumpDetail, URLDumpSummary, RawScrapeDateSummary, RawScrapeDetail, RawScrapeSummary, RawScrapeRunSummary } from "./types"
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || ''
 
@@ -121,5 +121,26 @@ export async function getURLDumpDetail(timestamp: string): Promise<URLDumpDetail
 
 export async function getLatestURLDump(): Promise<URLDumpDetail | null> {
   const response = await fetchWithError(`${API_BASE_URL}/competitors/competitor-urls/latest/detail`)
+  return response.json()
+}
+
+// Raw scrapes explorer API
+export async function getRawScrapeDates(limit = 30): Promise<RawScrapeDateSummary[]> {
+  const response = await fetchWithError(`${API_BASE_URL}/competitors/raw-scrapes?limit=${limit}`)
+  return response.json()
+}
+
+export async function getRawScrapesForDate(date: string): Promise<RawScrapeSummary[]> {
+  const response = await fetchWithError(`${API_BASE_URL}/competitors/raw-scrapes/${date}`)
+  return response.json()
+}
+
+export async function getRawScrapeDetail(date: string, filename: string): Promise<RawScrapeDetail> {
+  const response = await fetchWithError(`${API_BASE_URL}/competitors/raw-scrapes/${date}/${encodeURIComponent(filename)}`)
+  return response.json()
+}
+
+export async function getRawScrapeRunSummary(date: string): Promise<RawScrapeRunSummary | null> {
+  const response = await fetchWithError(`${API_BASE_URL}/competitors/raw-scrapes/${date}/_run`)
   return response.json()
 }
