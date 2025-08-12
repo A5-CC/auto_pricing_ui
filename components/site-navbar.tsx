@@ -2,9 +2,10 @@
 
 import Link from "next/link"
 import { useEffect, useState } from "react"
-import { BarChart3 } from "lucide-react"
+import { BarChart3, Table } from "lucide-react"
 import { usePathname } from "next/navigation"
 import { getSystemHealth } from "@/lib/api/client"
+import { Button } from "@/components/ui/button"
 
 function ApiStatusDot() {
   const [status, setStatus] = useState<"checking" | "ok" | "offline">("checking")
@@ -63,19 +64,14 @@ export function SiteNavbar() {
               <BarChart3 className="h-3.5 w-3.5" aria-hidden />
               Pricing
             </Link>
+            {/* Divider between Pricing and the rest */}
+            <span aria-hidden className="mx-2 h-6 w-px bg-border" />
             <Link
               href="/runs"
               aria-current={pathname === "/runs" ? "page" : undefined}
               className={linkCls("/runs")}
             >
               Pipeline Runs
-            </Link>
-            <Link
-              href="/url-dumps"
-              aria-current={pathname === "/url-dumps" ? "page" : undefined}
-              className={linkCls("/url-dumps")}
-            >
-              URL Discovery
             </Link>
             <Link
               href="/raw-scrapes"
@@ -85,15 +81,25 @@ export function SiteNavbar() {
               Raw Scrapes
             </Link>
             <Link
-              href="/pricing-schemas"
-              aria-current={pathname === "/pricing-schemas" ? "page" : undefined}
-              className={linkCls("/pricing-schemas")}
+              href="/url-dumps"
+              aria-current={pathname === "/url-dumps" ? "page" : undefined}
+              className={linkCls("/url-dumps")}
             >
-              Pricing Schema
+              URL Discovery
             </Link>
           </div>
         </div>
         <div className="flex items-center gap-3">
+          {/* Pricing Schema emphasized as a distinct button, pushed to the right */}
+          <Button asChild variant="default" size="sm" className="rounded-full gap-1.5 ring-1 ring-primary/30 shadow-sm">
+            <Link
+              href="/pricing-schemas"
+              aria-current={pathname === "/pricing-schemas" ? "page" : undefined}
+            >
+              <Table className="h-3.5 w-3.5" aria-hidden />
+              <span>Pricing Schema</span>
+            </Link>
+          </Button>
           <ApiStatusDot />
         </div>
       </div>
@@ -107,19 +113,14 @@ export function SiteNavbar() {
             <BarChart3 className="h-3.5 w-3.5" aria-hidden />
             Pricing
           </Link>
+          {/* Divider between Pricing and the rest on mobile */}
+          <span aria-hidden className="mx-1 h-6 w-px bg-border" />
           <Link
             href="/runs"
             aria-current={pathname === "/runs" ? "page" : undefined}
             className={linkCls("/runs")}
           >
             Pipeline Runs
-          </Link>
-          <Link
-            href="/url-dumps"
-            aria-current={pathname === "/url-dumps" ? "page" : undefined}
-            className={linkCls("/url-dumps")}
-          >
-            URL Discovery
           </Link>
           <Link
             href="/raw-scrapes"
@@ -129,11 +130,11 @@ export function SiteNavbar() {
             Raw Scrapes
           </Link>
           <Link
-            href="/pricing-schemas"
-            aria-current={pathname === "/pricing-schemas" ? "page" : undefined}
-            className={linkCls("/pricing-schemas")}
+            href="/url-dumps"
+            aria-current={pathname === "/url-dumps" ? "page" : undefined}
+            className={linkCls("/url-dumps")}
           >
-            Pricing Schema
+            URL Discovery
           </Link>
         </div>
       </div>
