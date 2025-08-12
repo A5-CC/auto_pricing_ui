@@ -6,6 +6,8 @@ import { RunStatus } from "@/lib/api/types"
 import { StatusHeader } from "@/components/runs/status-header"
 import { RunHistoryTable } from "@/components/runs/run-history-table"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { ContextChips } from "@/components/context-chips"
+import { useContextChips } from "@/hooks/useContextChips"
 
 
 function formatDate(value?: string) {
@@ -46,7 +48,7 @@ function formatRunningValue(value: number | undefined, isRunning: boolean, fallb
 
 function formatStatus(status?: string) {
   if (!status) return { text: "—", className: "" }
-  
+
   switch (status) {
     case "running":
       return { text: "Running", className: "text-blue-600 font-medium" }
@@ -68,6 +70,7 @@ export default function RunsPage() {
   const [error, setError] = useState<string | null>(null)
   const [triggering, setTriggering] = useState(false)
   const [currentTime, setCurrentTime] = useState(Date.now())
+  const { createChips } = useContextChips()
 
   const isBusy = latestStatus?.status === "running"
 
@@ -78,7 +81,7 @@ export default function RunsPage() {
     if (!isBusy || !latestStatus?.started_at) {
       return latestStatus?.duration_s
     }
-    
+
     const startTime = new Date(latestStatus.started_at).getTime()
     return (currentTime - startTime) / 1000
   }, [isBusy, latestStatus?.started_at, latestStatus?.duration_s, currentTime])
@@ -147,6 +150,14 @@ export default function RunsPage() {
 
   return (
     <main className="mx-auto max-w-6xl p-6 space-y-6">
+      <ContextChips 
+        chips={createChips(
+          { 
+            label: "Pipeline Runs", 
+            isCurrent: true 
+          }
+        )} 
+      />
       <StatusHeader latestStatus={latestStatus} isBusy={isBusy} triggering={triggering} onTrigger={onTrigger} />
 
       {error && (
