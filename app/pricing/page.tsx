@@ -16,7 +16,10 @@ import type {
 } from "@/lib/api/types"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { ContextChips } from "@/components/context-chips"
+import { useContextChips } from "@/hooks/useContextChips"
 import { TypeCountBadge } from "@/components/pricing/type-count-badge"
+import { AddressCell } from "@/components/pricing/address-cell"
 import { SortableTh } from "@/components/table/SortableTh"
 import { useSortableRows } from "@/hooks/useSortableRows"
 import { useCompetitorFilter } from "@/hooks/useCompetitorFilter"
@@ -61,6 +64,7 @@ export default function PricingPage() {
   // Group by (single level)
   const [groupBy, setGroupBy] = useState<string | null>(null)
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
+  const { createChips } = useContextChips()
 
   const grouped = useMemo(() => {
     if (!groupBy) return null
@@ -135,7 +139,7 @@ export default function PricingPage() {
         setColumnsStats(byName)
 
         // Filter out columns that are already shown in fixed columns
-        const fixedColumns = ['modstorage_location', 'competitor_name', 'competitor_address', 'snapshot_date', 'unit_dimensions']
+        const fixedColumns = ['competitor_name', 'competitor_address', 'modstorage_location', 'snapshot_date', 'unit_dimensions']
         const filteredColumns = res.columns.filter(col => !fixedColumns.includes(col))
         setVisibleColumns((prev) => (prev.length ? prev : filteredColumns))
       }
@@ -203,10 +207,17 @@ export default function PricingPage() {
 
   return (
     <main className="mx-auto max-w-7xl p-6 space-y-5">
+      <ContextChips
+        chips={createChips(
+          {
+            label: "Pricing",
+            isCurrent: true
+          }
+        )}
+      />
       <header>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
-            <h1 className="truncate text-2xl font-semibold tracking-tight">Pricing</h1>
             <p className="text-sm text-muted-foreground">Explore normalized competitor unit pricing with dynamic columns.</p>
           </div>
           <div className="flex items-center gap-2">
@@ -337,16 +348,16 @@ export default function PricingPage() {
                   className="px-4 py-2 sticky left-0 z-20 bg-background border-r w-[280px] min-w-[280px] max-w-[280px]"
                 />
                 <SortableTh
-                  columnId="competitor_address"
-                  label="Address"
+                  columnId="modstorage_location"
+                  label="ModLocation"
                   sortBy={sortBy}
                   sortDir={sortDir}
                   onSortClick={handleSortClick}
-                  className="px-4 py-2"
+                  className="px-4 py-2 w-[240px] min-w-[240px] max-w-[240px]"
                 />
                 <SortableTh
                   columnId="unit_dimensions"
-                  label="Unit"
+                  label="Dimensions"
                   sortBy={sortBy}
                   sortDir={sortDir}
                   onSortClick={handleSortClick}
@@ -410,10 +421,12 @@ export default function PricingPage() {
                               />
                               <span className="font-medium truncate" title={row.competitor_name}>{row.competitor_name}</span>
                             </div>
-                            <div className="text-xs text-muted-foreground truncate" title={row.modstorage_location}>{row.modstorage_location}</div>
+                            <div className="text-xs text-muted-foreground truncate" title={row.competitor_address}>{row.competitor_address}</div>
                           </div>
                         </td>
-                        <td className="px-4 py-2 whitespace-normal break-words">{row.competitor_address}</td>
+                        <td className="px-4 py-2">
+                          <AddressCell address={row.modstorage_location} />
+                        </td>
                         <td className="px-4 py-2 whitespace-nowrap">{row.unit_dimensions || "—"}</td>
                         {visibleColumns.map((c) => (
                           <td key={`${idx}-${c}`} className="px-4 py-2">{formatCellValue(row[c], columnsStats[c]?.data_type, c)}</td>
@@ -437,10 +450,12 @@ export default function PricingPage() {
                           />
                           <span className="font-medium truncate" title={row.competitor_name}>{row.competitor_name}</span>
                         </div>
-                        <div className="text-xs text-muted-foreground truncate" title={row.modstorage_location}>{row.modstorage_location}</div>
+                        <div className="text-xs text-muted-foreground truncate" title={row.competitor_address}>{row.competitor_address}</div>
                       </div>
                     </td>
-                    <td className="px-4 py-2 whitespace-normal break-words">{row.competitor_address}</td>
+                    <td className="px-4 py-2">
+                      <AddressCell address={row.modstorage_location} />
+                    </td>
                     <td className="px-4 py-2 whitespace-nowrap">{row.unit_dimensions || "—"}</td>
                     {visibleColumns.map((c) => (
                       <td key={`${idx}-${c}`} className="px-4 py-2">{formatCellValue(row[c], columnsStats[c]?.data_type, c)}</td>
