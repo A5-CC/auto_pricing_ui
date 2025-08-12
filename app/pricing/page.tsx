@@ -317,9 +317,9 @@ export default function PricingPage() {
           {/* Competitors multi-select */}
           <div className="min-w-0">
             <div className="mb-1 flex items-center justify-between">
-              <label className="block text-xs text-muted-foreground">Competitors</label>
+              <label className="block text-[12px] text-foreground/80">Competitors</label>
               <Button
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 onClick={() => setSelectedCompetitors([])}
                 disabled={selectedCompetitors.length === 0}
@@ -329,7 +329,7 @@ export default function PricingPage() {
               </Button>
             </div>
             <MultiSelect values={selectedCompetitors} onValuesChange={setSelectedCompetitors}>
-              <MultiSelectTrigger className="w-full justify-between">
+              <MultiSelectTrigger className="w-full justify-between data-[placeholder]:text-foreground/70">
                 <MultiSelectValue placeholder="Select competitors" />
               </MultiSelectTrigger>
               <MultiSelectContent search={{ placeholder: "Search competitors...", emptyMessage: "No competitors" }}>
@@ -344,9 +344,9 @@ export default function PricingPage() {
           {/* ModLocation multi-select */}
           <div className="min-w-0">
             <div className="mb-1 flex items-center justify-between">
-              <label className="block text-xs text-muted-foreground">ModLocation</label>
+              <label className="block text-[12px] text-foreground/80">ModLocation</label>
               <Button
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 onClick={() => setSelectedLocations([])}
                 disabled={selectedLocations.length === 0}
@@ -356,7 +356,7 @@ export default function PricingPage() {
               </Button>
             </div>
             <MultiSelect values={selectedLocations} onValuesChange={setSelectedLocations}>
-              <MultiSelectTrigger className="w-full justify-between">
+              <MultiSelectTrigger className="w-full justify-between data-[placeholder]:text-foreground/70">
                 <MultiSelectValue placeholder="Select locations" />
               </MultiSelectTrigger>
               <MultiSelectContent search={{ placeholder: "Search locations...", emptyMessage: "No locations" }}>
@@ -371,9 +371,9 @@ export default function PricingPage() {
           {/* Dimensions multi-select */}
           <div className="min-w-0">
             <div className="mb-1 flex items-center justify-between">
-              <label className="block text-xs text-muted-foreground">Dimensions</label>
+              <label className="block text-[12px] text-foreground/80">Dimensions</label>
               <Button
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 onClick={() => setSelectedDimensions([])}
                 disabled={selectedDimensions.length === 0}
@@ -383,7 +383,7 @@ export default function PricingPage() {
               </Button>
             </div>
             <MultiSelect values={selectedDimensions} onValuesChange={setSelectedDimensions}>
-              <MultiSelectTrigger className="w-full justify-between">
+              <MultiSelectTrigger className="w-full justify-between data-[placeholder]:text-foreground/70">
                 <MultiSelectValue placeholder="Select dimensions" />
               </MultiSelectTrigger>
               <MultiSelectContent search={{ placeholder: "Search dimensions...", emptyMessage: "No dimensions" }}>
@@ -398,9 +398,9 @@ export default function PricingPage() {
           {/* Unit Category multi-select */}
           <div className="min-w-0">
             <div className="mb-1 flex items-center justify-between">
-              <label className="block text-xs text-muted-foreground">Unit Category</label>
+              <label className="block text-[12px] text-foreground/80">Unit Category</label>
               <Button
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 onClick={() => setSelectedUnitCategories([])}
                 disabled={selectedUnitCategories.length === 0}
@@ -410,7 +410,7 @@ export default function PricingPage() {
               </Button>
             </div>
             <MultiSelect values={selectedUnitCategories} onValuesChange={setSelectedUnitCategories}>
-              <MultiSelectTrigger className="w-full justify-between">
+              <MultiSelectTrigger className="w-full justify-between data-[placeholder]:text-foreground/70">
                 <MultiSelectValue placeholder="Select unit categories" />
               </MultiSelectTrigger>
               <MultiSelectContent search={{ placeholder: "Search categories...", emptyMessage: "No categories" }}>
