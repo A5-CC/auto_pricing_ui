@@ -27,7 +27,6 @@ export function StatusHeader({
   return (
     <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Pipeline runs</h1>
         <p className="text-sm text-muted-foreground">Monitor the A1/A2 competitor pricing pipeline and trigger new runs.</p>
       </div>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
