@@ -1,8 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { RunStatus } from "@/lib/api/types"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -21,12 +19,10 @@ import { ChevronDown, Play, RefreshCcw, AlertTriangle } from "lucide-react"
 type RunMode = "standard" | "force"
 
 export function StatusHeader({
-  latestStatus,
   isBusy,
   triggering,
   onTrigger,
 }: {
-  latestStatus: RunStatus | null
   isBusy: boolean
   triggering: boolean
   onTrigger: (overwrite: boolean) => void

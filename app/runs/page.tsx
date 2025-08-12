@@ -174,7 +174,7 @@ export default function RunsPage() {
           }
         )}
       />
-      <StatusHeader latestStatus={latestStatus} isBusy={isBusy} triggering={triggering} onTrigger={onTrigger} />
+      <StatusHeader isBusy={isBusy} triggering={triggering} onTrigger={onTrigger} />
 
       {error && (
         <Alert variant="destructive">
@@ -200,7 +200,7 @@ export default function RunsPage() {
                 </Link>
                 <br />
                 <span className="text-sm text-muted-foreground mt-1 block">
-                  To reprocess the data, open Run options (caret next to Run) and choose "Force reprocess".
+                  To reprocess the data, open Run options (caret next to Run) and choose &ldquo;Force reprocess&rdquo;.
                 </span>
               </>
             )}
