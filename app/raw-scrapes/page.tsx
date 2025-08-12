@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react"
 import { getRawScrapeDates, getRawScrapesForDate, getRawScrapeDetail } from "@/lib/api/client"
 import type { RawScrapeDateSummary, RawScrapeDetail, RawScrapeSummary } from "@/lib/api/types"
 import { Button } from "@/components/ui/button"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { Eye } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 function formatBytes(bytes: number): string {
@@ -196,7 +198,19 @@ export default function RawScrapesPage() {
                   <td className="px-4 py-2">{formatBytes(s.size_bytes)}</td>
                   <td className="px-4 py-2">{new Date(s.created_at).toLocaleString()}</td>
                   <td className="px-4 py-2">
-                    <Button size="sm" onClick={() => handleViewScrape(s.date, s.filename)}>View</Button>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          aria-label="View details"
+                          onClick={() => handleViewScrape(s.date, s.filename)}
+                        >
+                          <Eye className="size-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>View details</TooltipContent>
+                    </Tooltip>
                   </td>
                 </tr>
               ))}
@@ -228,7 +242,7 @@ export default function RawScrapesPage() {
             <thead className="bg-muted/40 text-left">
               <tr>
                 <th className="px-4 py-2">Date</th>
-                <th className="px-4 py-2">Scrapes</th>
+                <th className="px-4 py-2">URLs / Pricing</th>
                 <th className="px-4 py-2">Total Size</th>
                 <th className="px-4 py-2">Latest Created</th>
                 <th className="px-4 py-2">Actions</th>
@@ -244,17 +258,46 @@ export default function RawScrapesPage() {
                   <td className="px-4 py-2"><div className="h-8 w-20 animate-pulse rounded bg-muted" /></td>
                 </tr>
               )) : dates.length ? (
-                dates.map((d) => (
-                  <tr key={d.date} className="border-t">
-                    <td className="px-4 py-2 font-mono">{d.date}</td>
-                    <td className="px-4 py-2">{d.scrape_count}</td>
-                    <td className="px-4 py-2">{formatBytes(d.total_size_bytes)}</td>
-                    <td className="px-4 py-2">{d.latest_created_at ? new Date(d.latest_created_at).toLocaleString() : "—"}</td>
-                    <td className="px-4 py-2">
-                      <Button size="sm" onClick={() => handleSelectDate(d.date)}>Browse</Button>
-                    </td>
-                  </tr>
-                ))
+                dates.map((d) => {
+                  const runSummary = d.run_summary
+                  const totalUrls = runSummary?.total_urls || 0
+                  const pricingUrls = runSummary?.pricing_viable_urls || 0
+
+                  return (
+                    <tr key={d.date} className="border-t">
+                      <td className="px-4 py-2 font-mono">{d.date}</td>
+                      <td className="px-4 py-2">
+                        {totalUrls > 0 ? (
+                          <span className="text-sm">
+                            <span className="font-medium">{totalUrls}</span> URLs
+                            {pricingUrls > 0 && (
+                              <span className="text-muted-foreground ml-1">/ {pricingUrls} pricing</span>
+                            )}
+                          </span>
+                        ) : (
+                          d.scrape_count
+                        )}
+                      </td>
+                      <td className="px-4 py-2">{formatBytes(d.total_size_bytes)}</td>
+                      <td className="px-4 py-2">{d.latest_created_at ? new Date(d.latest_created_at).toLocaleString() : "—"}</td>
+                      <td className="px-4 py-2">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              aria-label="Browse scrapes for date"
+                              onClick={() => handleSelectDate(d.date)}
+                            >
+                              <Eye className="size-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Browse scrapes</TooltipContent>
+                        </Tooltip>
+                      </td>
+                    </tr>
+                  )
+                })
               ) : (
                 <tr>
                   <td className="px-4 py-6 text-center text-muted-foreground" colSpan={5}>No scrapes available</td>

@@ -29,6 +29,7 @@ export function Footer({ dashboardData, history = [], onHistorySelect, mode }: F
   const [showHistory, setShowHistory] = useState(false)
   const [lastChecked, setLastChecked] = useState<Date | null>(null)
   const [versionInfo, setVersionInfo] = useState<{ version: string; release_date: string; api: string } | null>(null)
+  const currentYear = new Date().getFullYear()
 
   // Check system health and version on mount and periodically
   useEffect(() => {
@@ -205,8 +206,8 @@ export function Footer({ dashboardData, history = [], onHistorySelect, mode }: F
 
               <div className="pt-2 border-t border-gray-100">
                 <div className="text-xs text-gray-600 space-y-1">
-                  <div className="font-semibold">Auto Analyst</div>
-                  <div>AI-powered financial analysis platform</div>
+                  <div className="font-semibold">Auto Pricing</div>
+                  <div>Competitive pricing intelligence for self‑storage</div>
                   {versionInfo && (
                     <>
                       <div className="flex justify-between">
@@ -235,13 +236,13 @@ export function Footer({ dashboardData, history = [], onHistorySelect, mode }: F
         {/* Bottom bar */}
         <div className="mt-8 pt-6 border-t border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-4">
           <div className="text-xs text-gray-500">
-            © 2024 Auto Analyst. Intelligent financial insights powered by AI.
+            © {currentYear} Auto Pricing. Competitive pricing intelligence.
           </div>
 
           <div className="flex items-center gap-4">
             <Badge variant="secondary" className="text-xs">
               <Activity className="h-3 w-3 mr-1" />
-              Real-time Analytics
+              Pricing Intelligence
             </Badge>
             {dashboardData && (
               <Badge variant="outline" className="text-xs">

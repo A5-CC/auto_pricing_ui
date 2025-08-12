@@ -5,6 +5,8 @@ import { getURLDumps, getURLDumpDetail, getLatestURLDump } from "@/lib/api/clien
 import type { URLDumpDetail, URLDumpSummary } from "@/lib/api/types"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { ExternalLink, MapPin, Eye } from "lucide-react"
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return "0 Bytes"
@@ -95,8 +97,14 @@ export default function URLDumpsPage() {
           <div className="font-medium">{latestDump ? latestDump.timestamp : "—"}</div>
         </div>
         <div className="rounded-lg border p-4">
-          <div className="text-xs text-muted-foreground">URLs in latest</div>
-          <div className="font-medium">{latestDump ? latestDump.total_urls : "—"}</div>
+          <div className="text-xs text-muted-foreground">Competitors / Valid URLs</div>
+          <div className="font-medium">
+            {latestDump ? (
+              <span>{latestDump.total_urls} / {latestDump.valid_urls}</span>
+            ) : (
+              "—"
+            )}
+          </div>
         </div>
         <div className="rounded-lg border p-4">
           <div className="text-xs text-muted-foreground">Created</div>
@@ -112,7 +120,7 @@ export default function URLDumpsPage() {
               <tr>
                 <th className="px-4 py-2">ID</th>
                 <th className="px-4 py-2">Timestamp</th>
-                <th className="px-4 py-2">Total URLs</th>
+                <th className="px-4 py-2">Competitors / Valid</th>
                 <th className="px-4 py-2">File Size</th>
                 <th className="px-4 py-2">Created At</th>
                 <th className="px-4 py-2">Actions</th>
@@ -145,13 +153,29 @@ export default function URLDumpsPage() {
                         </div>
                       </td>
                       <td className="px-4 py-2 font-mono">{formatTimestamp(d.timestamp)}</td>
-                      <td className="px-4 py-2">{d.total_urls}</td>
+                      <td className="px-4 py-2">
+                        <span className="text-sm">
+                          <span className="font-medium">{d.total_urls}</span>
+                          <span className="text-muted-foreground"> / {d.valid_urls}</span>
+                        </span>
+                      </td>
                       <td className="px-4 py-2">{formatBytes(d.size_bytes)}</td>
                       <td className="px-4 py-2">{new Date(d.created_at).toLocaleString()}</td>
                       <td className="px-4 py-2">
-                        <Button size="sm" onClick={() => handleViewDump(d.timestamp)} disabled={detailLoading}>
-                          {detailLoading ? "Loading…" : "View"}
-                        </Button>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              aria-label="View details"
+                              onClick={() => handleViewDump(d.timestamp)}
+                              disabled={detailLoading}
+                            >
+                              <Eye className="size-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>View details</TooltipContent>
+                        </Tooltip>
                       </td>
                     </tr>
                   ))
@@ -170,7 +194,7 @@ export default function URLDumpsPage() {
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-lg font-semibold">Dump {selectedDump.timestamp}</h3>
-              <p className="text-sm text-muted-foreground">{selectedDump.total_urls} URLs • Created {new Date(selectedDump.created_at).toLocaleString()}</p>
+              <p className="text-sm text-muted-foreground">{selectedDump.total_urls} competitors ({selectedDump.valid_urls} valid URLs) • Created {new Date(selectedDump.created_at).toLocaleString()}</p>
             </div>
             <Button variant="outline" onClick={() => setSelectedDump(null)}>Close</Button>
           </div>
@@ -214,28 +238,83 @@ export default function URLDumpsPage() {
               <table className="w-full text-sm">
                 <thead className="bg-muted/40 text-left">
                   <tr>
-                    <th className="px-4 py-2">Location</th>
-                    <th className="px-4 py-2">Competitor</th>
+                    <th className="px-4 py-2">Location & Competitor</th>
                     <th className="px-4 py-2">Address</th>
-                    <th className="px-4 py-2">Confidence</th>
+                    <th className="px-4 py-2">URL Found</th>
+                    <th className="px-4 py-2">Conf</th>
                     <th className="px-4 py-2">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredUrls.map((u, idx) => (
-                    <tr key={`${u.modstorage_location}-${idx}`} className="border-t">
-                      <td className="px-4 py-2 whitespace-nowrap">{u.modstorage_location}</td>
-                      <td className="px-4 py-2 whitespace-nowrap">{u.competitor_name}</td>
-                      <td className="px-4 py-2 min-w-64">{u.competitor_address}</td>
-                      <td className="px-4 py-2">{u.confidence}%</td>
-                      <td className="px-4 py-2">
-                        <div className="flex gap-2">
-                          <a className="text-primary underline" href={u.maps_url} target="_blank" rel="noopener noreferrer">Maps</a>
-                          <a className="text-primary underline" href={u.final_pricing_url} target="_blank" rel="noopener noreferrer">Pricing</a>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                  {filteredUrls.map((u, idx) => {
+                    const hasValidUrl = u.final_pricing_url !== 'not_found'
+                    return (
+                      <tr key={`${u.modstorage_location}-${idx}`} className="border-t">
+                        <td className="px-4 py-3">
+                          <div className="space-y-1">
+                            <div className="font-medium text-sm leading-tight">{u.modstorage_location}</div>
+                            <div className="text-xs text-muted-foreground leading-tight">{u.competitor_name}</div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 max-w-xs">
+                          <div className="truncate text-sm" title={u.competitor_address}>
+                            {u.competitor_address}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          {hasValidUrl ? (
+                            <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-800 whitespace-nowrap">
+                              ✓ Found
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-1 text-xs font-medium text-red-800 whitespace-nowrap">
+                              ✗ Missing
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-center">{u.confidence}%</td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-1.5">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <a
+                                  className="inline-flex items-center justify-center rounded-md border bg-background px-2 py-1.5 text-muted-foreground hover:text-foreground hover:bg-accent focus-visible:border-ring outline-none"
+                                  href={u.maps_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  aria-label="Open in Maps"
+                                >
+                                  <MapPin className="size-4" />
+                                </a>
+                              </TooltipTrigger>
+                              <TooltipContent>Open in Maps</TooltipContent>
+                            </Tooltip>
+
+                            {hasValidUrl ? (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <a
+                                    className="inline-flex items-center justify-center rounded-md border bg-background px-2 py-1.5 text-muted-foreground hover:text-foreground hover:bg-accent focus-visible:border-ring outline-none"
+                                    href={u.final_pricing_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    aria-label="Open pricing URL"
+                                  >
+                                    <ExternalLink className="size-4" />
+                                  </a>
+                                </TooltipTrigger>
+                                <TooltipContent>Open pricing URL</TooltipContent>
+                              </Tooltip>
+                            ) : (
+                              <span className="inline-flex items-center justify-center rounded-md border bg-muted px-2 py-1.5 text-muted-foreground">
+                                —
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
