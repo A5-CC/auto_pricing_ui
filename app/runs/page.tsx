@@ -1,11 +1,13 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { getLatestRunStatus, getRunHistory, triggerPipelineRun } from "@/lib/api/client"
+import Link from "next/link"
+import { getLatestRunStatus, getRunHistory, triggerPipelineRun, ApiError } from "@/lib/api/client"
 import { RunStatus } from "@/lib/api/types"
 import { StatusHeader } from "@/components/runs/status-header"
 import { RunHistoryTable } from "@/components/runs/run-history-table"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Info } from "lucide-react"
 import { ContextChips } from "@/components/context-chips"
 import { useContextChips } from "@/hooks/useContextChips"
 
@@ -68,6 +70,7 @@ export default function RunsPage() {
   const [runHistory, setRunHistory] = useState<RunStatus[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [info, setInfo] = useState<string | null>(null)
   const [triggering, setTriggering] = useState(false)
   const [currentTime, setCurrentTime] = useState(Date.now())
   const { createChips } = useContextChips()
@@ -90,6 +93,7 @@ export default function RunsPage() {
     const load = async () => {
       setLoading(true)
       setError(null)
+      setInfo(null)
       try {
         const [status, history] = await Promise.all([
           getLatestRunStatus(),
@@ -137,12 +141,24 @@ export default function RunsPage() {
   const onTrigger = async (overwrite: boolean = false) => {
     setTriggering(true)
     setError(null)
+    setInfo(null)
     try {
       await triggerPipelineRun(overwrite)
       const status = await getLatestRunStatus()
       setLatestStatus(status)
-    } catch {
-      setError("Unable to connect to server")
+      setInfo("Pipeline run queued successfully!")
+    } catch (err) {
+      if (err instanceof ApiError) {
+        if (err.status === 409) {
+          setInfo("Latest pricing data is already processed and available to view.")
+        } else if (err.status >= 500) {
+          setError("Server error occurred. Please try again later.")
+        } else {
+          setError("Unable to process request.")
+        }
+      } else {
+        setError("Unable to connect to server")
+      }
     } finally {
       setTriggering(false)
     }
@@ -150,60 +166,90 @@ export default function RunsPage() {
 
   return (
     <main className="mx-auto max-w-6xl p-6 space-y-6">
-      <ContextChips 
+      <ContextChips
         chips={createChips(
-          { 
-            label: "Pipeline Runs", 
-            isCurrent: true 
+          {
+            label: "Pipeline Runs",
+            isCurrent: true
           }
-        )} 
+        )}
       />
       <StatusHeader latestStatus={latestStatus} isBusy={isBusy} triggering={triggering} onTrigger={onTrigger} />
 
       {error && (
         <Alert variant="destructive">
-          <AlertTitle>Connection error</AlertTitle>
+          <AlertTitle>Error</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
 
-      <section className="grid gap-4 sm:grid-cols-3">
-        <div className="rounded-lg border p-4">
-          <div className="text-xs text-muted-foreground">Run ID</div>
-          <div className="font-medium">{latestStatus?.run_id ?? "—"}</div>
-        </div>
-        <div className="rounded-lg border p-4">
-          <div className="text-xs text-muted-foreground">Started</div>
-          <div className="font-medium">{formatDate(latestStatus?.started_at)}</div>
-        </div>
-        <div className="rounded-lg border p-4">
-          <div className="text-xs text-muted-foreground">{isBusy ? "Elapsed" : "Duration"}</div>
-          <div className="font-medium">{secondsToHms(elapsedTime)}</div>
-        </div>
-      </section>
-
-      <section className="grid gap-4 sm:grid-cols-3">
-        <div className="rounded-lg border p-4">
-          <div className="text-xs text-muted-foreground">Rows processed</div>
-          <div className="font-medium">{formatRunningValue(latestStatus?.rows_processed, isBusy)}</div>
-        </div>
-        <div className="rounded-lg border p-4">
-          <div className="text-xs text-muted-foreground">Failed URLs</div>
-          <div className="font-medium">{formatRunningValue(failedCount, isBusy, "0")}</div>
-        </div>
-        <div className="rounded-lg border p-4">
-          <div className="text-xs text-muted-foreground">Status</div>
-          <div className={`font-medium ${formatStatus(latestStatus?.status).className}`}>
-            {formatStatus(latestStatus?.status).text}
-            {isBusy && (
-              <span className="ml-2 inline-block h-2 w-2 rounded-full bg-blue-600 animate-pulse"></span>
+      {info && (
+        <Alert className="bg-accent/10 border-l-4 border-blue-500/40 dark:border-blue-400/40 shadow-sm animate-in fade-in-0 zoom-in-95 duration-300">
+          <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+          <AlertTitle className="text-foreground">Information</AlertTitle>
+          <AlertDescription>
+            {info}
+            {info.includes("already processed") && (
+              <>
+                {" "}
+                <Link
+                  href="/pricing"
+                  className="text-primary hover:text-primary/80 underline underline-offset-4"
+                >
+                  View pricing data →
+                </Link>
+                <br />
+                <span className="text-sm text-muted-foreground mt-1 block">
+                  To reprocess the data, open Run options (caret next to Run) and choose "Force reprocess".
+                </span>
+              </>
             )}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold">
+          {isBusy ? "Ongoing run" : "Latest run"}
+        </h2>
+        <div className="grid gap-4 sm:grid-cols-3 mb-4">
+          <div className="rounded-lg border p-4">
+            <div className="text-xs text-muted-foreground">Run ID</div>
+            <div className="font-medium">{latestStatus?.run_id ?? "—"}</div>
+          </div>
+          <div className="rounded-lg border p-4">
+            <div className="text-xs text-muted-foreground">Started</div>
+            <div className="font-medium">{formatDate(latestStatus?.started_at)}</div>
+          </div>
+          <div className="rounded-lg border p-4">
+            <div className="text-xs text-muted-foreground">{isBusy ? "Elapsed" : "Duration"}</div>
+            <div className="font-medium">{secondsToHms(elapsedTime)}</div>
+          </div>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div className="rounded-lg border p-4">
+            <div className="text-xs text-muted-foreground">Rows processed</div>
+            <div className="font-medium">{formatRunningValue(latestStatus?.rows_processed, isBusy)}</div>
+          </div>
+          <div className="rounded-lg border p-4">
+            <div className="text-xs text-muted-foreground">Failed URLs</div>
+            <div className="font-medium">{formatRunningValue(failedCount, isBusy, "0")}</div>
+          </div>
+          <div className="rounded-lg border p-4">
+            <div className="text-xs text-muted-foreground">Status</div>
+            <div className={`font-medium ${formatStatus(latestStatus?.status).className}`}>
+              {formatStatus(latestStatus?.status).text}
+              {isBusy && (
+                <span className="ml-2 inline-block h-2 w-2 rounded-full bg-blue-600 animate-pulse"></span>
+              )}
+            </div>
           </div>
         </div>
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">Recent runs</h2>
+        <h2 className="text-lg font-semibold">Past runs</h2>
         <RunHistoryTable runs={runHistory} loading={loading} />
       </section>
     </main>
