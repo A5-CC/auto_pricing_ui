@@ -7,6 +7,9 @@ import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Eye } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { ContentMetrics } from "@/components/content-metrics"
+import { ContextChips } from "@/components/context-chips"
+import { useContextChips } from "@/hooks/useContextChips"
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return "0 Bytes"
@@ -39,6 +42,7 @@ export default function RawScrapesPage() {
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [expanded, setExpanded] = useState(false)
+  const { createChips } = useContextChips()
 
   // Reset expanded state when switching scrapes
   useEffect(() => {
@@ -100,12 +104,23 @@ export default function RawScrapesPage() {
     const isLong = contentLines.length > MAX_PREVIEW_LINES
     const displayedContent = expanded ? selectedScrape.content : contentLines.slice(0, MAX_PREVIEW_LINES).join('\n')
     return (
-      <main className="mx-auto max-w-4xl p-6 space-y-6">
-        <div className="flex items-center">
-          <Button variant="outline" onClick={() => setSelectedScrape(null)}>
-            ← Back to list
-          </Button>
-        </div>
+      <main className="mx-auto max-w-6xl p-6 space-y-6">
+        <ContextChips 
+          chips={createChips(
+            { 
+              label: "Raw Scrapes", 
+              onClick: () => { setSelectedDate(null); setSelectedScrape(null) } 
+            },
+            { 
+              label: selectedScrape.date, 
+              onClick: () => setSelectedScrape(null) 
+            },
+            { 
+              label: "Detail", 
+              isCurrent: true 
+            }
+          )} 
+        />
         <div className="text-sm text-muted-foreground">
           <div className="font-medium">{selectedScrape.date}</div>
           <div className="truncate font-mono" title={selectedScrape.filename}>{selectedScrape.filename}</div>
@@ -143,9 +158,7 @@ export default function RawScrapesPage() {
               <h2 className="text-lg font-semibold">Raw content</h2>
               <p className="text-xs text-muted-foreground">Rendered as plain text; no parsing or external loading.</p>
             </div>
-            <div className="text-sm text-muted-foreground whitespace-nowrap">
-              {wordCount.toLocaleString()} words • tokens≈{tokenEstimate.toLocaleString()}
-            </div>
+            <ContentMetrics words={wordCount} tokens={tokenEstimate} />
           </div>
           <pre className={`bg-muted p-4 text-xs whitespace-pre-wrap ${expanded ? 'max-h-[70vh]' : 'max-h-[50vh]'} overflow-auto`}>
             <code>{displayedContent}{!expanded && isLong ? '\n\n…\n' : ''}</code>
@@ -165,12 +178,18 @@ export default function RawScrapesPage() {
   if (selectedDate) {
     return (
       <main className="mx-auto max-w-6xl p-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <Button variant="outline" onClick={() => setSelectedDate(null)}>
-            ← Back to dates
-          </Button>
-          <h1 className="text-xl font-semibold">Scrapes for {selectedDate}</h1>
-        </div>
+        <ContextChips 
+          chips={createChips(
+            { 
+              label: "Raw Scrapes", 
+              onClick: () => setSelectedDate(null) 
+            },
+            { 
+              label: selectedDate, 
+              isCurrent: true 
+            }
+          )} 
+        />
 
         <div className="flex items-center justify-between">
           <input
@@ -223,10 +242,15 @@ export default function RawScrapesPage() {
 
   return (
     <main className="mx-auto max-w-6xl p-6 space-y-6">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Raw Scrapes</h1>
-        <p className="text-sm text-muted-foreground">Browse raw markdown extracted from competitor pricing pages.</p>
-      </header>
+      <ContextChips 
+        chips={createChips(
+          { 
+            label: "Raw Scrapes", 
+            isCurrent: true 
+          }
+        )} 
+      />
+      <p className="text-sm text-muted-foreground">Browse raw markdown extracted from competitor pricing pages.</p>
 
       {error && (
         <Alert variant="destructive">
@@ -310,5 +334,6 @@ export default function RawScrapesPage() {
     </main>
   )
 }
+
 
 
