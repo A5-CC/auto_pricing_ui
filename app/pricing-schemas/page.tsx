@@ -6,11 +6,27 @@ import type { PricingSchemas, SpineColumn, CanonicalWideSchema, SchemaStats } fr
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { ContextChips } from "@/components/context-chips"
+import { useContextChips } from "@/hooks/useContextChips"
+import {
+  MultiSelect,
+  MultiSelectContent,
+  MultiSelectItem,
+  MultiSelectTrigger,
+  MultiSelectValue,
+} from "@/components/ui/multi-select"
 
 function formatDate(value?: string) {
   if (!value) return "—"
   try {
-    return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(value))
+    const date = new Date(value)
+    // Check if date is valid
+    if (isNaN(date.getTime())) return value
+
+    return new Intl.DateTimeFormat(undefined, {
+      dateStyle: "medium",
+      timeStyle: "short"
+    }).format(date)
   } catch {
     return value
   }
@@ -22,7 +38,8 @@ export default function PricingSchemasPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [query, setQuery] = useState("")
-  const [typeFilter, setTypeFilter] = useState<string>("all")
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([])
+  const { createChips } = useContextChips()
 
   useEffect(() => {
     const load = async () => {
@@ -52,17 +69,22 @@ export default function PricingSchemasPage() {
     return entries
       .filter(({ name, meta }) =>
         (!q || name.toLowerCase().includes(q) || (meta.label || "").toLowerCase().includes(q) || (meta.description || "").toLowerCase().includes(q)) &&
-        (typeFilter === "all" || meta.type === typeFilter)
+        (selectedTypes.length === 0 || selectedTypes.includes(meta.type))
       )
       .sort((a, b) => a.name.localeCompare(b.name))
-  }, [schemas?.canonical, query, typeFilter])
+  }, [schemas?.canonical, query, selectedTypes])
 
   return (
     <main className="mx-auto max-w-6xl p-6 space-y-6">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Pricing Schema</h1>
-        <p className="text-sm text-muted-foreground">Evolved, wide-format schema powering competitor pricing analytics.</p>
-      </header>
+      <ContextChips
+        chips={createChips(
+          {
+            label: "Pricing Schema",
+            isCurrent: true
+          }
+        )}
+      />
+      <p className="text-sm text-muted-foreground">Evolved, wide-format schema powering competitor pricing analytics.</p>
 
       <section className="grid gap-4 sm:grid-cols-3">
         <StatCard label="Spine columns" value={stats?.spine_columns ?? (schemas?.spine?.length ?? "—")} />
@@ -135,18 +157,18 @@ export default function PricingSchemasPage() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
               />
-              <select
-                className="rounded-md border px-2 py-2 text-sm outline-none focus-visible:border-ring"
-                value={typeFilter}
-                onChange={(e) => setTypeFilter(e.target.value)}
-              >
-                <option value="all">All types</option>
-                <option value="string">String</option>
-                <option value="decimal">Decimal</option>
-                <option value="integer">Integer</option>
-                <option value="boolean">Boolean</option>
-              </select>
-              <Button variant="outline" size="sm" onClick={() => { setQuery(""); setTypeFilter("all") }}>Reset</Button>
+              <MultiSelect values={selectedTypes} onValuesChange={setSelectedTypes}>
+                <MultiSelectTrigger className="min-w-[10rem]">
+                  <MultiSelectValue placeholder="Filter types" />
+                </MultiSelectTrigger>
+                <MultiSelectContent search={{ placeholder: "Search type..." }}>
+                  <MultiSelectItem value="string">String</MultiSelectItem>
+                  <MultiSelectItem value="decimal">Decimal</MultiSelectItem>
+                  <MultiSelectItem value="integer">Integer</MultiSelectItem>
+                  <MultiSelectItem value="boolean">Boolean</MultiSelectItem>
+                </MultiSelectContent>
+              </MultiSelect>
+              <Button variant="outline" size="sm" onClick={() => { setQuery(""); setSelectedTypes([]) }}>Reset</Button>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
