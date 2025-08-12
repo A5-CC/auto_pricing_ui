@@ -39,12 +39,11 @@ function parseAddress(address: string) {
 
 export function AddressCell({ address }: AddressCellProps) {
   const [copied, setCopied] = useState(false)
+  const parsed = useMemo(() => parseAddress(address), [address])
 
   if (!address || address === "—") {
     return <span className="text-muted-foreground">—</span>
   }
-
-  const parsed = useMemo(() => parseAddress(address), [address])
   const fullAddress = address
 
   const onCopy = async () => {

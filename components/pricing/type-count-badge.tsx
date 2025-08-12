@@ -1,6 +1,6 @@
 import { Binary, Hash, ToggleLeft, Type as TypeIcon } from "lucide-react"
 
-export function TypeCountBadge({ type, count, compact = true }: { type: string; count: number; compact?: boolean }) {
+export function TypeCountBadge({ type, count }: { type: string; count: number; compact?: boolean }) {
   const formatter = new Intl.NumberFormat()
 
   const getMeta = (t: string) => {

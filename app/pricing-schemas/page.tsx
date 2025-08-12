@@ -36,7 +36,7 @@ export default function PricingSchemasPage() {
   const [schemas, setSchemas] = useState<PricingSchemas | null>(null)
   const [stats, setStats] = useState<SchemaStats | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [, setError] = useState<string | null>(null)
   const [query, setQuery] = useState("")
   const [selectedTypes, setSelectedTypes] = useState<string[]>([])
   const { createChips } = useContextChips()

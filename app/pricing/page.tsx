@@ -1,6 +1,6 @@
 "use client"
 
-import { Fragment, useEffect, useMemo, useState } from "react"
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react"
 import {
   getPricingSnapshots,
   getPricingData,
@@ -86,7 +86,7 @@ export default function PricingPage() {
       return
     }
     if (grouped) setExpandedGroups(new Set(grouped.keys))
-  }, [groupBy])
+  }, [groupBy, grouped])
 
   const toggleGroup = (key: string) => {
     setExpandedGroups(prev => {
@@ -125,7 +125,7 @@ export default function PricingPage() {
     loadSchemas()
   }, [])
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
@@ -148,12 +148,12 @@ export default function PricingPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [selectedSnapshot])
 
   // Reload when inputs change (snapshot only)
   useEffect(() => {
     loadData()
-  }, [selectedSnapshot])
+  }, [selectedSnapshot, loadData])
 
   const onExport = async () => {
     if (!selectedSnapshot) return
@@ -202,7 +202,7 @@ export default function PricingPage() {
   useEffect(() => {
     setSortBy(null)
     setSortDir("asc")
-  }, [selectedSnapshot, selectedCompetitors])
+  }, [selectedSnapshot, selectedCompetitors, setSortBy, setSortDir])
 
 
   return (
