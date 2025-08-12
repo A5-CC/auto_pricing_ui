@@ -23,6 +23,9 @@ import { AddressCell } from "@/components/pricing/address-cell"
 import { SortableTh } from "@/components/table/SortableTh"
 import { useSortableRows } from "@/hooks/useSortableRows"
 import { useCompetitorFilter } from "@/hooks/useCompetitorFilter"
+import { useLocationFilter } from "@/hooks/useLocationFilter"
+import { useDimensionsFilter } from "@/hooks/useDimensionsFilter"
+import { useUnitCategoryFilter } from "@/hooks/useUnitCategoryFilter"
 import {
   MultiSelect,
   MultiSelectContent,
@@ -44,18 +47,39 @@ export default function PricingPage() {
 
   // Client-side competitor multi-select
   const [selectedCompetitors, setSelectedCompetitors] = useState<string[]>([])
+  // Client-side location multi-select
+  const [selectedLocations, setSelectedLocations] = useState<string[]>([])
+  // Client-side dimensions multi-select
+  const [selectedDimensions, setSelectedDimensions] = useState<string[]>([])
+  // Client-side unit category multi-select
+  const [selectedUnitCategories, setSelectedUnitCategories] = useState<string[]>([])
 
   const [dataResponse, setDataResponse] = useState<PricingDataResponse | null>(null)
   const [columnsStats, setColumnsStats] = useState<Record<string, ColumnStatistics>>({})
   const [visibleColumns, setVisibleColumns] = useState<string[]>([])
   const [pricingSchemas, setPricingSchemas] = useState<PricingSchemas | null>(null)
 
-  // Client-side filtering (competitors)
-  const { filteredRows, allCompetitors } = useCompetitorFilter(dataResponse?.data ?? [], selectedCompetitors)
+  // Client-side filtering (competitors -> locations)
+  const { filteredRows: competitorFilteredRows, allCompetitors } = useCompetitorFilter(
+    dataResponse?.data ?? [],
+    selectedCompetitors
+  )
+  const { filteredRows, allLocations } = useLocationFilter(
+    competitorFilteredRows,
+    selectedLocations
+  )
+  const { filteredRows: locationAndDimFilteredRows, allDimensions } = useDimensionsFilter(
+    filteredRows,
+    selectedDimensions
+  )
+  const { filteredRows: fullyFilteredRows, allUnitCategories } = useUnitCategoryFilter(
+    locationAndDimFilteredRows,
+    selectedUnitCategories
+  )
 
   // Sorting on filtered rows
   const { sortedRows: displayedRows, sortBy, sortDir, handleSortClick, setSortBy, setSortDir } = useSortableRows(
-    filteredRows,
+    fullyFilteredRows,
     columnsStats,
     null,
     "asc"
@@ -202,7 +226,15 @@ export default function PricingPage() {
   useEffect(() => {
     setSortBy(null)
     setSortDir("asc")
-  }, [selectedSnapshot, selectedCompetitors, setSortBy, setSortDir])
+  }, [
+    selectedSnapshot,
+    selectedCompetitors,
+    selectedLocations,
+    selectedDimensions,
+    selectedUnitCategories,
+    setSortBy,
+    setSortDir,
+  ])
 
 
   return (
@@ -281,7 +313,7 @@ export default function PricingPage() {
       {/* Filters */}
       <SectionLabel text="Filters" />
       <section className="rounded-lg border bg-background/50 p-3">
-        <div className="grid gap-3 sm:grid-cols-[minmax(18rem,24rem)]">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
           {/* Competitors multi-select */}
           <div className="min-w-0">
             <div className="mb-1 flex items-center justify-between">
@@ -309,13 +341,93 @@ export default function PricingPage() {
               </MultiSelectContent>
             </MultiSelect>
           </div>
-
+          {/* ModLocation multi-select */}
+          <div className="min-w-0">
+            <div className="mb-1 flex items-center justify-between">
+              <label className="block text-xs text-muted-foreground">ModLocation</label>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSelectedLocations([])}
+                disabled={selectedLocations.length === 0}
+                aria-label="Clear selected locations"
+              >
+                Clear
+              </Button>
+            </div>
+            <MultiSelect values={selectedLocations} onValuesChange={setSelectedLocations}>
+              <MultiSelectTrigger className="w-full justify-between">
+                <MultiSelectValue placeholder="Select locations" />
+              </MultiSelectTrigger>
+              <MultiSelectContent search={{ placeholder: "Search locations...", emptyMessage: "No locations" }}>
+                <MultiSelectGroup>
+                  {allLocations.map((name) => (
+                    <MultiSelectItem key={name} value={name}>{name}</MultiSelectItem>
+                  ))}
+                </MultiSelectGroup>
+              </MultiSelectContent>
+            </MultiSelect>
+          </div>
+          {/* Dimensions multi-select */}
+          <div className="min-w-0">
+            <div className="mb-1 flex items-center justify-between">
+              <label className="block text-xs text-muted-foreground">Dimensions</label>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSelectedDimensions([])}
+                disabled={selectedDimensions.length === 0}
+                aria-label="Clear selected dimensions"
+              >
+                Clear
+              </Button>
+            </div>
+            <MultiSelect values={selectedDimensions} onValuesChange={setSelectedDimensions}>
+              <MultiSelectTrigger className="w-full justify-between">
+                <MultiSelectValue placeholder="Select dimensions" />
+              </MultiSelectTrigger>
+              <MultiSelectContent search={{ placeholder: "Search dimensions...", emptyMessage: "No dimensions" }}>
+                <MultiSelectGroup>
+                  {allDimensions.map((name) => (
+                    <MultiSelectItem key={name} value={name}>{name}</MultiSelectItem>
+                  ))}
+                </MultiSelectGroup>
+              </MultiSelectContent>
+            </MultiSelect>
+          </div>
+          {/* Unit Category multi-select */}
+          <div className="min-w-0">
+            <div className="mb-1 flex items-center justify-between">
+              <label className="block text-xs text-muted-foreground">Unit Category</label>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSelectedUnitCategories([])}
+                disabled={selectedUnitCategories.length === 0}
+                aria-label="Clear selected unit categories"
+              >
+                Clear
+              </Button>
+            </div>
+            <MultiSelect values={selectedUnitCategories} onValuesChange={setSelectedUnitCategories}>
+              <MultiSelectTrigger className="w-full justify-between">
+                <MultiSelectValue placeholder="Select unit categories" />
+              </MultiSelectTrigger>
+              <MultiSelectContent search={{ placeholder: "Search categories...", emptyMessage: "No categories" }}>
+                <MultiSelectGroup>
+                  {allUnitCategories.map((name) => (
+                    <MultiSelectItem key={name} value={name}>{name}</MultiSelectItem>
+                  ))}
+                </MultiSelectGroup>
+              </MultiSelectContent>
+            </MultiSelect>
+          </div>
         </div>
       </section>
 
       {/* Display controls */}
       <SectionLabel
-        text="Display"
+        text={`Display (${(displayedRows?.length ?? 0).toLocaleString()})`}
         right={(
           <GroupByControl
             className="min-w-[220px]"
