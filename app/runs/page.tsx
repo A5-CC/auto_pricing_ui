@@ -77,7 +77,7 @@ export default function RunsPage() {
 
   const isBusy = latestStatus?.status === "running"
 
-  const failedCount = useMemo(() => latestStatus?.failed_urls?.length ?? 0, [latestStatus])
+  const failedCount = useMemo(() => latestStatus?.failed_count ?? 0, [latestStatus])
 
   // Real-time elapsed timer
   const elapsedTime = useMemo(() => {
