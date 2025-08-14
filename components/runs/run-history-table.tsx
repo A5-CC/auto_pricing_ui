@@ -76,7 +76,7 @@ export function RunHistoryTable({
                 <td className="px-4 py-2">{formatDate(run.started_at)}</td>
                 <td className="px-4 py-2">{secondsToHms(run.duration_s)}</td>
                 <td className="px-4 py-2">{run.rows_processed ?? "—"}</td>
-                <td className="px-4 py-2">{run.failed_urls?.length ?? 0}</td>
+                <td className="px-4 py-2">{run.failed_count ?? 0}</td>
               </tr>
             ))
           ) : (

@@ -35,7 +35,7 @@ export interface RunStatus {
   finished_at?: string
   rows_processed?: number
   duration_s?: number
-  failed_urls?: string[]
+  failed_count?: number
 }
 
 export interface RunResponse {
