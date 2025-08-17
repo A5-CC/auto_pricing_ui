@@ -50,7 +50,8 @@ export default function URLDumpsPage() {
       ])
       setDumps(dumpsList)
       setLatestDump(latest)
-    } catch {
+    } catch (err: unknown) {
+      console.error("Error loading URL dumps:", err)
       setError("Failed to load URL dumps")
     } finally {
       setLoading(false)
