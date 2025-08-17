@@ -62,7 +62,7 @@ export function SiteNavbar() {
               className={`${primaryLinkCls("/pricing")} gap-1.5`}
             >
               <BarChart3 className="h-3.5 w-3.5" aria-hidden />
-              Pricing
+              Competitor Pricing
             </Link>
             {/* Divider between Pricing and the rest */}
             <span aria-hidden className="mx-2 h-6 w-px bg-border" />
