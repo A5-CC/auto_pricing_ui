@@ -344,7 +344,7 @@ export default function PricingPage() {
           {/* ModLocation multi-select */}
           <div className="min-w-0">
             <div className="mb-1 flex items-center justify-between">
-              <label className="block text-[12px] text-foreground/80">ModLocation</label>
+              <label className="block text-[12px] text-foreground/80">modLocation</label>
               <Button
                 variant="secondary"
                 size="sm"
@@ -461,7 +461,7 @@ export default function PricingPage() {
                 />
                 <SortableTh
                   columnId="modstorage_location"
-                  label="ModLocation"
+                  label="modLocation"
                   sortBy={sortBy}
                   sortDir={sortDir}
                   onSortClick={handleSortClick}
