@@ -9,7 +9,6 @@ export default function Page() {
   return (
     <main className="mx-auto max-w-6xl p-6 space-y-10">
       <header className="space-y-2">
-        <h1 className="text-3xl font-semibold tracking-tight">Auto Pricing</h1>
         <p className="text-sm text-muted-foreground">
           Competitive pricing intelligence for self‑storage. Monitor your pipeline, inspect discovered URLs and raw scrapes, and keep your data flowing.
         </p>
