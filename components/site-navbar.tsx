@@ -23,8 +23,7 @@ function ApiStatusDot() {
   }, [])
 
   const color = status === "ok" ? "bg-green-500" : status === "offline" ? "bg-red-500" : "bg-gray-400"
-  const label = status === "ok" ? "API ok" : status === "offline" ? "API offline" : "API checking"
-  return (
+   return (
     <span className="inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[11px] text-muted-foreground">
       <span className={`h-2 w-2 rounded-full ${color}`} aria-hidden />
       {label}
