@@ -14,11 +14,8 @@ export default function LoginPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const success = login(username, password);
-    if (success) {
-      router.push("/"); // redirect to home or main page
-    } else {
-      setError("Invalid username or password");
-    }
+    if (success) router.push("/"); // redirect to home
+    else setError("Invalid username or password");
   };
 
   return (
