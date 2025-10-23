@@ -19,6 +19,8 @@ jobs:
     env:
       NEXT_PUBLIC_BASE_PATH: /auto_pricing_ui
       NEXT_PUBLIC_API_URL: https://18.189.253.176.sslip.io
+      NEXT_PUBLIC_LOGIN_USER: ${{ secrets.NEXT_PUBLIC_LOGIN_USER }}
+      NEXT_PUBLIC_LOGIN_PASS: ${{ secrets.NEXT_PUBLIC_LOGIN_PASS }}
     steps:
       - uses: actions/checkout@v4
 
