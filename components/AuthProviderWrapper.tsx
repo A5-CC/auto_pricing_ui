@@ -10,18 +10,20 @@ function AuthGate({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
 
-  // Only redirect if not logged in and not already on /login
+  // Redirect to login if not authenticated and not already on /login
   useEffect(() => {
     if (!authenticated && pathname !== "/login") {
       router.push("/login");
     }
   }, [authenticated, pathname, router]);
 
-  // hide navbar on login page
   const showNavbar = pathname !== "/login";
 
-  // render children immediately on /login page
-  if (!authenticated && pathname !== "/login") return null;
+  // Always render login page
+  if (pathname === "/login") return <>{children}</>;
+
+  // On other pages, only render if authenticated
+  if (!authenticated) return null;
 
   return (
     <>
