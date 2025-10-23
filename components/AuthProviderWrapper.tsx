@@ -1,9 +1,8 @@
 'use client';
 
-import { ReactNode } from "react";
+import { ReactNode, useEffect } from "react";
 import { AuthProvider, useAuth } from "./AuthContext";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect } from "react";
 import { SiteNavbar } from "./site-navbar";
 
 function AuthGate({ children }: { children: ReactNode }) {
@@ -11,19 +10,22 @@ function AuthGate({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
 
+  // Only redirect if not logged in and not already on /login
   useEffect(() => {
     if (!authenticated && pathname !== "/login") {
       router.push("/login");
     }
   }, [authenticated, pathname, router]);
 
-  if (!authenticated && pathname !== "/login") return null;
+  // hide navbar on login page
+  const showNavbar = pathname !== "/login";
 
-  const showNav = pathname !== "/login";
+  // render children immediately on /login page
+  if (!authenticated && pathname !== "/login") return null;
 
   return (
     <>
-      {showNav && <SiteNavbar />}
+      {showNavbar && <SiteNavbar />}
       {children}
     </>
   );
