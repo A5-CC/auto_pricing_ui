@@ -19,25 +19,31 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen">
-      <h1 className="text-2xl mb-4">Login</h1>
-      <form onSubmit={handleSubmit} className="flex flex-col gap-2 w-64">
+    <div className="flex items-center justify-center min-h-screen bg-gray-50">
+      <form 
+        onSubmit={handleSubmit} 
+        className="bg-white p-8 rounded shadow-md w-80 flex flex-col gap-4"
+      >
+        <h1 className="text-2xl font-bold text-center">Login</h1>
         <input
           type="text"
           placeholder="Username"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
-          className="border p-2 rounded"
+          className="border p-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
         <input
           type="password"
           placeholder="Password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="border p-2 rounded"
+          className="border p-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
-        {error && <p className="text-red-600 text-sm">{error}</p>}
-        <button type="submit" className="bg-blue-600 text-white p-2 rounded mt-2">
+        {error && <p className="text-red-600 text-sm text-center">{error}</p>}
+        <button 
+          type="submit" 
+          className="bg-blue-600 text-white p-2 rounded hover:bg-blue-700 transition"
+        >
           Log In
         </button>
       </form>
