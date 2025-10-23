@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation"
 import { getSystemHealth } from "@/lib/api/client"
 import { Button } from "@/components/ui/button"
 
+
 function ApiStatusDot() {
   const [status, setStatus] = useState<"checking" | "ok" | "offline">("checking")
 
