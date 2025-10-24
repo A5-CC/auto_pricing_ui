@@ -1,34 +1,18 @@
-"use client";
+import "./globals.css";
+import { AuthProviderWrapper } from "@/components/AuthProviderWrapper";
+import { NavbarWrapper } from "@/components/NavbarWrapper";
+import { Roboto } from "next/font/google";
 
-import { ReactNode, useEffect, useState } from "react";
-import { useAuth } from "./AuthContext";
-import { useRouter, usePathname } from "next/navigation";
-import { SiteNavbar } from "./site-navbar";
+const robotoLight = Roboto({ subsets: ["latin"], weight: "300", variable: "--font-roboto-light" });
 
-export function NavbarWrapper({ children }: { children: ReactNode }) {
-  const { authenticated } = useAuth();
-  const router = useRouter();
-  const pathname = usePathname();
-  const [mounted, setMounted] = useState(false);
-
-  // Make sure component is mounted before redirecting
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (mounted && !authenticated && pathname !== "/login") {
-      router.push("/login");
-    }
-  }, [authenticated, mounted, pathname, router]);
-
-  // Show navbar only if logged in
-  if (!authenticated) return <>{children}</>; // allow /login page to render
-
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen flex flex-col">
-      <SiteNavbar />
-      <main className="flex-1">{children}</main>
-    </div>
+    <html lang="en">
+      <body className={`${robotoLight.variable} font-sans antialiased`}>
+        <AuthProviderWrapper>
+          <NavbarWrapper>{children}</NavbarWrapper>
+        </AuthProviderWrapper>
+      </body>
+    </html>
   );
 }
