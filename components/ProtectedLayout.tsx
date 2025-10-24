@@ -14,7 +14,6 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
   // Logged in → show navbar + page content
   return (
     <div className="min-h-screen flex flex-col">
-      <SiteNavbar />
       <main className="flex-1">{children}</main>
     </div>
   );
