@@ -1,20 +1,25 @@
 import "./globals.css";
 import { AuthProviderWrapper } from "@/components/AuthProviderWrapper";
-import ProtectedLayout from "@/components/ProtectedLayout";
+import { SiteNavbar } from "@/components/site-navbar";
 import { Roboto } from "next/font/google";
 
 const robotoLight = Roboto({
   subsets: ["latin"],
-  weight: "300", // Roboto Light
+  weight: "300",
   variable: "--font-roboto-light",
 });
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({ children, params }: { children: React.ReactNode; params: any }) {
+  const pathname = typeof window !== "undefined" ? window.location.pathname : "";
+
+  const hideNavbar = pathname === "/login";
+
   return (
     <html lang="en">
       <body className={`${robotoLight.variable} font-sans antialiased`}>
         <AuthProviderWrapper>
-          <ProtectedLayout>{children}</ProtectedLayout>
+          {!hideNavbar && <SiteNavbar />}
+          {children}
         </AuthProviderWrapper>
       </body>
     </html>
