@@ -1,7 +1,6 @@
 "use client";
 
 import { useAuth } from "@/components/AuthContext";
-import { SiteNavbar } from "@/components/site-navbar";
 
 export default function ProtectedLayout({ children }: { children: React.ReactNode }) {
   const { authenticated } = useAuth();
