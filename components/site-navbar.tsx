@@ -79,4 +79,15 @@ export function SiteNavbar() {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <Button asChild variant="default" size="sm" className="rounded-full gap-1.5 ring-1
+          <Button asChild variant="default" size="sm" className="rounded-full gap-1.5 ring-1 ring-primary/30 shadow-sm">
+            <Link href="/pricing-schemas">
+              <Table className="h-3.5 w-3.5" aria-hidden />
+              <span>Pricing Schema</span>
+            </Link>
+          </Button>
+          <ApiStatusDot />
+        </div>
+      </div>
+    </nav>
+  )
+}
