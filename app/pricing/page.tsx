@@ -18,7 +18,6 @@ import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { ContextChips } from "@/components/context-chips"
 import { useContextChips } from "@/hooks/useContextChips"
-import { TypeCountBadge } from "@/components/pricing/type-count-badge"
 import { AddressCell } from "@/components/pricing/address-cell"
 import { SortableTh } from "@/components/table/SortableTh"
 import { useSortableRows } from "@/hooks/useSortableRows"
@@ -26,17 +25,13 @@ import { useCompetitorFilter } from "@/hooks/useCompetitorFilter"
 import { useLocationFilter } from "@/hooks/useLocationFilter"
 import { useDimensionsFilter } from "@/hooks/useDimensionsFilter"
 import { useUnitCategoryFilter } from "@/hooks/useUnitCategoryFilter"
-import {
-  MultiSelect,
-  MultiSelectContent,
-  MultiSelectGroup,
-  MultiSelectItem,
-  MultiSelectTrigger,
-  MultiSelectValue,
-} from "@/components/ui/multi-select"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import GroupByControl from "@/components/pricing/group-by-control"
-// import { Badge } from "@/components/ui/badge"
+import { SectionLabel } from "@/components/ui/section-label"
+import { getCompetitorColor } from "@/lib/pricing/formatters"
+import { getColumnLabel } from "@/lib/pricing/column-labels"
+import { TableCell } from "@/components/pricing/table-cell"
+import { PricingOverview } from "./components/pricing-overview"
+import { PricingFilters } from "./components/pricing-filters"
 
 
 export default function PricingPage() {
@@ -191,37 +186,6 @@ export default function PricingPage() {
     URL.revokeObjectURL(url)
   }
 
-  // Deterministic, pleasant color per competitor
-  function getCompetitorColor(name: string | undefined): string {
-    const str = (name ?? "").trim()
-    if (str.length === 0) return "hsl(220 10% 70%)"
-    let hash = 0
-    for (let i = 0; i < str.length; i++) {
-      hash = (hash << 5) - hash + str.charCodeAt(i)
-      hash |= 0
-    }
-    const hue = Math.abs(hash) % 360
-    const saturation = 62
-    const lightness = 46
-    return `hsl(${hue} ${saturation}% ${lightness}%)`
-  }
-
-  // Get column label from schema
-  const getColumnLabel = (columnId: string): string => {
-    if (!pricingSchemas) return columnId
-
-    // Check spine columns first
-    const spineColumn = pricingSchemas.spine?.find(col => col.id === columnId)
-    if (spineColumn?.label) return spineColumn.label
-
-    // Check canonical columns
-    const canonicalColumn = pricingSchemas.canonical?.columns?.[columnId]
-    if (canonicalColumn?.label) return canonicalColumn.label
-
-    // Fallback to formatted column ID
-    return columnId.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
-  }
-
   // Reset sort when dataset changes significantly (e.g., new snapshot or filters)
   useEffect(() => {
     setSortBy(null)
@@ -265,165 +229,28 @@ export default function PricingPage() {
         </Alert>
       )}
 
-      {/* Overview subheader + compact stats strip */}
-      <SectionLabel
-        text="Overview"
-        right={(
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <span className="hidden sm:inline">Snapshot</span>
-            <select
-              className="rounded-md border px-2 py-1 text-sm outline-none focus-visible:border-ring"
-              value={selectedSnapshot}
-              onChange={(e) => setSelectedSnapshot(e.target.value)}
-              aria-label="Select snapshot"
-            >
-              <option value="latest">Latest</option>
-              {snapshots.map((s) => (
-                <option key={s.date} value={s.date}>{s.date}</option>
-              ))}
-            </select>
-          </div>
-        )}
+      <PricingOverview
+        selectedSnapshot={selectedSnapshot}
+        snapshots={snapshots}
+        dataResponse={dataResponse}
+        columnsStats={columnsStats}
+        onSnapshotChange={setSelectedSnapshot}
       />
-      <section className="rounded-lg border bg-background/50 p-3">
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-          <div className="text-muted-foreground">Snapshot</div>
-          <div className="font-medium">
-            {formatSnapshotDate(selectedSnapshot, dataResponse?.snapshot_date)}
-          </div>
-          <div className="hidden sm:block h-4 w-px bg-border" />
-          <div className="text-muted-foreground">Rows</div>
-          <div className="font-medium tabular-nums">{dataResponse ? dataResponse.total_rows.toLocaleString() : "—"}</div>
-          <div className="hidden sm:block h-4 w-px bg-border" />
-          <div className="text-muted-foreground">Facilities</div>
-          <div className="font-medium tabular-nums">{dataResponse ? dataResponse.total_facilities.toLocaleString() : "—"}</div>
-          <div className="hidden sm:block h-4 w-px bg-border" />
-          <div className="text-muted-foreground">Columns</div>
-          <div className="font-medium tabular-nums">{dataResponse?.columns?.length ?? "—"}</div>
-          {!!Object.keys(columnsStats).length && (
-            <div className="hidden md:flex items-center gap-1">
-              {getTypeCounts(columnsStats).slice(0, 4).map(([type, count]) => (
-                <TypeCountBadge key={type} type={type} count={count} />
-              ))}
-            </div>
-          )}
-        </div>
-      </section>
 
-      {/* Filters */}
-      <SectionLabel text="Filters" />
-      <section className="rounded-lg border bg-background/50 p-3">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-          {/* Competitors multi-select */}
-          <div className="min-w-0">
-            <div className="mb-1 flex items-center justify-between">
-              <label className="block text-[12px] text-foreground/80">Competitors</label>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setSelectedCompetitors([])}
-                disabled={selectedCompetitors.length === 0}
-                aria-label="Clear selected competitors"
-              >
-                Clear
-              </Button>
-            </div>
-            <MultiSelect values={selectedCompetitors} onValuesChange={setSelectedCompetitors}>
-              <MultiSelectTrigger className="w-full justify-between data-[placeholder]:text-foreground/70">
-                <MultiSelectValue placeholder="Select competitors" />
-              </MultiSelectTrigger>
-              <MultiSelectContent search={{ placeholder: "Search competitors...", emptyMessage: "No competitors" }}>
-                <MultiSelectGroup>
-                  {allCompetitors.map((name) => (
-                    <MultiSelectItem key={name} value={name}>{name}</MultiSelectItem>
-                  ))}
-                </MultiSelectGroup>
-              </MultiSelectContent>
-            </MultiSelect>
-          </div>
-          {/* ModLocation multi-select */}
-          <div className="min-w-0">
-            <div className="mb-1 flex items-center justify-between">
-              <label className="block text-[12px] text-foreground/80">ModLocation</label>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setSelectedLocations([])}
-                disabled={selectedLocations.length === 0}
-                aria-label="Clear selected locations"
-              >
-                Clear
-              </Button>
-            </div>
-            <MultiSelect values={selectedLocations} onValuesChange={setSelectedLocations}>
-              <MultiSelectTrigger className="w-full justify-between data-[placeholder]:text-foreground/70">
-                <MultiSelectValue placeholder="Select locations" />
-              </MultiSelectTrigger>
-              <MultiSelectContent search={{ placeholder: "Search locations...", emptyMessage: "No locations" }}>
-                <MultiSelectGroup>
-                  {allLocations.map((name) => (
-                    <MultiSelectItem key={name} value={name}>{name}</MultiSelectItem>
-                  ))}
-                </MultiSelectGroup>
-              </MultiSelectContent>
-            </MultiSelect>
-          </div>
-          {/* Dimensions multi-select */}
-          <div className="min-w-0">
-            <div className="mb-1 flex items-center justify-between">
-              <label className="block text-[12px] text-foreground/80">Dimensions</label>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setSelectedDimensions([])}
-                disabled={selectedDimensions.length === 0}
-                aria-label="Clear selected dimensions"
-              >
-                Clear
-              </Button>
-            </div>
-            <MultiSelect values={selectedDimensions} onValuesChange={setSelectedDimensions}>
-              <MultiSelectTrigger className="w-full justify-between data-[placeholder]:text-foreground/70">
-                <MultiSelectValue placeholder="Select dimensions" />
-              </MultiSelectTrigger>
-              <MultiSelectContent search={{ placeholder: "Search dimensions...", emptyMessage: "No dimensions" }}>
-                <MultiSelectGroup>
-                  {allDimensions.map((name) => (
-                    <MultiSelectItem key={name} value={name}>{name}</MultiSelectItem>
-                  ))}
-                </MultiSelectGroup>
-              </MultiSelectContent>
-            </MultiSelect>
-          </div>
-          {/* Unit Category multi-select */}
-          <div className="min-w-0">
-            <div className="mb-1 flex items-center justify-between">
-              <label className="block text-[12px] text-foreground/80">Unit Category</label>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setSelectedUnitCategories([])}
-                disabled={selectedUnitCategories.length === 0}
-                aria-label="Clear selected unit categories"
-              >
-                Clear
-              </Button>
-            </div>
-            <MultiSelect values={selectedUnitCategories} onValuesChange={setSelectedUnitCategories}>
-              <MultiSelectTrigger className="w-full justify-between data-[placeholder]:text-foreground/70">
-                <MultiSelectValue placeholder="Select unit categories" />
-              </MultiSelectTrigger>
-              <MultiSelectContent search={{ placeholder: "Search categories...", emptyMessage: "No categories" }}>
-                <MultiSelectGroup>
-                  {allUnitCategories.map((name) => (
-                    <MultiSelectItem key={name} value={name}>{name}</MultiSelectItem>
-                  ))}
-                </MultiSelectGroup>
-              </MultiSelectContent>
-            </MultiSelect>
-          </div>
-        </div>
-      </section>
+      <PricingFilters
+        selectedCompetitors={selectedCompetitors}
+        setSelectedCompetitors={setSelectedCompetitors}
+        allCompetitors={allCompetitors}
+        selectedLocations={selectedLocations}
+        setSelectedLocations={setSelectedLocations}
+        allLocations={allLocations}
+        selectedDimensions={selectedDimensions}
+        setSelectedDimensions={setSelectedDimensions}
+        allDimensions={allDimensions}
+        selectedUnitCategories={selectedUnitCategories}
+        setSelectedUnitCategories={setSelectedUnitCategories}
+        allUnitCategories={allUnitCategories}
+      />
 
       {/* Display controls */}
       <SectionLabel
@@ -479,7 +306,7 @@ export default function PricingPage() {
                   <SortableTh
                     key={c}
                     columnId={c}
-                    label={getColumnLabel(c)}
+                    label={getColumnLabel(c, pricingSchemas)}
                     sortBy={sortBy}
                     sortDir={sortDir}
                     onSortClick={handleSortClick}
@@ -513,7 +340,7 @@ export default function PricingPage() {
                           aria-controls={`group-body-${key}`}
                         >
                           <span className="inline-block h-2 w-2 rounded-full bg-border" />
-                          <span className="uppercase text-[11px] tracking-wide">{getColumnLabel(groupBy)}</span>
+                          <span className="uppercase text-[11px] tracking-wide">{getColumnLabel(groupBy, pricingSchemas)}</span>
                           <span className="text-foreground">{key}</span>
                           <span className="text-xs text-muted-foreground">({grouped.map.get(key)?.length ?? 0})</span>
                         </button>
@@ -541,7 +368,7 @@ export default function PricingPage() {
                         </td>
                         <td className="px-4 py-2 whitespace-nowrap">{row.unit_dimensions || "—"}</td>
                         {visibleColumns.map((c) => (
-                          <td key={`${idx}-${c}`} className="px-4 py-2">{formatCellValue(row[c], columnsStats[c]?.data_type, c)}</td>
+                          <td key={`${idx}-${c}`} className="px-4 py-2"><TableCell value={row[c]} type={columnsStats[c]?.data_type} columnId={c} /></td>
                         ))}
                       </tr>
                     ))}
@@ -570,7 +397,7 @@ export default function PricingPage() {
                     </td>
                     <td className="px-4 py-2 whitespace-nowrap">{row.unit_dimensions || "—"}</td>
                     {visibleColumns.map((c) => (
-                      <td key={`${idx}-${c}`} className="px-4 py-2">{formatCellValue(row[c], columnsStats[c]?.data_type, c)}</td>
+                      <td key={`${idx}-${c}`} className="px-4 py-2"><TableCell value={row[c]} type={columnsStats[c]?.data_type} columnId={c} /></td>
                     ))}
                   </tr>
                 ))
@@ -584,89 +411,6 @@ export default function PricingPage() {
         </div>
       </section>
     </main>
-  )
-}
-
-function formatSnapshotDate(selectedSnapshot: string, responseSnapshot?: string): string {
-  const raw = selectedSnapshot === "latest" ? responseSnapshot : selectedSnapshot
-  if (!raw) return "—"
-  const dt = new Date(raw)
-  if (Number.isNaN(dt.getTime())) return raw
-  return dt.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "2-digit" })
-}
-
-function getTypeCounts(columnsStats: Record<string, ColumnStatistics>): [string, number][] {
-  const typeCounts: Record<string, number> = {}
-
-  Object.values(columnsStats).forEach(stat => {
-    const type = stat.data_type
-    typeCounts[type] = (typeCounts[type] || 0) + 1
-  })
-
-  const typeOrder = ['float64', 'Int64', 'boolean', 'string']
-  return Object.entries(typeCounts)
-    .sort(([typeA, countA], [typeB, countB]) => {
-      if (countA !== countB) return countB - countA
-      const aIndex = typeOrder.indexOf(typeA)
-      const bIndex = typeOrder.indexOf(typeB)
-      return (aIndex === -1 ? 999 : aIndex) - (bIndex === -1 ? 999 : bIndex)
-    })
-}
-
-function formatCellValue(value: unknown, type?: string, columnId?: string) {
-  // Empty values
-  if (value === null || value === undefined || value === "") {
-    return <span className="text-muted-foreground/70">—</span>
-  }
-
-  const normalizedType = (type || "").toLowerCase()
-  const isNumeric = normalizedType.includes("float") || normalizedType.includes("int") || normalizedType === "decimal" || normalizedType === "number"
-  const isBoolean = normalizedType === "boolean" || normalizedType === "bool"
-
-  // Heuristic: currency-like columns
-  const isCurrencyLike = (columnId || "").toLowerCase().match(/(price|rate|fee|cost|amount|total)/)
-
-  if (isNumeric) {
-    const numeric = typeof value === "number" ? value : Number(String(value).replace(/[^0-9.-]/g, ""))
-    if (Number.isFinite(numeric)) {
-      const formatted = isCurrencyLike
-        ? new Intl.NumberFormat(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 2 }).format(numeric)
-        : new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(numeric)
-      return <span className="tabular-nums">{formatted}</span>
-    }
-  }
-
-  if (isBoolean) {
-    const b = typeof value === "boolean" ? value : String(value).toLowerCase() === "true"
-    const label = b ? "Yes" : "No"
-    return (
-      <span className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium ${b ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-700"}`} aria-label={label}>
-        <span className={`inline-block h-1.5 w-1.5 rounded-full ${b ? "bg-emerald-500" : "bg-slate-400"}`} />
-        <span>{label}</span>
-      </span>
-    )
-  }
-
-  const str = String(value)
-  if (str.length > 40) {
-    return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <span className="inline-block max-w-[28ch] truncate align-top" aria-label={str}>{str}</span>
-        </TooltipTrigger>
-        <TooltipContent sideOffset={4}>{str}</TooltipContent>
-      </Tooltip>
-    )
-  }
-  return str
-}
-
-function SectionLabel({ text, right }: { text: string; right?: React.ReactNode }) {
-  return (
-    <div className="mt-1 mb-2 flex items-center justify-between">
-      <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{text}</div>
-      {right ? <div className="flex items-center gap-2">{right}</div> : null}
-    </div>
   )
 }
 
