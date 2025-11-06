@@ -86,11 +86,11 @@ export function SiteNavbar() {
               Competitor Pricing
             </Link>
             <Link href="/pipelines" className={linkCls("/pipelines")}>
-              Pipelines
+              Pricing Pipelines
             </Link>
             <span aria-hidden className="mx-2 h-6 w-px bg-border" />
             <Link href="/runs" className={linkCls("/runs")}>
-              Pipeline Runs
+              Scraping Runs
             </Link>
             <Link href="/raw-scrapes" className={linkCls("/raw-scrapes")}>
               Raw Scrapes

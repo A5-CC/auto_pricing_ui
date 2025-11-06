@@ -147,7 +147,7 @@ export default function RunsPage() {
       await triggerPipelineRun(overwrite)
       const status = await getLatestRunStatus()
       setLatestStatus(status)
-      setInfo("Pipeline run queued successfully!")
+      setInfo("Scraping run queued successfully!")
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 409) {
@@ -170,7 +170,7 @@ export default function RunsPage() {
       <ContextChips
         chips={createChips(
           {
-            label: "Pipeline Runs",
+            label: "Scraping Runs",
             isCurrent: true
           }
         )}

@@ -63,7 +63,7 @@ export function StatusHeader({
                 disabled={isDisabled}
                 variant={isForce ? "destructive" : "default"}
                 className="rounded-r-none"
-                aria-label={isDisabled ? (triggering ? "Queuing" : "Running") : isForce ? "Force reprocess" : "Run pipeline"}
+                aria-label={isDisabled ? (triggering ? "Queuing" : "Running") : isForce ? "Force reprocess" : "Run scraping"}
               >
                 {triggering ? (
                   "Queuing…"

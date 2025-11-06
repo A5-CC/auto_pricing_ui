@@ -64,7 +64,7 @@ export default function Page() {
         />
         <FeatureCard
           icon={<Activity className="h-4 w-4" />}
-          title="Pipeline runs"
+          title="Scraping runs"
           description="Track execution status, and trigger new runs on demand."
           href="/runs"
           cta="Open runs"
