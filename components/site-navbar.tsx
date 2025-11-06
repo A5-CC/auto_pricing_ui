@@ -85,6 +85,9 @@ export function SiteNavbar() {
               <BarChart3 className="h-3.5 w-3.5" aria-hidden />
               Competitor Pricing
             </Link>
+            <Link href="/pipelines" className={linkCls("/pipelines")}>
+              Pipelines
+            </Link>
             <span aria-hidden className="mx-2 h-6 w-px bg-border" />
             <Link href="/runs" className={linkCls("/runs")}>
               Pipeline Runs
