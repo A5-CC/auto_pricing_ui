@@ -179,9 +179,9 @@ export default function PipelinesPage() {
         const fixedColumns = [
           "competitor_name",
           "competitor_address",
-          "modstorage_location",
+          "location_normalized",
           "snapshot_date",
-          "unit_dimensions",
+          "dimensions_normalized",
         ];
         const filteredColumns = res.columns.filter(
           (col) => !fixedColumns.includes(col)
@@ -312,8 +312,8 @@ export default function PipelinesPage() {
             onCollapseAll={groupBy ? collapseAllGroups : undefined}
             options={[
               { id: "competitor_name", label: "Competitor" },
-              { id: "modstorage_location", label: "Location" },
-              { id: "unit_dimensions", label: "Unit" },
+              { id: "location_normalized", label: "Location" },
+              { id: "dimensions_normalized", label: "Unit" },
             ]}
           />
         }
@@ -333,15 +333,15 @@ export default function PipelinesPage() {
                   className="px-4 py-2 sticky left-0 z-20 bg-background border-r w-[280px] min-w-[280px] max-w-[280px]"
                 />
                 <SortableTh
-                  columnId="modstorage_location"
-                  label="ModLocation"
+                  columnId="location_normalized"
+                  label="Location"
                   sortBy={sortBy}
                   sortDir={sortDir}
                   onSortClick={handleSortClick}
                   className="px-4 py-2 w-[240px] min-w-[240px] max-w-[240px]"
                 />
                 <SortableTh
-                  columnId="unit_dimensions"
+                  columnId="dimensions_normalized"
                   label="Dimensions"
                   sortBy={sortBy}
                   sortDir={sortDir}
@@ -443,11 +443,11 @@ export default function PipelinesPage() {
                               </div>
                             </div>
                           </td>
-                          <td className="px-4 py-2">
-                            <AddressCell address={row.modstorage_location} />
+                          <td className="px-4 py-2 whitespace-nowrap">
+                            {row.location_normalized || "—"}
                           </td>
                           <td className="px-4 py-2 whitespace-nowrap">
-                            {row.unit_dimensions || "—"}
+                            {row.dimensions_normalized || "—"}
                           </td>
                           {visibleColumns.map((c) => (
                             <td key={`${idx}-${c}`} className="px-4 py-2">
@@ -465,7 +465,7 @@ export default function PipelinesPage() {
               ) : paginatedRows?.length ? (
                 paginatedRows.map((row, idx) => (
                   <tr
-                    key={`${row.modstorage_location}-${idx}`}
+                    key={`${row.location_normalized}-${idx}`}
                     className="border-t align-top"
                   >
                     <td className="px-4 py-2 whitespace-nowrap sticky left-0 z-10 bg-background border-r w-[280px] min-w-[280px] max-w-[280px]">
@@ -495,11 +495,11 @@ export default function PipelinesPage() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-2">
-                      <AddressCell address={row.modstorage_location} />
+                    <td className="px-4 py-2 whitespace-nowrap">
+                      {row.location_normalized || "—"}
                     </td>
                     <td className="px-4 py-2 whitespace-nowrap">
-                      {row.unit_dimensions || "—"}
+                      {row.dimensions_normalized || "—"}
                     </td>
                     {visibleColumns.map((c) => (
                       <td key={`${idx}-${c}`} className="px-4 py-2">

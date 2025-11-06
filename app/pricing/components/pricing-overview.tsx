@@ -1,4 +1,4 @@
-import type { PricingSnapshot, PricingDataResponse, ColumnStatistics } from "@/lib/api/types"
+import type { PricingSnapshot, PricingDataResponse, ColumnStatistics, E1DataResponse } from "@/lib/api/types"
 import { SectionLabel } from "@/components/ui/section-label"
 import { TypeCountBadge } from "@/components/pricing/type-count-badge"
 import { formatSnapshotDate } from "@/lib/pricing/formatters"
@@ -7,7 +7,7 @@ import { getTypeCounts } from "@/lib/pricing/stats"
 interface PricingOverviewProps {
   selectedSnapshot: string
   snapshots: PricingSnapshot[]
-  dataResponse: PricingDataResponse | null
+  dataResponse: PricingDataResponse | E1DataResponse | null
   columnsStats: Record<string, ColumnStatistics>
   onSnapshotChange: (snapshot: string) => void
 }

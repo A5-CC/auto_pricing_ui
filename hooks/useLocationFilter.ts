@@ -9,7 +9,7 @@ export function useLocationFilter<T extends Record<string, unknown>>(
   const allLocations = useMemo(() => {
     const names = new Set<string>()
     for (const row of rows) {
-      const name = row["modstorage_location"]
+      const name = row["location_normalized"]
       if (typeof name === "string" && name.length > 0) {
         names.add(name)
       }
@@ -20,7 +20,7 @@ export function useLocationFilter<T extends Record<string, unknown>>(
   const filteredRows = useMemo(() => {
     if (!selectedLocations || selectedLocations.length === 0) return rows
     const selectedSet = new Set(selectedLocations)
-    return rows.filter((r) => selectedSet.has(String(r["modstorage_location"])) )
+    return rows.filter((r) => selectedSet.has(String(r["location_normalized"])) )
   }, [rows, selectedLocations])
 
   return { filteredRows, allLocations }

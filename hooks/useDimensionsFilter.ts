@@ -9,7 +9,7 @@ export function useDimensionsFilter<T extends Record<string, unknown>>(
   const allDimensions = useMemo(() => {
     const names = new Set<string>()
     for (const row of rows) {
-      const value = row["unit_dimensions"]
+      const value = row["dimensions_normalized"]
       if (typeof value === "string" && value.length > 0) {
         names.add(value)
       }
@@ -20,7 +20,7 @@ export function useDimensionsFilter<T extends Record<string, unknown>>(
   const filteredRows = useMemo(() => {
     if (!selectedDimensions || selectedDimensions.length === 0) return rows
     const selectedSet = new Set(selectedDimensions)
-    return rows.filter((r) => selectedSet.has(String(r["unit_dimensions"])) )
+    return rows.filter((r) => selectedSet.has(String(r["dimensions_normalized"])) )
   }, [rows, selectedDimensions])
 
   return { filteredRows, allDimensions }

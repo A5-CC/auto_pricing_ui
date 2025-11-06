@@ -52,12 +52,14 @@ export interface E1Snapshot {
 export interface E1DataRow {
   // Spine (required)
   snapshot_date: string
-  modstorage_location: string
   competitor_name: string
   competitor_address: string
 
+  // Normalized columns (added by E1 task, replace originals in API responses)
+  dimensions_normalized?: string
+  location_normalized?: string
+
   // Canonical (optional, from A2)
-  unit_dimensions?: string
   unit_code?: string
   unit_category?: string
   monthly_rate_starting?: number
