@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { getLatestRunStatus, getRunHistory, triggerPipelineRun, ApiError } from "@/lib/api/client"
+import { getLatestRunStatus, getRunHistory, triggerPipelineRun } from "@/lib/api/client/runs"
+import { ApiError } from "@/lib/api/client/shared"
 import { RunStatus } from "@/lib/api/types"
 import { StatusHeader } from "@/components/runs/status-header"
 import { RunHistoryTable } from "@/components/runs/run-history-table"

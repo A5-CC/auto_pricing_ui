@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { BarChart3, Table } from "lucide-react";
 import { usePathname } from "next/navigation";
-import { getSystemHealth } from "@/lib/api/client";
+import { getSystemHealth } from "@/lib/api/client/system";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/AuthContext"; // ✅ import your auth hook
 

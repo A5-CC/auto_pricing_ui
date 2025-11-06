@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { getPricingSchemas, getSchemaStats } from "@/lib/api/client"
+import { getPricingSchemas, getSchemaStats } from "@/lib/api/client/pricing"
 import type { PricingSchemas, SpineColumn, CanonicalWideSchema, SchemaStats } from "@/lib/api/types"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"

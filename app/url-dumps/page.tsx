@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { getURLDumps, getURLDumpDetail, getLatestURLDump } from "@/lib/api/client"
+import { getURLDumps, getURLDumpDetail, getLatestURLDump } from "@/lib/api/client/url-dumps"
 import type { URLDumpDetail, URLDumpSummary } from "@/lib/api/types"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"

@@ -12,7 +12,7 @@ import {
   ChevronUp,
   ChevronDown
 } from "lucide-react"
-import { getSystemHealth, getVersionInfo } from "@/lib/api/client"
+import { getSystemHealth, getVersionInfo } from "@/lib/api/client/system"
 import { DashboardData } from "./types"
 import { DocMeta } from "@/lib/api/types"
 import { AppMode } from "@/lib/api/types"

@@ -7,7 +7,7 @@ import {
   exportPricingCSV,
   getColumnStatistics,
   getPricingSchemas,
-} from "@/lib/api/client";
+} from "@/lib/api/client/pricing";
 import type {
   PricingSnapshot,
   PricingDataResponse,

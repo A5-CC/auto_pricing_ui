@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { getRawScrapeDates, getRawScrapesForDate, getRawScrapeDetail } from "@/lib/api/client"
+import { getRawScrapeDates, getRawScrapesForDate, getRawScrapeDetail } from "@/lib/api/client/raw-scrapes"
 import type { RawScrapeDateSummary, RawScrapeDetail, RawScrapeSummary } from "@/lib/api/types"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
