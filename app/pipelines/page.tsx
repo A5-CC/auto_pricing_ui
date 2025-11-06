@@ -3,9 +3,9 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import {
   getE1Snapshots,
-  getE1Data,
-  exportE1CSV,
-  getE1ColumnStatistics,
+  getE1Competitors,
+  exportE1CompetitorsCSV,
+  getE1CompetitorsStatistics,
 } from "@/lib/api/client/pipelines";
 import { getPricingSchemas } from "@/lib/api/client/pricing";
 import type {
@@ -166,12 +166,12 @@ export default function PipelinesPage() {
     setLoading(true);
     setError(null);
     try {
-      // Fetch full E1 snapshot (no backend filters); keep a generous limit
-      const res = await getE1Data(selectedSnapshot, { limit: 1000 });
+      // Fetch E1 competitor data (modSTORAGE automatically excluded by backend)
+      const res = await getE1Competitors(selectedSnapshot, { limit: 10000 });
       setDataResponse(res);
       if (res.columns?.length) {
-        // Get statistics for ALL columns that are being displayed
-        const stats = await getE1ColumnStatistics(selectedSnapshot, res.columns);
+        // Get statistics for ALL columns that are being displayed (competitor data only)
+        const stats = await getE1CompetitorsStatistics(selectedSnapshot, res.columns);
         const byName = Object.fromEntries(stats.map((s) => [s.column, s]));
         setColumnsStats(byName);
 
@@ -189,7 +189,7 @@ export default function PipelinesPage() {
         setVisibleColumns((prev) => (prev.length ? prev : filteredColumns));
       }
     } catch {
-      setError("Failed to load E1 unified data");
+      setError("Failed to load E1 competitor data");
     } finally {
       setLoading(false);
     }
@@ -202,14 +202,14 @@ export default function PipelinesPage() {
 
   const onExport = async () => {
     if (!selectedSnapshot) return;
-    // Export via backend (full snapshot, selected columns)
-    const blob = await exportE1CSV(selectedSnapshot, {
+    // Export competitor data via backend (modSTORAGE automatically excluded)
+    const blob = await exportE1CompetitorsCSV(selectedSnapshot, {
       columns: visibleColumns,
     });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `e1-unified-${selectedSnapshot}.csv`;
+    a.download = `e1-competitors-${selectedSnapshot}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -253,7 +253,7 @@ export default function PipelinesPage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-sm text-muted-foreground">
-              E1 unified data: competitor pricing + client data, merged & normalized
+              Competitor pricing data (modSTORAGE client data excluded)
             </p>
           </div>
           <div className="flex items-center gap-2">
