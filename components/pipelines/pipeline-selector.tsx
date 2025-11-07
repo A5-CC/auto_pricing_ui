@@ -10,6 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { SavePipelineDialog } from "./save-pipeline-dialog";
+import { DeletePipelineDialog } from "./delete-pipeline-dialog";
 import { listPipelines, createPipeline, deletePipeline } from "@/lib/api/client/pipelines";
 import type { Pipeline, PipelineFilters } from "@/lib/api/types";
 import { Save, Trash2 } from "lucide-react";
@@ -26,7 +27,7 @@ export function PipelineSelector({
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [selectedPipelineId, setSelectedPipelineId] = useState<string | null>(null);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   const loadPipelines = async () => {
     try {
@@ -76,26 +77,18 @@ export function PipelineSelector({
 
   const handleDeletePipeline = async () => {
     if (!selectedPipelineId) return;
-
-    if (!confirm("Delete this pipeline?")) return;
-
-    setLoading(true);
-    try {
-      await deletePipeline(selectedPipelineId);
-      setPipelines((prev) => prev.filter((p) => p.id !== selectedPipelineId));
-      setSelectedPipelineId(null);
-      onLoadPipeline({
-        competitors: [],
-        locations: [],
-        dimensions: [],
-        unit_categories: [],
-      });
-    } catch (error) {
-      console.error("Failed to delete pipeline:", error);
-    } finally {
-      setLoading(false);
-    }
+    await deletePipeline(selectedPipelineId);
+    setPipelines((prev) => prev.filter((p) => p.id !== selectedPipelineId));
+    setSelectedPipelineId(null);
+    onLoadPipeline({
+      competitors: [],
+      locations: [],
+      dimensions: [],
+      unit_categories: [],
+    });
   };
+
+  const selectedPipeline = pipelines.find((p) => p.id === selectedPipelineId);
 
   return (
     <div className="flex items-center gap-2">
@@ -131,8 +124,7 @@ export function PipelineSelector({
         <Button
           variant="outline"
           size="icon"
-          onClick={handleDeletePipeline}
-          disabled={loading}
+          onClick={() => setDeleteDialogOpen(true)}
           title="Delete selected pipeline"
         >
           <Trash2 className="h-4 w-4" />
@@ -144,6 +136,15 @@ export function PipelineSelector({
         onOpenChange={setSaveDialogOpen}
         onSave={handleSavePipeline}
       />
+
+      {selectedPipeline && (
+        <DeletePipelineDialog
+          open={deleteDialogOpen}
+          onOpenChange={setDeleteDialogOpen}
+          onConfirm={handleDeletePipeline}
+          pipelineName={selectedPipeline.name}
+        />
+      )}
     </div>
   );
 }
