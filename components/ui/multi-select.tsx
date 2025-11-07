@@ -4,15 +4,6 @@ import { CheckIcon, ChevronsUpDownIcon, XIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-  CommandSeparator,
-} from "@/components/ui/command"
-import {
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -38,6 +29,8 @@ type MultiSelectContextType = {
   toggleValue: (value: string) => void
   items: Map<string, ReactNode>
   onItemAdded: (value: string, label: ReactNode) => void
+  searchTerm: string
+  setSearchTerm: (term: string) => void
 }
 const MultiSelectContext = createContext<MultiSelectContextType | null>(null)
 
@@ -57,6 +50,7 @@ export function MultiSelect({
     new Set<string>(values ?? defaultValues),
   )
   const [items, setItems] = useState<Map<string, ReactNode>>(new Map())
+  const [searchTerm, setSearchTerm] = useState("")
 
   function toggleValue(value: string) {
     const getNewSet = (prev: Set<string>) => {
@@ -83,6 +77,13 @@ export function MultiSelect({
     return values ? new Set(values) : selectedValues
   }, [values, selectedValues])
 
+  // Reset search when closing
+  useEffect(() => {
+    if (!open) {
+      setSearchTerm("")
+    }
+  }, [open])
+
   return (
     <MultiSelectContext
       value={{
@@ -92,6 +93,8 @@ export function MultiSelect({
         toggleValue,
         items,
         onItemAdded,
+        searchTerm,
+        setSearchTerm,
       }}
     >
       <Popover open={open} onOpenChange={setOpen}>
@@ -254,38 +257,52 @@ export function MultiSelectContent({
 }: {
   search?: boolean | { placeholder?: string; emptyMessage?: string }
   children: ReactNode
-} & Omit<ComponentPropsWithoutRef<typeof Command>, "children">) {
+} & ComponentPropsWithoutRef<"div">) {
+  const { searchTerm, setSearchTerm } = useMultiSelectContext()
   const canSearch = typeof search === "object" ? true : search
+  const searchPlaceholder = typeof search === "object" ? search.placeholder : "Search..."
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  // Auto-focus search input when opened
+  useEffect(() => {
+    if (canSearch && inputRef.current) {
+      // Small delay to ensure popover is mounted
+      setTimeout(() => inputRef.current?.focus(), 10)
+    }
+  }, [canSearch])
 
   return (
-    <>
-      <div style={{ display: "none" }}>
-        <Command>
-          <CommandList>{children}</CommandList>
-        </Command>
-      </div>
-      <PopoverContent className="min-w-[var(--radix-popover-trigger-width)] p-0">
-        <Command {...props}>
-          {canSearch ? (
-            <CommandInput
-              placeholder={
-                typeof search === "object" ? search.placeholder : undefined
-              }
+    <PopoverContent className="min-w-[var(--radix-popover-trigger-width)] p-0">
+      {canSearch && (
+        <div className="flex items-center border-b px-3">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="mr-2 size-4 shrink-0 opacity-50"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
             />
-          ) : (
-            <button autoFocus className="sr-only" />
-          )}
-          <CommandList>
-            {canSearch && (
-              <CommandEmpty>
-                {typeof search === "object" ? search.emptyMessage : undefined}
-              </CommandEmpty>
-            )}
-            {children}
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </>
+          </svg>
+          <input
+            ref={inputRef}
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder={searchPlaceholder}
+            className="flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
+          />
+        </div>
+      )}
+      <div className="max-h-[300px] overflow-y-auto scroll-py-1 p-1" {...props}>
+        {children}
+      </div>
+    </PopoverContent>
   )
 }
 
@@ -294,45 +311,67 @@ export function MultiSelectItem({
   children,
   badgeLabel,
   onSelect,
+  className,
   ...props
 }: {
   badgeLabel?: ReactNode
   value: string
-} & Omit<ComponentPropsWithoutRef<typeof CommandItem>, "value">) {
-  const { toggleValue, selectedValues, onItemAdded } = useMultiSelectContext()
+  onSelect?: (value: string) => void
+  className?: string
+} & Omit<ComponentPropsWithoutRef<"div">, "value" | "onSelect" | "className">) {
+  const { toggleValue, selectedValues, onItemAdded, searchTerm } = useMultiSelectContext()
   const isSelected = selectedValues.has(value)
 
   useEffect(() => {
     onItemAdded(value, badgeLabel ?? children)
   }, [value, children, onItemAdded, badgeLabel])
 
+  // Simple filter - check if value or children text includes search term
+  const matchesSearch = useMemo(() => {
+    if (!searchTerm) return true
+    const term = searchTerm.toLowerCase()
+    const valueText = value.toLowerCase()
+    const childrenText = typeof children === "string" ? children.toLowerCase() : value.toLowerCase()
+    return valueText.includes(term) || childrenText.includes(term)
+  }, [searchTerm, value, children])
+
+  if (!matchesSearch) return null
+
   return (
-    <CommandItem
+    <div
       {...props}
-      value={value}
-      onSelect={v => {
-        toggleValue(v)
-        onSelect?.(v)
+      className={cn(
+        "relative flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50",
+        className
+      )}
+      onClick={() => {
+        toggleValue(value)
+        onSelect?.(value)
       }}
     >
       <CheckIcon
-        className={cn("mr-2 size-4", isSelected ? "opacity-100" : "opacity-0")}
+        className={cn("size-4", isSelected ? "opacity-100" : "opacity-0")}
       />
       {children}
-    </CommandItem>
+    </div>
   )
 }
 
 export function MultiSelectGroup(
-  props: ComponentPropsWithoutRef<typeof CommandGroup>,
+  props: ComponentPropsWithoutRef<"div">
 ) {
-  return <CommandGroup {...props} />
+  return (
+    <div
+      className="overflow-hidden p-1 text-foreground"
+      {...props}
+    />
+  )
 }
 
 export function MultiSelectSeparator(
-  props: ComponentPropsWithoutRef<typeof CommandSeparator>,
+  props: ComponentPropsWithoutRef<"div">
 ) {
-  return <CommandSeparator {...props} />
+  return <div className="-mx-1 my-1 h-px bg-border" {...props} />
 }
 
 function useMultiSelectContext() {
