@@ -18,7 +18,6 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ContextChips } from "@/components/context-chips";
 import { useContextChips } from "@/hooks/useContextChips";
-import { AddressCell } from "@/components/pricing/address-cell";
 import { SortableTh } from "@/components/table/SortableTh";
 import { useSortableRows } from "@/hooks/useSortableRows";
 import { useCompetitorFilter } from "@/hooks/useCompetitorFilter";
