@@ -126,33 +126,41 @@ export interface E1FilterResponse {
 }
 
 /**
- * E2 Price Adjuster Configuration (FUTURE)
- * Not blocking initial /pipelines page development
- *
- * Three adjuster types planned:
- * 1. Competitive Price Adjuster: multiplier * agg_function(competitor_prices)
- * 2. Temporal Discrete Adjuster: day/month multipliers
- * 3. Function-Based Adjuster: custom mathematical expressions
+ * Pipeline Filters Configuration
+ * Client-side filter state for /pipelines page
  */
-export interface PriceAdjusterConfig {
-  // TBD - E2 implementation details
-  type: 'competitive' | 'temporal' | 'function'
-  enabled: boolean
-  // Type-specific config...
+export interface PipelineFilters {
+  competitors: string[]
+  locations: string[]
+  dimensions: string[]
+  unit_categories: string[]
 }
 
 /**
- * Pipeline Configuration (FUTURE)
- * Saves user-defined pricing strategies
- *
- * Not blocking initial development
+ * Pipeline Configuration
+ * Persisted pipeline combining filters and adjusters (adjusters future)
  */
-export interface PipelineConfig {
+export interface Pipeline {
   id: string
   name: string
-  snapshot: string
-  filters: E1FilterRequest['filters']
-  adjusters: PriceAdjusterConfig[]
   created_at: string
   updated_at: string
+  filters: PipelineFilters
+  adjusters: Record<string, unknown>[]  // Empty for now, populated by E2
+}
+
+/**
+ * Request body for creating a new pipeline
+ */
+export interface CreatePipelineRequest {
+  name: string
+  filters: PipelineFilters
+}
+
+/**
+ * Request body for updating an existing pipeline
+ */
+export interface UpdatePipelineRequest {
+  name: string
+  filters: PipelineFilters
 }

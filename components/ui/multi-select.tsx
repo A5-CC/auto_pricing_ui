@@ -77,6 +77,13 @@ export function MultiSelect({
     return values ? new Set(values) : selectedValues
   }, [values, selectedValues])
 
+  // Sync internal state when controlled values prop changes
+  useEffect(() => {
+    if (values !== undefined) {
+      setSelectedValues(new Set(values))
+    }
+  }, [values])
+
   // Reset search when closing
   useEffect(() => {
     if (!open) {
@@ -214,9 +221,7 @@ export function MultiSelectValue({
         className,
       )}
     >
-      {[...selectedValues]
-        .filter(value => items.has(value))
-        .map(value => (
+      {[...selectedValues].map(value => (
           <Badge
             variant="outline"
             data-selected-item
@@ -231,7 +236,7 @@ export function MultiSelectValue({
                 : undefined
             }
           >
-            {items.get(value)}
+            {items.get(value) ?? value}
             {clickToRemove && (
               <XIcon className="size-2 text-muted-foreground group-hover:text-destructive" />
             )}

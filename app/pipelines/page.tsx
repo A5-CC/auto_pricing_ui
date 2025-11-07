@@ -31,6 +31,8 @@ import { getColumnLabel } from "@/lib/pricing/column-labels";
 import { TableCell } from "@/components/pricing/table-cell";
 import { PricingOverview } from "../pricing/components/pricing-overview";
 import { PricingFilters } from "../pricing/components/pricing-filters";
+import { PipelineSelector } from "@/components/pipelines/pipeline-selector";
+import type { PipelineFilters as PipelineFiltersType } from "@/lib/api/types";
 
 export default function PipelinesPage() {
   const [snapshots, setSnapshots] = useState<E1Snapshot[]>([]);
@@ -213,6 +215,13 @@ export default function PipelinesPage() {
     URL.revokeObjectURL(url);
   };
 
+  const handleLoadPipeline = (filters: PipelineFiltersType) => {
+    setSelectedCompetitors(filters.competitors);
+    setSelectedLocations(filters.locations);
+    setSelectedDimensions(filters.dimensions);
+    setSelectedUnitCategories(filters.unit_categories);
+  };
+
   // Reset sort when dataset changes significantly (e.g., new snapshot or filters)
   useEffect(() => {
     setSortBy(null);
@@ -256,6 +265,15 @@ export default function PipelinesPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <PipelineSelector
+              currentFilters={{
+                competitors: selectedCompetitors,
+                locations: selectedLocations,
+                dimensions: selectedDimensions,
+                unit_categories: selectedUnitCategories,
+              }}
+              onLoadPipeline={handleLoadPipeline}
+            />
             <Button
               variant="outline"
               size="sm"

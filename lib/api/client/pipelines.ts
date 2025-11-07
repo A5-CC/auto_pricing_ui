@@ -1,4 +1,4 @@
-import { E1Snapshot, E1DataResponse, ColumnStatistics } from '@/lib/api/types'
+import { E1Snapshot, E1DataResponse, ColumnStatistics, Pipeline, CreatePipelineRequest, UpdatePipelineRequest } from '@/lib/api/types'
 import { API_BASE_URL, fetchWithError } from './shared'
 
 /**
@@ -119,4 +119,44 @@ export async function getE1ClientStatistics(
   const url = `${API_BASE_URL}/competitors/e1-data/${encodeURIComponent(snapshot)}/client/statistics${queryParams}`
   const response = await fetchWithError(url)
   return response.json()
+}
+
+/**
+ * Pipeline Management API
+ *
+ * CRUD operations for saved pipeline configurations (filters + adjusters).
+ */
+
+export async function listPipelines(): Promise<Pipeline[]> {
+  const response = await fetchWithError(`${API_BASE_URL}/pipelines`)
+  return response.json()
+}
+
+export async function getPipeline(pipelineId: string): Promise<Pipeline> {
+  const response = await fetchWithError(`${API_BASE_URL}/pipelines/${encodeURIComponent(pipelineId)}`)
+  return response.json()
+}
+
+export async function createPipeline(request: CreatePipelineRequest): Promise<Pipeline> {
+  const response = await fetchWithError(`${API_BASE_URL}/pipelines`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request)
+  })
+  return response.json()
+}
+
+export async function updatePipeline(pipelineId: string, request: UpdatePipelineRequest): Promise<Pipeline> {
+  const response = await fetchWithError(`${API_BASE_URL}/pipelines/${encodeURIComponent(pipelineId)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request)
+  })
+  return response.json()
+}
+
+export async function deletePipeline(pipelineId: string): Promise<void> {
+  await fetchWithError(`${API_BASE_URL}/pipelines/${encodeURIComponent(pipelineId)}`, {
+    method: 'DELETE'
+  })
 }
