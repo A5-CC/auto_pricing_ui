@@ -123,4 +123,16 @@
   [role="button"]:not([disabled]) {
     cursor: pointer;
   }
+
+  [data-sonner-toast][data-type="warning"] {
+    --normal-bg: oklch(0.96 0.05 85) !important;
+    --normal-border: oklch(0.85 0.12 75) !important;
+    --normal-text: oklch(0.35 0.08 60) !important;
+  }
+
+  .dark [data-sonner-toast][data-type="warning"] {
+    --normal-bg: oklch(0.25 0.08 70) !important;
+    --normal-border: oklch(0.45 0.15 75) !important;
+    --normal-text: oklch(0.95 0.05 85) !important;
+  }
 }

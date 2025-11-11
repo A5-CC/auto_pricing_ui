@@ -1,6 +1,7 @@
 import "./globals.css";
 import { AuthProviderWrapper } from "@/components/AuthProviderWrapper";
 import { NavbarWrapper } from "@/components/NavbarWrapper";
+import { Toaster } from "@/components/ui/sonner";
 import { Roboto } from "next/font/google";
 
 const robotoLight = Roboto({ subsets: ["latin"], weight: "300", variable: "--font-roboto-light" });
@@ -12,6 +13,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <AuthProviderWrapper>
           <NavbarWrapper>{children}</NavbarWrapper>
         </AuthProviderWrapper>
+        <Toaster />
       </body>
     </html>
   );
