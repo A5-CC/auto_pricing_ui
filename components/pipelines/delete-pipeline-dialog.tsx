@@ -13,7 +13,6 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { AlertTriangle } from "lucide-react";
 import { GitBranch } from "lucide-react";
 
@@ -83,9 +82,9 @@ export function DeletePipelineDialog({
           <div className="pt-2 grid gap-2">
             <Label htmlFor="confirm-name" className="text-sm">
               <span>
-                To confirm, type "
+                To confirm, type &quot;
                 <span className="font-semibold">{pipelineName}</span>
-                "
+                &quot;
               </span>
             </Label>
             <Input
@@ -101,9 +100,9 @@ export function DeletePipelineDialog({
           <div className="grid gap-2">
             <Label htmlFor="confirm-phrase" className="text-sm">
               <span>
-                To confirm, type "
+                To confirm, type &quot;
                 <span className="font-semibold">delete my pipeline</span>
-                "
+                &quot;
               </span>
             </Label>
             <Input

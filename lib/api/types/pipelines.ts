@@ -13,6 +13,8 @@
  * - S3 location: TBD (likely processed-e1/{run_id}.parquet or similar)
  */
 
+import type { Adjuster } from '@/lib/adjusters'
+
 /**
  * E1 Snapshot metadata
  * Similar to PricingSnapshot but for norm-E1 data
@@ -138,7 +140,7 @@ export interface PipelineFilters {
 
 /**
  * Pipeline Configuration
- * Persisted pipeline combining filters and adjusters (adjusters future)
+ * Persisted pipeline combining E1 filters and E2 adjusters
  */
 export interface Pipeline {
   id: string
@@ -146,7 +148,7 @@ export interface Pipeline {
   created_at: string
   updated_at: string
   filters: PipelineFilters
-  adjusters: Record<string, unknown>[]  // Empty for now, populated by E2
+  adjusters: Adjuster[]  // E2 price adjusters (sequential pipeline)
 }
 
 /**
@@ -155,6 +157,7 @@ export interface Pipeline {
 export interface CreatePipelineRequest {
   name: string
   filters: PipelineFilters
+  adjusters?: Adjuster[]  // Optional, can be added later
 }
 
 /**
@@ -163,4 +166,5 @@ export interface CreatePipelineRequest {
 export interface UpdatePipelineRequest {
   name: string
   filters: PipelineFilters
+  adjusters?: Adjuster[]  // Optional, can be updated independently
 }

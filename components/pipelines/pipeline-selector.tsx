@@ -18,11 +18,13 @@ import { Save, Trash2 } from "lucide-react";
 interface PipelineSelectorProps {
   currentFilters: PipelineFilters;
   onLoadPipeline: (filters: PipelineFilters) => void;
+  onPipelineChange?: (pipeline: Pipeline | null) => void;
 }
 
 export function PipelineSelector({
   currentFilters,
   onLoadPipeline,
+  onPipelineChange,
 }: PipelineSelectorProps) {
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [selectedPipelineId, setSelectedPipelineId] = useState<string | null>(null);
@@ -51,6 +53,7 @@ export function PipelineSelector({
         dimensions: [],
         unit_categories: [],
       });
+      onPipelineChange?.(null);
       return;
     }
 
@@ -58,6 +61,7 @@ export function PipelineSelector({
     if (pipeline) {
       setSelectedPipelineId(pipelineId);
       onLoadPipeline(pipeline.filters);
+      onPipelineChange?.(pipeline);
     }
   };
 
@@ -86,6 +90,7 @@ export function PipelineSelector({
       dimensions: [],
       unit_categories: [],
     });
+    onPipelineChange?.(null);
   };
 
   const selectedPipeline = pipelines.find((p) => p.id === selectedPipelineId);

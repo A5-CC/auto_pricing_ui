@@ -42,17 +42,16 @@
  * MAINTAINED AS: Backup solution / proof-of-concept for future optimization
  * ============================================================================
  */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client"
 
-import { CheckIcon, ChevronsUpDownIcon, XIcon } from "lucide-react"
+import { CheckIcon, ChevronsUpDownIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
   createContext,
-  useCallback,
   useContext,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -190,16 +189,16 @@ export function MultiSelectTrigger({
 
 export function MultiSelectValue({
   placeholder,
-  clickToRemove = true,
+  clickToRemove: _clickToRemove = true,
   className,
-  overflowBehavior = "wrap-when-open",
+  overflowBehavior: _overflowBehavior = "wrap-when-open",
   ...props
 }: {
   placeholder?: string
   clickToRemove?: boolean
   overflowBehavior?: "wrap" | "wrap-when-open" | "cutoff"
 } & Omit<ComponentPropsWithoutRef<"div">, "children">) {
-  const { selectedValues, toggleValue, open } = useMultiSelectContext()
+  const { selectedValues } = useMultiSelectContext()
 
   if (selectedValues.size === 0 && placeholder) {
     return (
@@ -272,7 +271,7 @@ export function MultiSelectContent({
 export function MultiSelectItem({
   value,
   children,
-  badgeLabel,
+  badgeLabel: _badgeLabel,
   onSelect,
   className,
   ...props

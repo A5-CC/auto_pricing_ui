@@ -1,9 +1,11 @@
 "use client";
 
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import {
   getE1Snapshots,
   getE1Competitors,
+  getE1Client,
   exportE1CompetitorsCSV,
   getE1CompetitorsStatistics,
 } from "@/lib/api/client/pipelines";
@@ -32,13 +34,29 @@ import { TableCell } from "@/components/pricing/table-cell";
 import { PricingOverview } from "../pricing/components/pricing-overview";
 import { PricingFilters } from "../pricing/components/pricing-filters";
 import { PipelineSelector } from "@/components/pipelines/pipeline-selector";
-import type { PipelineFilters as PipelineFiltersType } from "@/lib/api/types";
+import { AdjustersList } from "@/components/pipelines/adjusters-list";
+import { CalculatedPrice } from "@/components/pipelines/calculated-price";
+import { AddCompetitiveAdjusterDialog } from "@/components/pipelines/adjusters/add-competitive-adjuster-dialog";
+import { AddFunctionAdjusterDialog } from "@/components/pipelines/adjusters/add-function-adjuster-dialog";
+import { AddTemporalAdjusterDialog } from "@/components/pipelines/adjusters/add-temporal-adjuster-dialog";
+import { useAdjusterDialog } from "@/components/pipelines/adjusters/use-adjuster-dialog";
+import { PriceDataWarning } from "@/components/pipelines/price-data-warning";
+import type { PipelineFilters as PipelineFiltersType, Pipeline } from "@/lib/api/types";
+import type { Adjuster } from "@/lib/adjusters";
+import { hasValidCompetitorPrices, getPriceDiagnostics } from "@/lib/adjusters";
+import { TrendingDown, Calculator, Clock, Plus } from "lucide-react";
 
 export default function PipelinesPage() {
   const [snapshots, setSnapshots] = useState<E1Snapshot[]>([]);
   const [selectedSnapshot, setSelectedSnapshot] = useState<string>("latest");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [localAdjusters, setLocalAdjusters] = useState<Adjuster[]>([]);
+
+  // Adjuster dialogs state
+  const competitiveDialog = useAdjusterDialog();
+  const functionDialog = useAdjusterDialog();
+  const temporalDialog = useAdjusterDialog();
 
   // Client-side competitor multi-select
   const [selectedCompetitors, setSelectedCompetitors] = useState<string[]>([]);
@@ -52,6 +70,7 @@ export default function PipelinesPage() {
   >([]);
 
   const [dataResponse, setDataResponse] = useState<E1DataResponse | null>(null);
+  const [clientDataResponse, setClientDataResponse] = useState<E1DataResponse | null>(null);
   const [columnsStats, setColumnsStats] = useState<
     Record<string, ColumnStatistics>
   >({});
@@ -170,6 +189,11 @@ export default function PipelinesPage() {
       // Fetch E1 competitor data (modSTORAGE automatically excluded by backend)
       const res = await getE1Competitors(selectedSnapshot, { limit: 10000 });
       setDataResponse(res);
+
+      // Fetch E1 client data (only modSTORAGE, competitors excluded by backend)
+      const clientRes = await getE1Client(selectedSnapshot, { limit: 10000 });
+      setClientDataResponse(clientRes);
+
       if (res.columns?.length) {
         // Get statistics for ALL columns that are being displayed (competitor data only)
         const stats = await getE1CompetitorsStatistics(selectedSnapshot, res.columns);
@@ -190,7 +214,7 @@ export default function PipelinesPage() {
         setVisibleColumns((prev) => (prev.length ? prev : filteredColumns));
       }
     } catch {
-      setError("Failed to load E1 competitor data");
+      setError("Failed to load E1 data");
     } finally {
       setLoading(false);
     }
@@ -221,6 +245,64 @@ export default function PipelinesPage() {
     setSelectedDimensions(filters.dimensions);
     setSelectedUnitCategories(filters.unit_categories);
   };
+
+  const handlePipelineChange = (pipeline: Pipeline | null) => {
+    setLocalAdjusters(pipeline?.adjusters || []);
+  };
+
+  const handleAddAdjuster = (adjuster: Adjuster) => {
+    setLocalAdjusters((prev) => [...prev, adjuster]);
+  };
+
+  const handleRemoveAdjuster = (index: number) => {
+    const nextAdjusters = localAdjusters.filter((_, idx) => idx !== index);
+
+    if (nextAdjusters.length > 0) {
+      const nextFirst = nextAdjusters[0];
+      if (nextFirst.type !== "competitive") {
+        toast.warning(
+          <span>
+            Cannot remove this adjuster because the pipeline must start with a <strong>Competitive</strong> step.
+          </span>,
+          { duration: 5400 }
+        );
+        return;
+      }
+    }
+
+    setLocalAdjusters(nextAdjusters);
+  };
+
+  // Current date for temporal adjusters (day of week, month)
+  const currentDate = useMemo(() => new Date(), []);
+
+  // Check if competitor data has valid prices for adjusters
+  const canAddAdjusters = useMemo(
+    () => hasValidCompetitorPrices(fullyFilteredRows),
+    [fullyFilteredRows]
+  );
+
+  const hasCompetitiveAdjuster = localAdjusters.some((adj) => adj.type === "competitive");
+  const firstAdjusterIsCompetitive =
+    localAdjusters.length === 0 || localAdjusters[0].type === "competitive";
+  const pipelineNeedsBase = localAdjusters.length > 0 && !firstAdjusterIsCompetitive;
+  const canAddNonCompetitiveAdjusters =
+    canAddAdjusters && hasCompetitiveAdjuster && firstAdjusterIsCompetitive;
+
+  // Get price data diagnostics for display
+  const priceDiagnostics = useMemo(
+    () => getPriceDiagnostics(fullyFilteredRows),
+    [fullyFilteredRows]
+  );
+
+  // Get available numeric variables for function adjuster
+  const availableVariables = useMemo(() => {
+    // Filter numeric columns from competitor data statistics
+    return Object.entries(columnsStats)
+      .filter(([, stats]) => stats.data_type === 'numeric' || stats.data_type === 'float' || stats.data_type === 'integer')
+      .map(([col]) => col)
+      .sort();
+  }, [columnsStats]);
 
   // Reset sort when dataset changes significantly (e.g., new snapshot or filters)
   useEffect(() => {
@@ -273,6 +355,7 @@ export default function PipelinesPage() {
                 unit_categories: selectedUnitCategories,
               }}
               onLoadPipeline={handleLoadPipeline}
+              onPipelineChange={handlePipelineChange}
             />
             <Button
               variant="outline"
@@ -315,6 +398,121 @@ export default function PipelinesPage() {
         setSelectedUnitCategories={setSelectedUnitCategories}
         allUnitCategories={allUnitCategories}
       />
+
+      {/* Price Calculation Section */}
+      <div className="space-y-4">
+        <SectionLabel
+          text="Price Calculation"
+          right={
+            <div className="text-xs text-muted-foreground">
+              {priceDiagnostics.pricesFound}/{priceDiagnostics.competitorRows} units with prices
+            </div>
+          }
+        />
+
+        {/* Warning if no price data available (only after data loads) */}
+        {!loading && !canAddAdjusters && (
+          <PriceDataWarning competitorData={fullyFilteredRows} />
+        )}
+
+        {pipelineNeedsBase && (
+          <Alert className="border-amber-200 bg-amber-50">
+            <AlertTitle>Competitive step required</AlertTitle>
+            <AlertDescription>
+              Step 1 must be a competitive adjuster to establish the base price. Remove or re-add cards until a competitive
+              card leads the pipeline.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        <AdjustersList
+          adjusters={localAdjusters}
+          actions={
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1 rounded-full bg-muted/40 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <Plus className="h-3.5 w-3.5" /> Add adjuster
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={!canAddAdjusters}
+                onClick={competitiveDialog.handleOpen}
+                className="border-blue-200 text-blue-700 hover:bg-blue-50 hover:text-blue-800 disabled:opacity-50"
+                title={!canAddAdjusters ? "Add competitor data with prices to enable adjusters" : undefined}
+              >
+                <TrendingDown className="h-4 w-4 mr-1.5" />
+                Competitive
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={!canAddNonCompetitiveAdjusters}
+                onClick={functionDialog.handleOpen}
+                className="border-amber-200 text-amber-700 hover:bg-amber-50 hover:text-amber-800 disabled:opacity-50"
+                title={
+                  !canAddNonCompetitiveAdjusters
+                    ? !canAddAdjusters
+                      ? "Add competitor data with prices to enable adjusters"
+                      : !hasCompetitiveAdjuster
+                        ? "Add a competitive adjuster first to set the base price"
+                        : "Step 1 must remain competitive"
+                    : undefined
+                }
+              >
+                <Calculator className="h-4 w-4 mr-1.5" />
+                Function
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={!canAddNonCompetitiveAdjusters}
+                onClick={temporalDialog.handleOpen}
+                className="border-violet-200 text-violet-700 hover:bg-violet-50 hover:text-violet-800 disabled:opacity-50"
+                title={
+                  !canAddNonCompetitiveAdjusters
+                    ? !canAddAdjusters
+                      ? "Add competitor data with prices to enable adjusters"
+                      : !hasCompetitiveAdjuster
+                        ? "Add a competitive adjuster first to set the base price"
+                        : "Step 1 must remain competitive"
+                    : undefined
+                }
+              >
+                <Clock className="h-4 w-4 mr-1.5" />
+                Temporal
+              </Button>
+            </div>
+          }
+          onRemoveAdjuster={handleRemoveAdjuster}
+          resultCard={
+            <CalculatedPrice
+              variant="inline"
+              competitorData={fullyFilteredRows}
+              clientAvailableUnits={clientDataResponse?.data.length || 0}
+              adjusters={localAdjusters}
+              snapshotTimestamp={currentDate}
+            />
+          }
+        />
+
+        {/* Adjuster Dialogs */}
+        <AddCompetitiveAdjusterDialog
+          open={competitiveDialog.open}
+          onOpenChange={competitiveDialog.setOpen}
+          onAdd={handleAddAdjuster}
+        />
+        <AddFunctionAdjusterDialog
+          open={functionDialog.open}
+          onOpenChange={functionDialog.setOpen}
+          onAdd={handleAddAdjuster}
+          availableVariables={availableVariables}
+        />
+        <AddTemporalAdjusterDialog
+          open={temporalDialog.open}
+          onOpenChange={temporalDialog.setOpen}
+          onAdd={handleAddAdjuster}
+        />
+      </div>
 
       {/* Display controls */}
       <SectionLabel
