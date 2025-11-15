@@ -552,6 +552,8 @@ export default function PipelinesPage() {
           onOpenChange={functionDialog.setOpen}
           onAdd={handleAddAdjuster}
           availableVariables={availableVariables}
+          competitorData={fullyFilteredRows}
+          clientAvailableUnits={clientDataResponse?.data.length || 0}
         />
         <AddTemporalAdjusterDialog
           open={temporalDialog.open}
@@ -564,19 +566,36 @@ export default function PipelinesPage() {
       <SectionLabel
         text={`Display (${(displayedRows?.length ?? 0).toLocaleString()})`}
         right={
-          <GroupByControl
-            className="min-w-[220px]"
-            fullWidth={false}
-            value={groupBy}
-            onChange={setGroupBy}
-            onExpandAll={groupBy ? expandAllGroups : undefined}
-            onCollapseAll={groupBy ? collapseAllGroups : undefined}
-            options={[
-              { id: "competitor_name", label: "Competitor" },
-              { id: "location_normalized", label: "Location" },
-              { id: "dimensions_normalized", label: "Unit" },
-            ]}
-          />
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="show-sparse"
+                checked={showSparseColumns}
+                onCheckedChange={(checked) => setShowSparseColumns(checked === true)}
+              />
+              <Label htmlFor="show-sparse" className="text-sm font-normal cursor-pointer">
+                Show sparse columns
+                {!showSparseColumns && visibleColumns.length > displayColumns.length && (
+                  <Badge variant="secondary" className="ml-2">
+                    {visibleColumns.length - displayColumns.length} hidden
+                  </Badge>
+                )}
+              </Label>
+            </div>
+            <GroupByControl
+              className="min-w-[220px]"
+              fullWidth={false}
+              value={groupBy}
+              onChange={setGroupBy}
+              onExpandAll={groupBy ? expandAllGroups : undefined}
+              onCollapseAll={groupBy ? collapseAllGroups : undefined}
+              options={[
+                { id: "competitor_name", label: "Competitor" },
+                { id: "location_normalized", label: "Location" },
+                { id: "dimensions_normalized", label: "Unit" },
+              ]}
+            />
+          </div>
         }
       />
 
