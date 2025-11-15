@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { Card, CardContent } from "@/components/ui/card"
-import { Activity, Link2, FileText, Table, ArrowRight, ChevronRight, BarChart3, SlidersHorizontal } from "lucide-react"
+import { Activity, Link2, FileText, ArrowRight, ChevronRight, BarChart3, SlidersHorizontal } from "lucide-react"
 import { Footer } from "@/components/analytics/footer-actions"
 
 export default function Page() {
