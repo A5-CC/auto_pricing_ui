@@ -33,13 +33,16 @@ export function CalculatedPrice({
         competitorData,
         clientUnit: { available_units: clientAvailableUnits },
         adjusters,
-        snapshotTimestamp,
+        currentDate,
       })
     } catch (error) {
       console.error('[CalculatedPrice] Error calculating price:', error)
       return null
     }
-  }, [competitorData, clientAvailableUnits, adjusters, snapshotTimestamp])
+  }, [competitorData, clientAvailableUnits, adjusters, currentDate])
+
+  const calculatedPrice = result?.price ?? null
+  const warnings = result?.warnings ?? []
 
   if (!adjusters || adjusters.length === 0) {
     return (
@@ -86,25 +89,43 @@ export function CalculatedPrice({
           'h-full rounded-2xl border-primary/30 bg-white/95 shadow-sm ring-1 ring-black/[0.02]'
       )}
     >
-      <div className={cn('flex items-center justify-between gap-4', isInline && 'flex-wrap xl:flex-nowrap')}>
-        <div className="flex items-center gap-3">
-          <div className={cn('rounded-full bg-primary/10 p-2', isInline && 'bg-primary/15 text-primary')}>
-            <Calculator className="h-5 w-5 text-primary" />
+      <div className="space-y-4">
+        <div className={cn('flex items-center justify-between gap-4', isInline && 'flex-wrap xl:flex-nowrap')}>
+          <div className="flex items-center gap-3">
+            <div className={cn('rounded-full bg-primary/10 p-2', isInline && 'bg-primary/15 text-primary')}>
+              <Calculator className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Calculated Price
+              </div>
+              <div className={cn('text-3xl font-bold text-primary', isInline && 'text-4xl')}>
+                ${calculatedPrice.toFixed(2)}
+              </div>
+            </div>
           </div>
-          <div>
-            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Calculated Price
-            </div>
-            <div className={cn('text-3xl font-bold text-primary', isInline && 'text-4xl')}>
-              ${calculatedPrice.toFixed(2)}
-            </div>
+          <div className={cn('text-right text-xs text-muted-foreground space-y-1', isInline && 'text-left xl:text-right')}>
+            <div className="font-medium text-foreground">{dateDisplay}</div>
+            <div>{adjusters.length} adjuster{adjusters.length !== 1 ? 's' : ''} applied</div>
+            <div>{competitorData.length} competitor unit{competitorData.length !== 1 ? 's' : ''}</div>
           </div>
         </div>
-        <div className={cn('text-right text-xs text-muted-foreground space-y-1', isInline && 'text-left xl:text-right')}>
-          <div className="font-medium text-foreground">{dateDisplay}</div>
-          <div>{adjusters.length} adjuster{adjusters.length !== 1 ? 's' : ''} applied</div>
-          <div>{competitorData.length} competitor unit{competitorData.length !== 1 ? 's' : ''}</div>
-        </div>
+
+        {warnings.length > 0 && (
+          <div className="flex items-start gap-2.5 p-3 rounded-lg bg-muted/30 border-l-2 border-amber-500/30">
+            <AlertTriangle className="h-4 w-4 text-amber-600/70 mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                {warnings[0]}
+              </p>
+              {warnings.length > 1 && (
+                <p className="text-xs text-muted-foreground/70 mt-1">
+                  +{warnings.length - 1} more warning{warnings.length - 1 > 1 ? 's' : ''}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </Card>
   )

@@ -72,9 +72,10 @@ export function calculatePrice(input: CalculatePriceInput): CalculatePriceResult
     console.log(`[engine] ========== Starting price calculation ==========`)
     console.log(`[engine] Input: ${input.competitorData.length} rows, ${input.adjusters.length} adjusters`)
     console.log(`[engine] Client available units: ${input.clientUnit.available_units}`)
-    console.log(`[engine] Snapshot timestamp: ${input.snapshotTimestamp.toISOString()}`)
+    console.log(`[engine] Current date for temporal adjusters: ${input.currentDate.toISOString()}`)
 
     let currentPrice: number | null = null
+    const warnings: string[] = []
 
     // Apply adjusters sequentially
     for (let i = 0; i < input.adjusters.length; i++) {
@@ -114,6 +115,27 @@ export function calculatePrice(input: CalculatePriceInput): CalculatePriceResult
         const context: FunctionContext = {
           competitorData: input.competitorData,
           clientUnit: input.clientUnit,
+        }
+
+        // Check if variable value is outside domain (soft warning)
+        let variableValue: number | null = null
+        if (adjuster.variable === 'available_units') {
+          variableValue = input.clientUnit.available_units
+        } else {
+          // Get first non-null value from competitor data for warning check
+          for (const row of input.competitorData) {
+            const value = row[adjuster.variable]
+            if (typeof value === 'number' && isFinite(value)) {
+              variableValue = value
+              break
+            }
+          }
+        }
+
+        if (variableValue !== null &&
+            (variableValue < adjuster.domain_min || variableValue > adjuster.domain_max)) {
+          const warning = `Variable "${adjuster.variable}" value (${variableValue}) is outside expected domain [${adjuster.domain_min}, ${adjuster.domain_max}]`
+          warnings.push(warning)
         }
 
         const multiplier = applyFunctionAdjuster(adjuster, context)
@@ -160,7 +182,13 @@ export function calculatePrice(input: CalculatePriceInput): CalculatePriceResult
     }
 
     console.log(`[engine] ✓ Final calculated price: $${currentPrice.toFixed(2)}`)
-    return currentPrice
+    if (warnings.length > 0) {
+      console.log(`[engine] ⚠ ${warnings.length} warning(s):`, warnings)
+    }
+    return {
+      price: currentPrice,
+      warnings
+    }
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)

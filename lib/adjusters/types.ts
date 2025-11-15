@@ -122,10 +122,12 @@ export interface ClientUnit {
 
 /**
  * Calculate Price Result
- * Currently returns single number (final price)
- * Future: May include breakdown of adjustment steps for debugging
+ * Returns final price and any warnings encountered during calculation
  */
-export type CalculatePriceResult = number
+export interface CalculatePriceResult {
+  price: number
+  warnings: string[]
+}
 
 // Optional future: breakdown for transparency
 // export interface CalculatePriceResultDetailed {
