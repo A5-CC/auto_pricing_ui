@@ -37,7 +37,7 @@ export function PricingOverview({
               aria-label="Select snapshot"
             >
               <option value="latest">Latest</option>
-              {snapshots.map((s) => (
+              {snapshots.filter((s) => s.date !== "latest").map((s) => (
                 <option key={s.date} value={s.date}>{s.date}</option>
               ))}
             </select>
