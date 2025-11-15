@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { Card, CardContent } from "@/components/ui/card"
-import { Activity, Link2, FileText, Table, ArrowRight, ChevronRight, BarChart3 } from "lucide-react"
+import { Activity, Link2, FileText, Table, ArrowRight, ChevronRight, BarChart3, SlidersHorizontal } from "lucide-react"
 import { Footer } from "@/components/analytics/footer-actions"
 
 export default function Page() {
@@ -17,8 +17,8 @@ export default function Page() {
 
       <section className="space-y-6">
         <Link
-          href="/pricing"
-          aria-label="Open Competitor Pricing Analysis dashboard"
+          href="/pipelines"
+          aria-label="Open Pricing Pipelines dashboard"
           className="block group rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         >
           <Card className="rounded-xl transition-all duration-200 border bg-card hover:border-foreground/20 hover:bg-muted/40 shadow-sm hover:shadow-md">
@@ -26,20 +26,20 @@ export default function Page() {
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-4">
                   <div className="rounded-lg bg-primary/10 p-3 text-primary ring-1 ring-primary/20">
-                    <BarChart3 className="h-8 w-8" />
+                    <SlidersHorizontal className="h-8 w-8" />
                   </div>
                   <div>
-                    <h2 className="text-2xl font-semibold tracking-tight">Competitor Pricing Analysis</h2>
-                    <p className="text-muted-foreground mt-1">Interactive data grid with real-time competitor pricing intelligence</p>
+                    <h2 className="text-2xl font-semibold tracking-tight">Pricing Pipelines</h2>
+                    <p className="text-muted-foreground mt-1">Build dynamic pricing strategies with competitive, function, and temporal adjusters</p>
                   </div>
                 </div>
               </div>
               <p className="text-muted-foreground mt-6 leading-relaxed">
-                Explore comprehensive competitor pricing data through our interactive dashboard. Filter by location, competitor, unit size, and more.
-                Export custom views, analyze historical snapshots, and discover pricing trends that give you the competitive edge.
+                Design custom pricing pipelines by combining filters and sequential adjusters. Start with competitive pricing, apply function-based modifications, and add temporal rules.
+                Save and load pipeline configurations to test different pricing strategies.
               </p>
               <div className="mt-6 inline-flex items-center text-primary font-medium">
-                <span>Open pricing dashboard</span>
+                <span>Open pipelines dashboard</span>
                 <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
               </div>
             </CardContent>
@@ -49,18 +49,11 @@ export default function Page() {
 
       <section className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <FeatureCard
-          icon={<Link2 className="h-4 w-4" />}
-          title="URL discovery"
-          description="Browse discovered competitor URLs that feed the pipeline."
-          href="/url-dumps"
-          cta="Open URLs"
-        />
-        <FeatureCard
-          icon={<FileText className="h-4 w-4" />}
-          title="Raw scrapes"
-          description="Inspect raw markdown scrapes to validate content."
-          href="/raw-scrapes"
-          cta="Open scrapes"
+          icon={<BarChart3 className="h-4 w-4" />}
+          title="Competitor Pricing"
+          description="Explore normalized competitor pricing data with dynamic columns."
+          href="/pricing"
+          cta="Open pricing"
         />
         <FeatureCard
           icon={<Activity className="h-4 w-4" />}
@@ -70,11 +63,18 @@ export default function Page() {
           cta="Open runs"
         />
         <FeatureCard
-          icon={<Table className="h-4 w-4" />}
-          title="Pricing schema"
-          description="Browse the spine and canonical wide schemas."
-          href="/pricing-schemas"
-          cta="Open schema"
+          icon={<FileText className="h-4 w-4" />}
+          title="Raw scrapes"
+          description="Inspect raw markdown scrapes to validate content."
+          href="/raw-scrapes"
+          cta="Open scrapes"
+        />
+        <FeatureCard
+          icon={<Link2 className="h-4 w-4" />}
+          title="URL discovery"
+          description="Browse discovered competitor URLs that feed the pipeline."
+          href="/url-dumps"
+          cta="Open URLs"
         />
       </section>
       <Footer />

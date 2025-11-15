@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { BarChart3, Table } from "lucide-react";
+import { BarChart3, Table, SlidersHorizontal } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { getSystemHealth } from "@/lib/api/client/system";
 import { Button } from "@/components/ui/button";
@@ -79,14 +79,15 @@ export function SiteNavbar() {
           <Link href="/" className="text-sm font-semibold tracking-tight"></Link>
           <div className="hidden md:flex items-center gap-1">
             <Link
-              href="/pricing"
-              className={`${primaryLinkCls("/pricing")} gap-1.5`}
+              href="/pipelines"
+              className={`${primaryLinkCls("/pipelines")} gap-1.5`}
             >
+              <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden />
+              Pricing Pipelines
+            </Link>
+            <Link href="/pricing" className={`${linkCls("/pricing")} gap-1.5`}>
               <BarChart3 className="h-3.5 w-3.5" aria-hidden />
               Competitor Pricing
-            </Link>
-            <Link href="/pipelines" className={linkCls("/pipelines")}>
-              Pricing Pipelines
             </Link>
             <span aria-hidden className="mx-2 h-6 w-px bg-border" />
             <Link href="/runs" className={linkCls("/runs")}>

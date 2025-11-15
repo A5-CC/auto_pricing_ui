@@ -389,7 +389,7 @@ export default function PipelinesPage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-sm text-muted-foreground">
-              Competitor pricing data (modSTORAGE client data excluded)
+              Build pricing strategies with Filters, and Competitive, Function-based, and Temporal Adjusters
             </p>
           </div>
           <div className="flex items-center gap-2">
