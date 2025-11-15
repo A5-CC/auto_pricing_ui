@@ -92,7 +92,7 @@ export interface CalculatePriceInput {
   competitorData: E1DataRow[]     // Already filtered by E1 categorical filters
   clientUnit: ClientUnit           // Client inventory data (available_units)
   adjusters: Adjuster[]            // Sequential adjuster pipeline
-  snapshotTimestamp: Date          // For temporal adjusters (day of week, month)
+  currentDate: Date                // Current date for temporal adjusters (day of week, month)
 }
 
 /**

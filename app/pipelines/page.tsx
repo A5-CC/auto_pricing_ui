@@ -536,7 +536,7 @@ export default function PipelinesPage() {
               competitorData={fullyFilteredRows}
               clientAvailableUnits={clientDataResponse?.data.length || 0}
               adjusters={localAdjusters}
-              snapshotTimestamp={currentDate}
+              currentDate={currentDate}
             />
           }
         />

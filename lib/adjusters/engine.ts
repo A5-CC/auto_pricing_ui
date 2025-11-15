@@ -53,7 +53,7 @@ import { applyTemporalAdjuster } from './temporal'
  *       multipliers: [0.95, 0.95, 0.95, 0.98, 1.10, 1.15, 1.10]
  *     }
  *   ],
- *   snapshotTimestamp: new Date('2025-11-14') // Friday
+ *   currentDate: new Date('2025-11-14') // Friday
  * }
  * calculatePrice(input)
  * // Step 1 (competitive): min(competitors) × 0.97 = $82.45
@@ -131,7 +131,7 @@ export function calculatePrice(input: CalculatePriceInput): CalculatePriceResult
           return null
         }
 
-        const multiplier = applyTemporalAdjuster(adjuster, input.snapshotTimestamp)
+        const multiplier = applyTemporalAdjuster(adjuster, input.currentDate)
         currentPrice = currentPrice * multiplier
         console.log(
           `[engine] After temporal adjuster (×${multiplier.toFixed(3)}): $${currentPrice.toFixed(2)}`

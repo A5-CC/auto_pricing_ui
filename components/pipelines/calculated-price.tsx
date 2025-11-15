@@ -3,14 +3,14 @@ import { calculatePrice } from '@/lib/adjusters'
 import type { Adjuster } from '@/lib/adjusters'
 import type { E1DataRow } from '@/lib/api/types'
 import { Card } from '@/components/ui/card'
-import { AlertCircle, Calculator } from 'lucide-react'
+import { AlertCircle, AlertTriangle, Calculator } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface CalculatedPriceProps {
   competitorData: E1DataRow[]
   clientAvailableUnits: number
   adjusters: Adjuster[]
-  snapshotTimestamp: Date
+  currentDate: Date
   variant?: 'panel' | 'inline'
 }
 
@@ -18,12 +18,12 @@ export function CalculatedPrice({
   competitorData,
   clientAvailableUnits,
   adjusters,
-  snapshotTimestamp,
+  currentDate,
   variant = 'panel'
 }: CalculatedPriceProps) {
   const isInline = variant === 'inline'
 
-  const calculatedPrice = useMemo(() => {
+  const result = useMemo(() => {
     if (!adjusters || adjusters.length === 0) {
       return null
     }
@@ -71,7 +71,7 @@ export function CalculatedPrice({
     )
   }
 
-  const dateDisplay = snapshotTimestamp.toLocaleDateString('en-US', {
+  const dateDisplay = currentDate.toLocaleDateString('en-US', {
     weekday: 'short',
     year: 'numeric',
     month: 'short',
