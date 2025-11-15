@@ -400,6 +400,7 @@ export default function PipelinesPage() {
                 dimensions: selectedDimensions,
                 unit_categories: selectedUnitCategories,
               }}
+              currentAdjusters={localAdjusters}
               onLoadPipeline={handleLoadPipeline}
               onPipelineChange={handlePipelineChange}
             />

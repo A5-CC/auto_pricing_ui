@@ -13,16 +13,19 @@ import { SavePipelineDialog } from "./save-pipeline-dialog";
 import { DeletePipelineDialog } from "./delete-pipeline-dialog";
 import { listPipelines, createPipeline, deletePipeline } from "@/lib/api/client/pipelines";
 import type { Pipeline, PipelineFilters } from "@/lib/api/types";
+import type { Adjuster } from "@/lib/adjusters";
 import { Save, Trash2 } from "lucide-react";
 
 interface PipelineSelectorProps {
   currentFilters: PipelineFilters;
+  currentAdjusters: Adjuster[];
   onLoadPipeline: (filters: PipelineFilters) => void;
   onPipelineChange?: (pipeline: Pipeline | null) => void;
 }
 
 export function PipelineSelector({
   currentFilters,
+  currentAdjusters,
   onLoadPipeline,
   onPipelineChange,
 }: PipelineSelectorProps) {
@@ -70,6 +73,7 @@ export function PipelineSelector({
       const newPipeline = await createPipeline({
         name,
         filters: currentFilters,
+        adjusters: currentAdjusters,
       });
       setPipelines((prev) => [newPipeline, ...prev]);
       setSelectedPipelineId(newPipeline.id);
