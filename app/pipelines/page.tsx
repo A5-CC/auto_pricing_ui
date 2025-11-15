@@ -295,13 +295,54 @@ export default function PipelinesPage() {
     [fullyFilteredRows]
   );
 
+  // Filter columns based on sparse threshold (unless toggle is on)
+  const displayColumns = useMemo(() => {
+    if (showSparseColumns) return visibleColumns;
+
+    return visibleColumns.filter(col => {
+      const stats = columnsStats[col];
+      // Only show columns WITH stats AND high fill rate
+      // Backend returns fill_rate as percentage (0-100), not decimal (0-1)
+      return stats && stats.fill_rate >= sparseThreshold;
+    });
+  }, [visibleColumns, columnsStats, showSparseColumns, sparseThreshold]);
+
   // Get available numeric variables for function adjuster
   const availableVariables = useMemo(() => {
+    console.log('[availableVariables] Total columns:', Object.keys(columnsStats).length);
+
+    // Show ALL columns with their data_type
+    const allColumnsWithType = Object.entries(columnsStats).map(([col, stats]) => ({
+      column: col,
+      data_type: stats.data_type
+    }));
+    console.log('[availableVariables] ALL columns with data_type:', allColumnsWithType);
+
+    // Show unique data_types
+    const uniqueTypes = [...new Set(Object.values(columnsStats).map(s => s.data_type))];
+    console.log('[availableVariables] Unique data_types in dataset:', uniqueTypes);
+
+    // Count by data_type
+    const countByType = Object.values(columnsStats).reduce((acc, stats) => {
+      acc[stats.data_type] = (acc[stats.data_type] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    console.log('[availableVariables] Count by data_type:', countByType);
+
     // Filter numeric columns from competitor data statistics
-    return Object.entries(columnsStats)
-      .filter(([, stats]) => stats.data_type === 'numeric' || stats.data_type === 'float' || stats.data_type === 'integer')
+    // Backend returns pandas/numpy types: Int64, float64, Float64, int64, etc.
+    const numericCols = Object.entries(columnsStats)
+      .filter(([, stats]) => {
+        const dtype = stats.data_type.toLowerCase();
+        return dtype.includes('int') || dtype.includes('float');
+      })
       .map(([col]) => col)
       .sort();
+
+    console.log('[availableVariables] Numeric columns found:', numericCols.length);
+    console.log('[availableVariables] Numeric columns list:', numericCols);
+
+    return numericCols;
   }, [columnsStats]);
 
   // Reset sort when dataset changes significantly (e.g., new snapshot or filters)
