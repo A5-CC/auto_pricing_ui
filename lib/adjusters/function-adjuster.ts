@@ -49,26 +49,38 @@ function extractVariableValue(
   }
 
   // All other variables: extract from competitor data
-  // For now, we use a simple strategy: take first competitor row with non-null value
-  // Future enhancement: Could aggregate across competitors (avg, min, max)
+  // Strategy: Calculate average across all competitors with valid values
 
   if (!context.competitorData || context.competitorData.length === 0) {
     console.warn(`[function-adjuster] No competitor data available for variable: ${variable}`)
     return null
   }
 
-  // Search for first row with non-null value for this variable
+  // Collect all valid values for this variable
+  const values: number[] = []
   for (const row of context.competitorData) {
     const value = row[variable]
     if (typeof value === 'number' && isFinite(value)) {
-      return value
+      values.push(value)
     }
   }
 
-  console.warn(
-    `[function-adjuster] Variable "${variable}" not found or has no valid values in competitor data`
+  if (values.length === 0) {
+    console.warn(
+      `[function-adjuster] Variable "${variable}" not found or has no valid values in competitor data`
+    )
+    return null
+  }
+
+  // Calculate average
+  const sum = values.reduce((acc, val) => acc + val, 0)
+  const average = sum / values.length
+
+  console.log(
+    `[function-adjuster] Variable "${variable}": found ${values.length} valid values, average = ${average.toFixed(2)}`
   )
-  return null
+
+  return average
 }
 
 /**
