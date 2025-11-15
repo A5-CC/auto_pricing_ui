@@ -18,6 +18,9 @@ import type {
 } from "@/lib/api/types";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { ContextChips } from "@/components/context-chips";
 import { useContextChips } from "@/hooks/useContextChips";
 import { SortableTh } from "@/components/table/SortableTh";
@@ -78,6 +81,8 @@ export default function PipelinesPage() {
   const [pricingSchemas, setPricingSchemas] = useState<PricingSchemas | null>(
     null
   );
+  const [showSparseColumns, setShowSparseColumns] = useState(false);
+  const sparseThreshold = 85; // 85% fill-rate (backend returns 0-100, not 0-1)
 
   // Client-side filtering (competitors -> locations)
   const { filteredRows: competitorFilteredRows, allCompetitors } =
@@ -604,7 +609,7 @@ export default function PipelinesPage() {
                   onSortClick={handleSortClick}
                   className="px-4 py-2"
                 />
-                {visibleColumns.map((c) => (
+                {displayColumns.map((c) => (
                   <SortableTh
                     key={c}
                     columnId={c}
@@ -631,7 +636,7 @@ export default function PipelinesPage() {
                       <div className="h-4 w-16 animate-pulse rounded bg-muted" />
                     </td>
                     {Array.from({
-                      length: Math.min(visibleColumns.length || 6, 6),
+                      length: Math.min(displayColumns.length || 6, 6),
                     }).map((_, j) => (
                       <td key={`s-${i}-${j}`} className="px-4 py-2">
                         <div className="h-4 w-24 animate-pulse rounded bg-muted" />
@@ -645,7 +650,7 @@ export default function PipelinesPage() {
                     <tr className="border-t bg-muted/30">
                       <td
                         className="px-4 py-2"
-                        colSpan={3 + (visibleColumns.length || 0)}
+                        colSpan={3 + (displayColumns.length || 0)}
                       >
                         <button
                           type="button"
@@ -705,7 +710,7 @@ export default function PipelinesPage() {
                           <td className="px-4 py-2 whitespace-nowrap">
                             {row.dimensions_normalized || "—"}
                           </td>
-                          {visibleColumns.map((c) => (
+                          {displayColumns.map((c) => (
                             <td key={`${idx}-${c}`} className="px-4 py-2">
                               <TableCell
                                 value={row[c]}
@@ -757,7 +762,7 @@ export default function PipelinesPage() {
                     <td className="px-4 py-2 whitespace-nowrap">
                       {row.dimensions_normalized || "—"}
                     </td>
-                    {visibleColumns.map((c) => (
+                    {displayColumns.map((c) => (
                       <td key={`${idx}-${c}`} className="px-4 py-2">
                         <TableCell
                           value={row[c]}
@@ -772,7 +777,7 @@ export default function PipelinesPage() {
                 <tr>
                   <td
                     className="px-4 py-6 text-center text-muted-foreground"
-                    colSpan={3 + (visibleColumns.length || 0)}
+                    colSpan={3 + (displayColumns.length || 0)}
                   >
                     No results. Broaden filters.
                   </td>
