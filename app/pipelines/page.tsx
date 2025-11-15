@@ -108,7 +108,7 @@ export default function PipelinesPage() {
 
   // Client-side pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const rowsPerPage = 50;
+  const rowsPerPage = 25;
 
   // Group by (single level)
   const [groupBy, setGroupBy] = useState<string | null>(null);
