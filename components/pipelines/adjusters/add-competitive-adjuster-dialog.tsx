@@ -58,8 +58,7 @@ export function AddCompetitiveAdjusterDialog({
           </div>
           <div className="h-1 w-12 bg-blue-500 rounded-full mb-2"></div>
           <DialogDescription>
-            Anchor the pipeline to live competitor pricing using the fallback column chain, then
-            fine-tune the baseline with aggregation + multiplier before additional adjusters run.
+            Set your base price from competitor prices. Choose how to aggregate their prices (minimum, maximum, or average), then apply a multiplier to position yourself relative to the market.
           </DialogDescription>
         </DialogHeader>
 

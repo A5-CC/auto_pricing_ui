@@ -46,7 +46,7 @@ export function TemporalAdjusterCard({ adjuster, stepNumber, totalSteps, onRemov
         </div>
       </dl>
 
-      <div className="rounded-2xl border border-violet-100/70 bg-violet-50/60 px-3 py-2">
+      <div className="rounded-2xl border border-violet-100/70 bg-violet-50/60 px-3 py-2 -ml-2">
         <p className="text-[11px] font-semibold uppercase tracking-wide text-violet-700">
           {isWeekly ? 'Weekly cadence' : 'Monthly cadence'}
         </p>

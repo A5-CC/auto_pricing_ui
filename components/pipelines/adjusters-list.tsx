@@ -25,7 +25,7 @@ export function AdjustersList({ adjusters, actions, resultCard, onRemoveAdjuster
         <div>
           <p className="text-sm font-semibold text-foreground">Adjusters ({totalSteps})</p>
           <p className="text-xs text-muted-foreground">
-            Steps run sequentially; later cards build on the output of earlier ones.
+            Steps run sequentially; later adjusters build on the output of earlier ones.
           </p>
         </div>
         {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}

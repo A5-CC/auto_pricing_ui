@@ -24,7 +24,7 @@ export function FunctionAdjusterCard({ adjuster, stepNumber, totalSteps, onRemov
         </div>
       }
     >
-      <div className="rounded-2xl border border-amber-100/70 bg-amber-50/60 px-4 py-3">
+      <div className="rounded-2xl border border-amber-100/70 bg-amber-50/60 px-4 py-3 -ml-2">
         <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-700">Function</p>
         <code className="block font-mono text-sm text-amber-900 break-words">
           {adjuster.function_string}
@@ -34,9 +34,7 @@ export function FunctionAdjusterCard({ adjuster, stepNumber, totalSteps, onRemov
       <dl className="grid gap-3 text-sm sm:grid-cols-2">
         <div>
           <dt className="text-muted-foreground">Variable</dt>
-          <dd className="mt-1 inline-flex items-center rounded-md border border-slate-200 bg-slate-50 px-2.5 py-0.5 font-mono text-xs">
-            {adjuster.variable}
-          </dd>
+          <dd className="mt-1 font-semibold">{adjuster.variable}</dd>
         </div>
         <div>
           <dt className="text-muted-foreground">Domain</dt>
