@@ -12,7 +12,7 @@ function ApiStatusDot() {
   const [status, setStatus] = useState<"checking" | "ok" | "offline">("checking");
 
   useEffect(() => {
-    const load = async () => {
+    const checkHealth = async () => {
       try {
         const h = await getSystemHealth();
         setStatus(
@@ -22,7 +22,12 @@ function ApiStatusDot() {
         setStatus("offline");
       }
     };
-    load();
+
+    checkHealth();
+    // Poll every 30 seconds to recover from initial failures (e.g., API cold start)
+    const interval = setInterval(checkHealth, 30 * 1000);
+
+    return () => clearInterval(interval);
   }, []);
 
   const color =
