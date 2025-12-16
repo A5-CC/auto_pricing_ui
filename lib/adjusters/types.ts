@@ -57,12 +57,12 @@ export interface TemporalAdjuster {
  * Uses fallback chain strategy to maximize coverage across price columns.
  *
  * Fallback chain approach:
- *   price_columns: ["monthly_rate_web", "monthly_rate_online", "monthly_rate_standard"]
+ *   price_columns: ["monthly_rate_online", "monthly_rate_regular", "monthly_rate_instore"]
  *   For each competitor row, tries columns in order until non-null value found.
  *   This maximizes competitive landscape coverage (avoids bias from sparse columns).
  *
  * Example: Undercut minimum by 3%
- *   price_columns: ["monthly_rate_web", "monthly_rate_online", "monthly_rate_standard"]
+ *   price_columns: ["monthly_rate_online", "monthly_rate_regular"]
  *   aggregation: "min"
  *   multiplier: 0.97
  *   If min competitor price = $100 → $97 base price
@@ -72,7 +72,7 @@ export interface TemporalAdjuster {
  */
 export interface CompetitivePriceAdjuster {
   type: 'competitive'
-  price_columns: string[]       // Fallback chain (e.g., ["monthly_rate_web", "monthly_rate_online"])
+  price_columns: string[]       // Fallback chain (e.g., ["monthly_rate_online", "monthly_rate_regular"])
   aggregation: 'min' | 'max' | 'avg'
   multiplier: number
 }
@@ -101,10 +101,10 @@ export interface CalculatePriceInput {
  */
 export interface E1DataRow {
   competitor_name: string
-  // Price columns (43 total, subset shown)
-  monthly_rate_web?: number | null
-  monthly_rate_standard?: number | null
+  // Price columns (subset shown - see canonical-wide-schema.json for full list)
   monthly_rate_online?: number | null
+  monthly_rate_regular?: number | null
+  monthly_rate_instore?: number | null
   // Additional numeric variables for function adjusters
   rating?: number | null
   distance_miles?: number | null

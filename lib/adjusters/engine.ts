@@ -36,7 +36,7 @@ import { applyTemporalAdjuster } from './temporal'
  *   adjusters: [
  *     {
  *       type: 'competitive',
- *       price_columns: ['monthly_rate_web', 'monthly_rate_online'],
+ *       price_columns: ['monthly_rate_online', 'monthly_rate_regular'],
  *       aggregation: 'min',
  *       multiplier: 0.97
  *     },

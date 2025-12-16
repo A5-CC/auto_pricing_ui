@@ -19,17 +19,27 @@ import { CompetitivePriceAdjuster, E1DataRow } from './types'
 /**
  * Default price column fallback chain
  * Based on analysis of E1 unified dataset:
- *   - monthly_rate_web: 45.3% fill rate for competitors
- *   - monthly_rate_online: 50.6% fill rate
- *   - monthly_rate_standard: 44.7% fill rate
+ *   - monthly_rate_online: ~50% fill rate
+ *   - monthly_rate_regular: ~45% fill rate
+ *   - monthly_rate_instore: ~40% fill rate
  *   - Combined coverage: ~85-90% (most competitors have at least one)
+ *
+ * TECH DEBT (2025-12-16): Legacy columns (monthly_rate_web, monthly_rate_standard, web_rate)
+ * are kept for backwards compatibility with existing parquet data. The canonical schema
+ * was cleaned to consolidate duplicates, but historical data still uses old column names.
+ * These can be removed once all parquet files have been regenerated with the new schema.
+ * See: canonical-wide-schema.json v30+ for the clean schema.
  */
 export const DEFAULT_PRICE_FALLBACK_CHAIN = [
-  'monthly_rate_web',
+  // Current canonical columns
   'monthly_rate_online',
+  'monthly_rate_regular',
+  'monthly_rate_instore',
+  'monthly_rate_promo',
+  // Legacy columns (backwards compat - see TECH DEBT above)
+  'monthly_rate_web',
   'monthly_rate_standard',
   'web_rate',
-  'monthly_rate_regular',
 ]
 
 /**
@@ -91,14 +101,14 @@ function aggregatePrices(
  * @example Undercut minimum by 3%
  * const adjuster = {
  *   type: 'competitive',
- *   price_columns: ['monthly_rate_web', 'monthly_rate_online'],
+ *   price_columns: ['monthly_rate_online', 'monthly_rate_regular'],
  *   aggregation: 'min',
  *   multiplier: 0.97
  * }
  * const competitorData = [
- *   { competitor_name: 'Public Storage', monthly_rate_web: 100, ... },
- *   { competitor_name: 'U-Haul', monthly_rate_online: 95, ... },
- *   { competitor_name: 'SecureSpace', monthly_rate_web: 110, ... }
+ *   { competitor_name: 'Public Storage', monthly_rate_online: 100, ... },
+ *   { competitor_name: 'U-Haul', monthly_rate_regular: 95, ... },
+ *   { competitor_name: 'SecureSpace', monthly_rate_online: 110, ... }
  * ]
  * applyCompetitiveAdjuster(adjuster, competitorData)
  * // Extracts: [100, 95, 110]
@@ -108,7 +118,7 @@ function aggregatePrices(
  * @example Match average competitor unit price
  * const adjuster = {
  *   type: 'competitive',
- *   price_columns: ['monthly_rate_web', 'monthly_rate_standard'],
+ *   price_columns: ['monthly_rate_online', 'monthly_rate_regular'],
  *   aggregation: 'avg',
  *   multiplier: 1.0
  * }

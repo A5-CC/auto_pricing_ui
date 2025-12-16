@@ -7,7 +7,7 @@ import { DEFAULT_PRICE_FALLBACK_CHAIN } from './competitive'
 
 /**
  * Formats a column name for display
- * monthly_rate_web → Monthly Rate Web
+ * monthly_rate_online → Monthly Rate Online
  */
 export function formatColumnName(columnName: string): string {
   return columnName
