@@ -568,44 +568,6 @@ export default function PipelinesPage() {
           }
         />
 
-        {/* NEW: visible All toggles for each filter (mutually exclusive) */}
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="all-competitors"
-              checked={competitorsAll}
-              onCheckedChange={(c) => toggleCompetitorsAll(c === true)}
-            />
-            <Label htmlFor="all-competitors" className="text-sm cursor-pointer">All competitors</Label>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="all-locations"
-              checked={locationsAll}
-              onCheckedChange={(c) => toggleLocationsAll(c === true)}
-            />
-            <Label htmlFor="all-locations" className="text-sm cursor-pointer">All locations</Label>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="all-dimensions"
-              checked={dimensionsAll}
-              onCheckedChange={(c) => toggleDimensionsAll(c === true)}
-            />
-            <Label htmlFor="all-dimensions" className="text-sm cursor-pointer">All dimensions</Label>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="all-unit-categories"
-              checked={unitCategoriesAll}
-              onCheckedChange={(c) => toggleUnitCategoriesAll(c === true)}
-            />
-            <Label htmlFor="all-unit-categories" className="text-sm cursor-pointer">All unit categories</Label>
-          </div>
-        </div>
 
         {/* Warning if no price data available (only after data loads) */}
         {!loading && !canAddAdjusters && (
