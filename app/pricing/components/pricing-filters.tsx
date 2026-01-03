@@ -50,16 +50,8 @@ export function PricingFilters({
   setSelectedUnitCategories,
   allUnitCategories,
 }: PricingFiltersProps) {
-  const normalizeSelection = (
-    values: string[],
-    setValues: (v: string[]) => void
-  ) => {
-    if (values.includes("All")) {
-      setValues(["All"])
-    } else {
-      setValues(values)
-    }
-  }
+
+
 
   return (
     <>
@@ -72,7 +64,7 @@ export function PricingFilters({
             selected={selectedCompetitors}
             all={allCompetitors}
             onClear={() => setSelectedCompetitors([])}
-            onChange={(v) => normalizeSelection(v, setSelectedCompetitors)}
+            onChange={setSelectedCompetitors}
             placeholder="Select competitors"
             searchPlaceholder="Search competitors..."
           />
@@ -82,7 +74,7 @@ export function PricingFilters({
             selected={selectedLocations}
             all={allLocations}
             onClear={() => setSelectedLocations([])}
-            onChange={(v) => normalizeSelection(v, setSelectedLocations)}
+            onChange={setSelectedCompetitors}
             placeholder="Select locations"
             searchPlaceholder="Search locations..."
           />
@@ -92,7 +84,7 @@ export function PricingFilters({
             selected={selectedDimensions}
             all={allDimensions}
             onClear={() => setSelectedDimensions([])}
-            onChange={(v) => normalizeSelection(v, setSelectedDimensions)}
+            onChange={setSelectedCompetitors}
             placeholder="Select dimensions"
             searchPlaceholder="Search dimensions..."
           />
@@ -102,7 +94,7 @@ export function PricingFilters({
             selected={selectedUnitCategories}
             all={allUnitCategories}
             onClear={() => setSelectedUnitCategories([])}
-            onChange={(v) => normalizeSelection(v, setSelectedUnitCategories)}
+            onChange={setSelectedCompetitors}
             placeholder="Select unit categories"
             searchPlaceholder="Search categories..."
           />
@@ -132,7 +124,8 @@ function FilterBlock({
   placeholder,
   searchPlaceholder,
 }: FilterBlockProps) {
-  const options = selected.includes("All") ? ["All"] : ["All", ...all]
+  const options = all
+
 
   return (
     <div className="min-w-0">
