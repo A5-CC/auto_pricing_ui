@@ -1,7 +1,9 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
-import { toast } from "sonner";
+// import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import {useCallback, useEffect, useMemo, useState } from "react";
+
+// import { toast } from "sonner";
 import {
   getE1Snapshots,
   getE1Competitors,
@@ -15,7 +17,7 @@ import type {
   E1DataResponse,
   ColumnStatistics,
   PricingSchemas,
-  PipelineFilters,
+  // PipelineFilters,
   Pipeline,
 } from "@/lib/api/types";
 // import { Button } from "@/components/ui/button";
@@ -25,7 +27,7 @@ import type {
 // import { Label } from "@/components/ui/label";
 import { ContextChips } from "@/components/context-chips";
 import { useContextChips } from "@/hooks/useContextChips";
-import { SortableTh } from "@/components/table/SortableTh";
+// import { SortableTh } from "@/components/table/SortableTh";
 import { useSortableRows } from "@/hooks/useSortableRows";
 import { useCompetitorFilter } from "@/hooks/useCompetitorFilter";
 import { useLocationFilter } from "@/hooks/useLocationFilter";
