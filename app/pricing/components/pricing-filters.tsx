@@ -61,20 +61,12 @@ export function PricingFilters({
     }
   }
 
-  const buildOptions = (all: string[], selected: string[]) => {
-    if (selected.includes("All")) {
-      return ["All"]
-    }
-    return ["All", ...all]
-  }
-
   return (
     <>
       <SectionLabel text="Filters" />
       <section className="rounded-lg border bg-background/50 p-3">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
 
-          {/* Competitors */}
           <FilterBlock
             label="Competitors"
             selected={selectedCompetitors}
@@ -85,7 +77,6 @@ export function PricingFilters({
             searchPlaceholder="Search competitors..."
           />
 
-          {/* Locations */}
           <FilterBlock
             label="ModLocation"
             selected={selectedLocations}
@@ -96,7 +87,6 @@ export function PricingFilters({
             searchPlaceholder="Search locations..."
           />
 
-          {/* Dimensions */}
           <FilterBlock
             label="Dimensions"
             selected={selectedDimensions}
@@ -107,7 +97,6 @@ export function PricingFilters({
             searchPlaceholder="Search dimensions..."
           />
 
-          {/* Unit Categories */}
           <FilterBlock
             label="Unit Category"
             selected={selectedUnitCategories}
