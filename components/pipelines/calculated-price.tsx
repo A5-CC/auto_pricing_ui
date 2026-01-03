@@ -76,12 +76,12 @@ export function CalculatedPrice({
     return combinations.map(combo => {
       let result: PriceResult | null = null
       try {
+        // ✅ Pass only the valid properties
         result = calculatePrice({
           competitorData,
           clientUnit: { available_units: clientAvailableUnits },
           adjusters,
           currentDate,
-          context: combo
         })
       } catch (error) {
         console.error('[CalculatedPrice] Error calculating price:', error)
@@ -162,29 +162,4 @@ export function CalculatedPrice({
                 <div className={cn('text-right text-xs text-muted-foreground space-y-1', isInline && 'text-left xl:text-right')}>
                   <div className="font-medium text-foreground">{dateDisplay}</div>
                   <div>{adjusters.length} adjuster{adjusters.length !== 1 ? 's' : ''} applied</div>
-                  <div>{competitorData.length} competitor unit{competitorData.length !== 1 ? 's' : ''}</div>
-                </div>
-              </div>
-
-              {warnings.length > 0 && (
-                <div className="flex items-start gap-2.5 p-3 rounded-lg bg-muted/30 border-l-2 border-amber-500/30">
-                  <AlertTriangle className="h-4 w-4 text-amber-600/70 mt-0.5 flex-shrink-0" />
-                  <div className="flex-1">
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      {warnings[0]}
-                    </p>
-                    {warnings.length > 1 && (
-                      <p className="text-xs text-muted-foreground/70 mt-1">
-                        +{warnings.length - 1} more warning{warnings.length - 1 > 1 ? 's' : ''}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          </Card>
-        )
-      })}
-    </div>
-  )
-}
+                  <div>{competitorData.length} compe
