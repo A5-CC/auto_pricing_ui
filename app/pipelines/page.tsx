@@ -425,39 +425,6 @@ export default function PipelinesPage() {
     setSelectedUnitCategories(vals);
   };
 
-  // Toggle handlers for "All" checkboxes — selecting All clears the explicit selection list.
-  const toggleCompetitorsAll = (enable?: boolean) => {
-    setCompetitorsAll((prev) => {
-      const next = typeof enable === "boolean" ? enable : !prev;
-      if (next) setSelectedCompetitors([]); // clear explicit values
-      return next;
-    });
-  };
-
-  const toggleLocationsAll = (enable?: boolean) => {
-    setLocationsAll((prev) => {
-      const next = typeof enable === "boolean" ? enable : !prev;
-      if (next) setSelectedLocations([]);
-      return next;
-    });
-  };
-
-  const toggleDimensionsAll = (enable?: boolean) => {
-    setDimensionsAll((prev) => {
-      const next = typeof enable === "boolean" ? enable : !prev;
-      if (next) setSelectedDimensions([]);
-      return next;
-    });
-  };
-
-  const toggleUnitCategoriesAll = (enable?: boolean) => {
-    setUnitCategoriesAll((prev) => {
-      const next = typeof enable === "boolean" ? enable : !prev;
-      if (next) setSelectedUnitCategories([]);
-      return next;
-    });
-  };
-
   // ---- Build filters + available values object for CalculatedPrice ----
 
   const calcFilters = useMemo<CalcFiltersShape>(() => {
