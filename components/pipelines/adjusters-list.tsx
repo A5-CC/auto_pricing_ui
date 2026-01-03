@@ -1,3 +1,4 @@
+import React from 'react'
 import type { ReactNode } from 'react'
 import type { Adjuster } from '@/lib/adjusters'
 import { cn } from '@/lib/utils'
@@ -83,9 +84,12 @@ export function AdjustersList({
             )
           })}
           {resultCard &&
-            // resultCard can now be an array of cards (for multiple combinations)
             (Array.isArray(resultCard) ? (
-              resultCard.map((card, i) => <li key={`result-${i}`}>{card}</li>)
+              resultCard.map((card, i) => (
+                <li key={`result-${i}`} className="h-full">
+                  {card}
+                </li>
+              ))
             ) : (
               <li
                 className={cn(

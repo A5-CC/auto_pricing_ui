@@ -1,3 +1,4 @@
+import React from 'react'
 import { useMemo } from 'react'
 import { calculatePrice } from '@/lib/adjusters'
 import type { Adjuster } from '@/lib/adjusters'
@@ -6,8 +7,8 @@ import { Card } from '@/components/ui/card'
 import { AlertCircle, AlertTriangle, Calculator } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-// Filter value type
-export type FilterValue = string | number | boolean
+// Concrete filter value types — expand if you need Date or objects
+type FilterValue = string | number | boolean
 
 // Cartesian product utility
 function cartesianProduct<T>(arrays: T[][]): T[][] {
@@ -18,15 +19,15 @@ function cartesianProduct<T>(arrays: T[][]): T[][] {
 }
 
 // Filter selection type
-export type FilterSelection<T = FilterValue> =
+type FilterSelection<T = FilterValue> =
   | { mode: 'all' }
   | { mode: 'subset'; values: T[] }
 
-// Type for calculatePrice result
-export interface PriceResult {
+// Minimal expected structure for price results returned by calculatePrice
+type PriceResult = {
   price: number
   warnings?: string[]
-}
+} | null
 
 interface CalculatedPriceProps {
   competitorData: E1DataRow[]
@@ -34,8 +35,8 @@ interface CalculatedPriceProps {
   adjusters: Adjuster[]
   currentDate: Date
   variant?: 'panel' | 'inline'
-  filters?: Record<string, FilterSelection<FilterValue>>
-  availableFilterValues?: Record<string, FilterValue[]> // for 'all' expansion
+  filters?: Record<string, FilterSelection>
+  availableFilterValues?: Record<string, FilterValue[]> // used when mode === 'all'
   maxCombinations?: number
 }
 
@@ -54,18 +55,15 @@ export function CalculatedPrice({
   const results = useMemo(() => {
     if (!adjusters || adjusters.length === 0) return []
 
-    // Build arrays for cartesian product
-    const arrays: FilterValue[][] = Object.entries(filters).map(
-      ([key, filter]) =>
-        filter.mode === 'all'
-          ? availableFilterValues[key] ?? []
-          : filter.values
+    // Build arrays of values for each filter (typed)
+    const arrays: FilterValue[][] = Object.entries(filters).map(([key, filter]) =>
+      filter.mode === 'all' ? availableFilterValues[key] ?? [] : filter.values
     )
 
-    // Generate combinations
-    const combinations = cartesianProduct(arrays)
+    // Cartesian product
+    const combinations = cartesianProduct<FilterValue>(arrays)
 
-    // Cap to maxCombinations
+    // Cap to avoid UI explosion
     if (combinations.length > maxCombinations) {
       console.warn(
         `[CalculatedPrice] Too many combinations (${combinations.length}), trimming to ${maxCombinations}`
@@ -73,25 +71,33 @@ export function CalculatedPrice({
       combinations.length = maxCombinations
     }
 
+    // For each combination: call calculatePrice with the expected input (do not pass unknown props)
     return combinations.map(combo => {
-      let result: PriceResult | null = null
+      let result: PriceResult = null
       try {
-        // ✅ Pass only the valid properties
         result = calculatePrice({
           competitorData,
           clientUnit: { available_units: clientAvailableUnits },
           adjusters,
-          currentDate,
-        })
+          currentDate
+        }) as PriceResult
       } catch (error) {
         console.error('[CalculatedPrice] Error calculating price:', error)
         result = null
       }
-
       return { combo, result }
     })
-  }, [competitorData, clientAvailableUnits, adjusters, currentDate, filters, availableFilterValues, maxCombinations])
+  }, [
+    competitorData,
+    clientAvailableUnits,
+    adjusters,
+    currentDate,
+    filters,
+    availableFilterValues,
+    maxCombinations
+  ])
 
+  // No adjusters
   if (!adjusters || adjusters.length === 0) {
     return (
       <Card className={cn('p-6 bg-muted/30', isInline && 'h-full rounded-2xl border-dashed border-muted/40 bg-muted/10')}>
@@ -106,6 +112,7 @@ export function CalculatedPrice({
     )
   }
 
+  // All calculations failed
   if (results.length === 0 || results.every(r => r.result?.price == null)) {
     return (
       <Card className={cn('p-6 bg-destructive/10 border-destructive/20', isInline && 'h-full rounded-2xl')}>
@@ -155,11 +162,37 @@ export function CalculatedPrice({
                       {label || 'Calculated Price'}
                     </div>
                     <div className={cn('text-3xl font-bold text-primary', isInline && 'text-4xl')}>
-                      ${calculatedPrice?.toFixed(2) ?? '--'}
+                      {calculatedPrice !== null ? `$${calculatedPrice.toFixed(2)}` : '--'}
                     </div>
                   </div>
                 </div>
+
                 <div className={cn('text-right text-xs text-muted-foreground space-y-1', isInline && 'text-left xl:text-right')}>
                   <div className="font-medium text-foreground">{dateDisplay}</div>
                   <div>{adjusters.length} adjuster{adjusters.length !== 1 ? 's' : ''} applied</div>
-                  <div>{competitorData.length} compe
+                  <div>{competitorData.length} competitor unit{competitorData.length !== 1 ? 's' : ''}</div>
+                </div>
+              </div>
+
+              {warnings.length > 0 && (
+                <div className="flex items-start gap-2.5 p-3 rounded-lg bg-muted/30 border-l-2 border-amber-500/30">
+                  <AlertTriangle className="h-4 w-4 text-amber-600/70 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                      {warnings[0]}
+                    </p>
+                    {warnings.length > 1 && (
+                      <p className="text-xs text-muted-foreground/70 mt-1">
+                        +{warnings.length - 1} more warning{warnings.length - 1 > 1 ? 's' : ''}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </Card>
+        )
+      })}
+    </div>
+  )
+}
