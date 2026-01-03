@@ -61,7 +61,7 @@ export default function PipelinesPage() {
   const functionDialog = useAdjusterDialog();
   const temporalDialog = useAdjusterDialog();
 
-  // Client-side competitor multi-select
+  // Client-side competitor multi-select (values)
   const [selectedCompetitors, setSelectedCompetitors] = useState<string[]>([]);
   // Client-side location multi-select
   const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
@@ -71,6 +71,12 @@ export default function PipelinesPage() {
   const [selectedUnitCategories, setSelectedUnitCategories] = useState<
     string[]
   >([]);
+
+  // NEW: explicit "All" flags for each filter (mutually-exclusive with selecting specific values)
+  const [competitorsAll, setCompetitorsAll] = useState<boolean>(false);
+  const [locationsAll, setLocationsAll] = useState<boolean>(false);
+  const [dimensionsAll, setDimensionsAll] = useState<boolean>(false);
+  const [unitCategoriesAll, setUnitCategoriesAll] = useState<boolean>(false);
 
   const [dataResponse, setDataResponse] = useState<E1DataResponse | null>(null);
   const [clientDataResponse, setClientDataResponse] = useState<E1DataResponse | null>(null);
@@ -377,6 +383,91 @@ export default function PipelinesPage() {
     sortDir,
   ]);
 
+  // ---- Wrappers that enforce mutual exclusion between "All" flags and explicit selections ----
+
+  const handleSetSelectedCompetitors = (vals: string[]) => {
+    // If the user selects explicit values, automatically clear the "All" flag
+    if (vals.length > 0 && competitorsAll) {
+      setCompetitorsAll(false);
+    }
+    setSelectedCompetitors(vals);
+  };
+
+  const handleSetSelectedLocations = (vals: string[]) => {
+    if (vals.length > 0 && locationsAll) {
+      setLocationsAll(false);
+    }
+    setSelectedLocations(vals);
+  };
+
+  const handleSetSelectedDimensions = (vals: string[]) => {
+    if (vals.length > 0 && dimensionsAll) {
+      setDimensionsAll(false);
+    }
+    setSelectedDimensions(vals);
+  };
+
+  const handleSetSelectedUnitCategories = (vals: string[]) => {
+    if (vals.length > 0 && unitCategoriesAll) {
+      setUnitCategoriesAll(false);
+    }
+    setSelectedUnitCategories(vals);
+  };
+
+  // Toggle handlers for "All" checkboxes — selecting All clears the explicit selection list.
+  const toggleCompetitorsAll = (enable?: boolean) => {
+    setCompetitorsAll((prev) => {
+      const next = typeof enable === "boolean" ? enable : !prev;
+      if (next) setSelectedCompetitors([]); // clear explicit values
+      return next;
+    });
+  };
+
+  const toggleLocationsAll = (enable?: boolean) => {
+    setLocationsAll((prev) => {
+      const next = typeof enable === "boolean" ? enable : !prev;
+      if (next) setSelectedLocations([]);
+      return next;
+    });
+  };
+
+  const toggleDimensionsAll = (enable?: boolean) => {
+    setDimensionsAll((prev) => {
+      const next = typeof enable === "boolean" ? enable : !prev;
+      if (next) setSelectedDimensions([]);
+      return next;
+    });
+  };
+
+  const toggleUnitCategoriesAll = (enable?: boolean) => {
+    setUnitCategoriesAll((prev) => {
+      const next = typeof enable === "boolean" ? enable : !prev;
+      if (next) setSelectedUnitCategories([]);
+      return next;
+    });
+  };
+
+  // ---- Build filters + available values object for CalculatedPrice ----
+  // CalculatedPrice expects a mapping of filterKey -> { mode: 'all' } | { mode: 'subset', values: [...] }
+  const calcFilters = useMemo(() => {
+    return {
+      competitors: competitorsAll ? { mode: "all" } : { mode: "subset", values: selectedCompetitors },
+      locations: locationsAll ? { mode: "all" } : { mode: "subset", values: selectedLocations },
+      dimensions: dimensionsAll ? { mode: "all" } : { mode: "subset", values: selectedDimensions },
+      unit_categories: unitCategoriesAll ? { mode: "all" } : { mode: "subset", values: selectedUnitCategories },
+    } as const;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [competitorsAll, locationsAll, dimensionsAll, unitCategoriesAll, selectedCompetitors, selectedLocations, selectedDimensions, selectedUnitCategories]);
+
+  const availableFilterValues = useMemo(() => {
+    return {
+      competitors: allCompetitors ?? [],
+      locations: allLocations ?? [],
+      dimensions: allDimensions ?? [],
+      unit_categories: allUnitCategories ?? [],
+    };
+  }, [allCompetitors, allLocations, allDimensions, allUnitCategories]);
+
   return (
     <main className="mx-auto max-w-7xl p-6 space-y-5">
       <ContextChips
@@ -432,17 +523,18 @@ export default function PipelinesPage() {
       />
 
       <PricingFilters
+        // NOTE: we pass *wrapped* setters so selecting explicit values clears the "All" flag
         selectedCompetitors={selectedCompetitors}
-        setSelectedCompetitors={setSelectedCompetitors}
+        setSelectedCompetitors={handleSetSelectedCompetitors}
         allCompetitors={allCompetitors}
         selectedLocations={selectedLocations}
-        setSelectedLocations={setSelectedLocations}
+        setSelectedLocations={handleSetSelectedLocations}
         allLocations={allLocations}
         selectedDimensions={selectedDimensions}
-        setSelectedDimensions={setSelectedDimensions}
+        setSelectedDimensions={handleSetSelectedDimensions}
         allDimensions={allDimensions}
         selectedUnitCategories={selectedUnitCategories}
-        setSelectedUnitCategories={setSelectedUnitCategories}
+        setSelectedUnitCategories={handleSetSelectedUnitCategories}
         allUnitCategories={allUnitCategories}
       />
 
@@ -456,6 +548,45 @@ export default function PipelinesPage() {
             </div>
           }
         />
+
+        {/* NEW: visible All toggles for each filter (mutually exclusive) */}
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="all-competitors"
+              checked={competitorsAll}
+              onCheckedChange={(c) => toggleCompetitorsAll(c === true)}
+            />
+            <Label htmlFor="all-competitors" className="text-sm cursor-pointer">All competitors</Label>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="all-locations"
+              checked={locationsAll}
+              onCheckedChange={(c) => toggleLocationsAll(c === true)}
+            />
+            <Label htmlFor="all-locations" className="text-sm cursor-pointer">All locations</Label>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="all-dimensions"
+              checked={dimensionsAll}
+              onCheckedChange={(c) => toggleDimensionsAll(c === true)}
+            />
+            <Label htmlFor="all-dimensions" className="text-sm cursor-pointer">All dimensions</Label>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="all-unit-categories"
+              checked={unitCategoriesAll}
+              onCheckedChange={(c) => toggleUnitCategoriesAll(c === true)}
+            />
+            <Label htmlFor="all-unit-categories" className="text-sm cursor-pointer">All unit categories</Label>
+          </div>
+        </div>
 
         {/* Warning if no price data available (only after data loads) */}
         {!loading && !canAddAdjusters && (
@@ -538,6 +669,11 @@ export default function PipelinesPage() {
               clientAvailableUnits={clientDataResponse?.data.length || 0}
               adjusters={localAdjusters}
               currentDate={currentDate}
+              // NEW: pass filter instructions so CalculatedPrice can expand combos
+              filters={calcFilters as any}
+              availableFilterValues={availableFilterValues as any}
+              // optionally adjust max results
+              maxCombinations={50}
             />
           }
         />
