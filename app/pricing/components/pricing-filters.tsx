@@ -170,6 +170,18 @@ function FilterBlock({
   const effectiveValues = allFlag ? [] : selected
   const effectiveOnChange = allFlag ? () => {} : onChange
 
+  // inside FilterBlock
+  const handleAllClick = () => {
+    if (!allFlag) {
+      // Toggle ON: select all real options
+      onChange(all ?? []);
+    } else {
+      // Toggle OFF: clear selection
+      onChange([]);
+    }
+    onToggleAll?.(!allFlag); // keep the external flag in sync
+  };
+
   return (
     <div className="min-w-0">
       <div className="mb-1 flex items-center justify-between gap-2">
@@ -192,7 +204,7 @@ function FilterBlock({
           <button
             type="button"
             aria-pressed={allFlag}
-            onClick={() => onToggleAll?.(!allFlag)}
+            onClick={handleAllClick}
             className={`inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-semibold ${allFlag ? 'bg-primary/10 text-primary' : 'bg-muted/10 text-muted-foreground'}`}
             title={allFlag ? `Showing all ${label}` : `Select specific ${label}`}
           >
