@@ -6,10 +6,10 @@ import { Card } from '@/components/ui/card'
 import { AlertCircle, AlertTriangle, Calculator } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-// Pick a concrete FilterValue type — change if your app uses other shapes
+// Filter value type
 export type FilterValue = string | number | boolean
 
-// Cartesian product utility (typed)
+// Cartesian product utility
 function cartesianProduct<T>(arrays: T[][]): T[][] {
   return arrays.reduce<T[][]>(
     (acc, curr) => acc.flatMap(a => curr.map(b => [...a, b])),
@@ -17,10 +17,16 @@ function cartesianProduct<T>(arrays: T[][]): T[][] {
   )
 }
 
-// Filter selection type (explicit)
+// Filter selection type
 export type FilterSelection<T = FilterValue> =
   | { mode: 'all' }
   | { mode: 'subset'; values: T[] }
+
+// Type for calculatePrice result
+export interface PriceResult {
+  price: number
+  warnings?: string[]
+}
 
 interface CalculatedPriceProps {
   competitorData: E1DataRow[]
@@ -28,7 +34,6 @@ interface CalculatedPriceProps {
   adjusters: Adjuster[]
   currentDate: Date
   variant?: 'panel' | 'inline'
-  // typed: availableFilterValues must be an array of FilterValue (no any)
   filters?: Record<string, FilterSelection<FilterValue>>
   availableFilterValues?: Record<string, FilterValue[]> // for 'all' expansion
   maxCombinations?: number
@@ -46,46 +51,45 @@ export function CalculatedPrice({
 }: CalculatedPriceProps) {
   const isInline = variant === 'inline'
 
-  const typedEntries = Object.entries(filters) as [string, FilterSelection<FilterValue>][]
-
   const results = useMemo(() => {
     if (!adjusters || adjusters.length === 0) return []
 
-    // Build arrays for cartesian product, strongly typed
-    const arrays: FilterValue[][] = typedEntries.map(([key, filter]) =>
-      filter.mode === 'all'
-        ? availableFilterValues[key] ?? []
-        : filter.values
+    // Build arrays for cartesian product
+    const arrays: FilterValue[][] = Object.entries(filters).map(
+      ([key, filter]) =>
+        filter.mode === 'all'
+          ? availableFilterValues[key] ?? []
+          : filter.values
     )
 
     // Generate combinations
-    const combinations = cartesianProduct<FilterValue>(arrays)
+    const combinations = cartesianProduct(arrays)
 
-    // Cap to maxCombinations to avoid huge UI
+    // Cap to maxCombinations
     if (combinations.length > maxCombinations) {
-      console.warn(`[CalculatedPrice] Too many combinations (${combinations.length}), trimming to ${maxCombinations}`)
+      console.warn(
+        `[CalculatedPrice] Too many combinations (${combinations.length}), trimming to ${maxCombinations}`
+      )
       combinations.length = maxCombinations
     }
 
     return combinations.map(combo => {
+      let result: PriceResult | null = null
       try {
-        return {
-          combo,
-          result: calculatePrice({
-            competitorData,
-            clientUnit: { available_units: clientAvailableUnits },
-            adjusters,
-            currentDate,
-            // optional context you can inspect in calculatePrice if supported
-            context: combo
-          }),
-        }
+        result = calculatePrice({
+          competitorData,
+          clientUnit: { available_units: clientAvailableUnits },
+          adjusters,
+          currentDate,
+          context: combo
+        })
       } catch (error) {
         console.error('[CalculatedPrice] Error calculating price:', error)
-        return { combo, result: null as any } // calculatePrice likely returns a typed result; keep null fallback
+        result = null
       }
+
+      return { combo, result }
     })
-  // include typedEntries (stringifies stable) in deps via filters, availableFilterValues, not the parsed typedEntries variable
   }, [competitorData, clientAvailableUnits, adjusters, currentDate, filters, availableFilterValues, maxCombinations])
 
   if (!adjusters || adjusters.length === 0) {
