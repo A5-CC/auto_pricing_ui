@@ -6,7 +6,7 @@ import {
   getE1Snapshots,
   getE1Competitors,
   getE1Client,
-  exportE1CompetitorsCSV,
+  // exportE1CompetitorsCSV,
   getE1CompetitorsStatistics,
 } from "@/lib/api/client/pipelines";
 import { getPricingSchemas } from "@/lib/api/client/pricing";
@@ -18,11 +18,11 @@ import type {
   PipelineFilters,
   Pipeline,
 } from "@/lib/api/types";
-import { Button } from "@/components/ui/button";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
+// import { Button } from "@/components/ui/button";
+// import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+// import { Badge } from "@/components/ui/badge";
+// import { Checkbox } from "@/components/ui/checkbox";
+// import { Label } from "@/components/ui/label";
 import { ContextChips } from "@/components/context-chips";
 import { useContextChips } from "@/hooks/useContextChips";
 import { SortableTh } from "@/components/table/SortableTh";
@@ -31,24 +31,24 @@ import { useCompetitorFilter } from "@/hooks/useCompetitorFilter";
 import { useLocationFilter } from "@/hooks/useLocationFilter";
 import { useDimensionsFilter } from "@/hooks/useDimensionsFilter";
 import { useUnitCategoryFilter } from "@/hooks/useUnitCategoryFilter";
-import GroupByControl from "@/components/pricing/group-by-control";
-import { SectionLabel } from "@/components/ui/section-label";
-import { getCompetitorColor } from "@/lib/pricing/formatters";
-import { getColumnLabel } from "@/lib/pricing/column-labels";
-import { TableCell } from "@/components/pricing/table-cell";
-import { PricingOverview } from "../pricing/components/pricing-overview";
+// import GroupByControl from "@/components/pricing/group-by-control";
+// import { SectionLabel } from "@/components/ui/section-label";
+// import { getCompetitorColor } from "@/lib/pricing/formatters";
+// import { getColumnLabel } from "@/lib/pricing/column-labels";
+// import { TableCell } from "@/components/pricing/table-cell";
+// import { PricingOverview } from "../pricing/components/pricing-overview";
 import { PricingFilters } from "../pricing/components/pricing-filters";
-import { PipelineSelector } from "@/components/pipelines/pipeline-selector";
+// import { PipelineSelector } from "@/components/pipelines/pipeline-selector";
 import { AdjustersList } from "@/components/pipelines/adjusters-list";
 import { CalculatedPrice } from "@/components/pipelines/calculated-price";
-import { AddCompetitiveAdjusterDialog } from "@/components/pipelines/adjusters/add-competitive-adjuster-dialog";
-import { AddFunctionAdjusterDialog } from "@/components/pipelines/adjusters/add-function-adjuster-dialog";
-import { AddTemporalAdjusterDialog } from "@/components/pipelines/adjusters/add-temporal-adjuster-dialog";
+// import { AddCompetitiveAdjusterDialog } from "@/components/pipelines/adjusters/add-competitive-adjuster-dialog";
+// import { AddFunctionAdjusterDialog } from "@/components/pipelines/adjusters/add-function-adjuster-dialog";
+// import { AddTemporalAdjusterDialog } from "@/components/pipelines/adjusters/add-temporal-adjuster-dialog";
 import { useAdjusterDialog } from "@/components/pipelines/adjusters/use-adjuster-dialog";
-import { PriceDataWarning } from "@/components/pipelines/price-data-warning";
+// import { PriceDataWarning } from "@/components/pipelines/price-data-warning";
 import type { Adjuster } from "@/lib/adjusters";
 import { hasValidCompetitorPrices, getPriceDiagnostics } from "@/lib/adjusters";
-import { TrendingDown, Calculator, Clock, Plus } from "lucide-react";
+// import { TrendingDown, Calculator, Clock, Plus } from "lucide-react";
 
 export default function PipelinesPage() {
   const [snapshots, setSnapshots] = useState<E1Snapshot[]>([]);
