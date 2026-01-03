@@ -28,10 +28,12 @@ interface PricingFiltersProps {
 }
 
 /**
- * Pricing filters with built-in "All" selection logic:
- * - "All" is mutually exclusive
- * - Selecting any other value removes "All"
- * - When "All" is selected, other values are hidden
+ * Pricing filters
+ *
+ * Behavior:
+ * - Empty selection [] means "no filtering" (include all)
+ * - No special "All" option
+ * - UI stays dumb; logic lives in parent + hooks
  */
 export function PricingFilters({
   selectedCompetitors,
@@ -50,9 +52,6 @@ export function PricingFilters({
   setSelectedUnitCategories,
   allUnitCategories,
 }: PricingFiltersProps) {
-
-
-
   return (
     <>
       <SectionLabel text="Filters" />
@@ -62,7 +61,7 @@ export function PricingFilters({
           <FilterBlock
             label="Competitors"
             selected={selectedCompetitors}
-            all={allCompetitors}
+            options={allCompetitors}
             onClear={() => setSelectedCompetitors([])}
             onChange={setSelectedCompetitors}
             placeholder="Select competitors"
@@ -72,9 +71,9 @@ export function PricingFilters({
           <FilterBlock
             label="ModLocation"
             selected={selectedLocations}
-            all={allLocations}
+            options={allLocations}
             onClear={() => setSelectedLocations([])}
-            onChange={setSelectedCompetitors}
+            onChange={setSelectedLocations}
             placeholder="Select locations"
             searchPlaceholder="Search locations..."
           />
@@ -82,9 +81,9 @@ export function PricingFilters({
           <FilterBlock
             label="Dimensions"
             selected={selectedDimensions}
-            all={allDimensions}
+            options={allDimensions}
             onClear={() => setSelectedDimensions([])}
-            onChange={setSelectedCompetitors}
+            onChange={setSelectedDimensions}
             placeholder="Select dimensions"
             searchPlaceholder="Search dimensions..."
           />
@@ -92,9 +91,9 @@ export function PricingFilters({
           <FilterBlock
             label="Unit Category"
             selected={selectedUnitCategories}
-            all={allUnitCategories}
+            options={allUnitCategories}
             onClear={() => setSelectedUnitCategories([])}
-            onChange={setSelectedCompetitors}
+            onChange={setSelectedUnitCategories}
             placeholder="Select unit categories"
             searchPlaceholder="Search categories..."
           />
@@ -108,7 +107,7 @@ export function PricingFilters({
 interface FilterBlockProps {
   label: string
   selected: string[]
-  all: string[]
+  options: string[]
   onClear: () => void
   onChange: (values: string[]) => void
   placeholder: string
@@ -118,15 +117,12 @@ interface FilterBlockProps {
 function FilterBlock({
   label,
   selected,
-  all,
+  options,
   onClear,
   onChange,
   placeholder,
   searchPlaceholder,
 }: FilterBlockProps) {
-  const options = all
-
-
   return (
     <div className="min-w-0">
       <div className="mb-1 flex items-center justify-between">
@@ -143,13 +139,19 @@ function FilterBlock({
         </Button>
       </div>
 
-      <MultiSelect values={selected} onValuesChange={onChange}>
+      <MultiSelect
+        values={selected}
+        onValuesChange={onChange}
+      >
         <MultiSelectTrigger className="w-full justify-between data-[placeholder]:text-foreground/70">
           <MultiSelectValue placeholder={placeholder} />
         </MultiSelectTrigger>
 
         <MultiSelectContent
-          search={{ placeholder: searchPlaceholder, emptyMessage: "No results" }}
+          search={{
+            placeholder: searchPlaceholder,
+            emptyMessage: "No results",
+          }}
         >
           <MultiSelectGroup>
             {options.map((value) => (

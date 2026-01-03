@@ -342,7 +342,7 @@ export default function PricingPage() {
                 />
                 <SortableTh
                   columnId="modstorage_location"
-                  label="ModLocation"
+                  label="modLocation"
                   sortBy={sortBy}
                   sortDir={sortDir}
                   onSortClick={handleSortClick}
