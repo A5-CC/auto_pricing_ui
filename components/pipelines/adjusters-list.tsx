@@ -8,11 +8,16 @@ import { TemporalAdjusterCard } from './adjusters/temporal-adjuster-card'
 interface AdjustersListProps {
   adjusters: Adjuster[]
   actions?: ReactNode
-  resultCard?: ReactNode
+  resultCard?: ReactNode | ReactNode[]
   onRemoveAdjuster?: (index: number) => void
 }
 
-export function AdjustersList({ adjusters, actions, resultCard, onRemoveAdjuster }: AdjustersListProps) {
+export function AdjustersList({
+  adjusters,
+  actions,
+  resultCard,
+  onRemoveAdjuster,
+}: AdjustersListProps) {
   const list = adjusters ?? []
   const totalSteps = list.length
   const desktopColumns = 3
@@ -77,16 +82,20 @@ export function AdjustersList({ adjusters, actions, resultCard, onRemoveAdjuster
               </li>
             )
           })}
-          {resultCard && (
-            <li
-              className={cn(
-                'h-full sm:col-span-2',
-                spacesLeft === 3 ? 'xl:col-span-3' : spacesLeft === 2 ? 'xl:col-span-2' : 'xl:col-span-1'
-              )}
-            >
-              {resultCard}
-            </li>
-          )}
+          {resultCard &&
+            // resultCard can now be an array of cards (for multiple combinations)
+            (Array.isArray(resultCard) ? (
+              resultCard.map((card, i) => <li key={`result-${i}`}>{card}</li>)
+            ) : (
+              <li
+                className={cn(
+                  'h-full sm:col-span-2',
+                  spacesLeft === 3 ? 'xl:col-span-3' : spacesLeft === 2 ? 'xl:col-span-2' : 'xl:col-span-1'
+                )}
+              >
+                {resultCard}
+              </li>
+            ))}
         </ol>
       )}
     </div>
