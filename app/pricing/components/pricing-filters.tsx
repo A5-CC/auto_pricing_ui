@@ -168,7 +168,7 @@ function FilterBlock({
 }: FilterBlockProps) {
   // If All is active, we show no selected values in the multiselect and prevent changes
   const effectiveValues = allFlag ? [] : selected
-  const effectiveOnChange = allFlag ? (_: string[]) => {} : onChange
+  const effectiveOnChange = allFlag ? () => {} : onChange
 
   return (
     <div className="min-w-0">
