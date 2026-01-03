@@ -24,10 +24,6 @@ interface PricingFiltersProps {
   allUnitCategories: string[]
 }
 
-/**
- * Client-side filter controls for pricing data
- * Multi-select dropdowns for competitors, locations, dimensions, and unit categories
- */
 export function PricingFilters({
   selectedCompetitors,
   setSelectedCompetitors,
@@ -42,12 +38,32 @@ export function PricingFilters({
   setSelectedUnitCategories,
   allUnitCategories,
 }: PricingFiltersProps) {
+  // Helper to add "All" option at the top and handle disabling others
+  const buildItems = (allItems: string[], selected: string[]) => {
+    const items = ["All", ...allItems]
+    return items.map((item) => ({
+      value: item,
+      disabled: selected.includes("All") && item !== "All",
+    }))
+  }
+
+  const handleChange = (
+    selected: string[],
+    setSelected: (vals: string[]) => void
+  ) => {
+    if (selected.includes("All")) {
+      setSelected(["All"])
+    } else {
+      setSelected(selected.filter((v) => v !== "All"))
+    }
+  }
+
   return (
     <>
       <SectionLabel text="Filters" />
       <section className="rounded-lg border bg-background/50 p-3">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-          {/* Competitors multi-select */}
+          {/* Competitors */}
           <div className="min-w-0">
             <div className="mb-1 flex items-center justify-between">
               <label className="block text-[12px] text-foreground/80">Competitors</label>
@@ -56,26 +72,28 @@ export function PricingFilters({
                 size="sm"
                 onClick={() => setSelectedCompetitors([])}
                 disabled={selectedCompetitors.length === 0}
-                aria-label="Clear selected competitors"
               >
                 Clear
               </Button>
             </div>
-            <MultiSelect values={selectedCompetitors} onValuesChange={setSelectedCompetitors}>
+            <MultiSelect
+              values={selectedCompetitors}
+              onValuesChange={(vals) => handleChange(vals, setSelectedCompetitors)}
+            >
               <MultiSelectTrigger className="w-full justify-between data-[placeholder]:text-foreground/70">
                 <MultiSelectValue placeholder="Select competitors" />
               </MultiSelectTrigger>
               <MultiSelectContent search={{ placeholder: "Search competitors...", emptyMessage: "No competitors" }}>
                 <MultiSelectGroup>
-                  {allCompetitors.map((name) => (
-                    <MultiSelectItem key={name} value={name}>{name}</MultiSelectItem>
+                  {buildItems(allCompetitors, selectedCompetitors).map(({ value, disabled }) => (
+                    <MultiSelectItem key={value} value={value} disabled={disabled}>{value}</MultiSelectItem>
                   ))}
                 </MultiSelectGroup>
               </MultiSelectContent>
             </MultiSelect>
           </div>
 
-          {/* ModLocation multi-select */}
+          {/* Locations */}
           <div className="min-w-0">
             <div className="mb-1 flex items-center justify-between">
               <label className="block text-[12px] text-foreground/80">ModLocation</label>
@@ -84,26 +102,28 @@ export function PricingFilters({
                 size="sm"
                 onClick={() => setSelectedLocations([])}
                 disabled={selectedLocations.length === 0}
-                aria-label="Clear selected locations"
               >
                 Clear
               </Button>
             </div>
-            <MultiSelect values={selectedLocations} onValuesChange={setSelectedLocations}>
+            <MultiSelect
+              values={selectedLocations}
+              onValuesChange={(vals) => handleChange(vals, setSelectedLocations)}
+            >
               <MultiSelectTrigger className="w-full justify-between data-[placeholder]:text-foreground/70">
                 <MultiSelectValue placeholder="Select locations" />
               </MultiSelectTrigger>
               <MultiSelectContent search={{ placeholder: "Search locations...", emptyMessage: "No locations" }}>
                 <MultiSelectGroup>
-                  {allLocations.map((name) => (
-                    <MultiSelectItem key={name} value={name}>{name}</MultiSelectItem>
+                  {buildItems(allLocations, selectedLocations).map(({ value, disabled }) => (
+                    <MultiSelectItem key={value} value={value} disabled={disabled}>{value}</MultiSelectItem>
                   ))}
                 </MultiSelectGroup>
               </MultiSelectContent>
             </MultiSelect>
           </div>
 
-          {/* Dimensions multi-select */}
+          {/* Dimensions */}
           <div className="min-w-0">
             <div className="mb-1 flex items-center justify-between">
               <label className="block text-[12px] text-foreground/80">Dimensions</label>
@@ -112,26 +132,28 @@ export function PricingFilters({
                 size="sm"
                 onClick={() => setSelectedDimensions([])}
                 disabled={selectedDimensions.length === 0}
-                aria-label="Clear selected dimensions"
               >
                 Clear
               </Button>
             </div>
-            <MultiSelect values={selectedDimensions} onValuesChange={setSelectedDimensions}>
+            <MultiSelect
+              values={selectedDimensions}
+              onValuesChange={(vals) => handleChange(vals, setSelectedDimensions)}
+            >
               <MultiSelectTrigger className="w-full justify-between data-[placeholder]:text-foreground/70">
                 <MultiSelectValue placeholder="Select dimensions" />
               </MultiSelectTrigger>
               <MultiSelectContent search={{ placeholder: "Search dimensions...", emptyMessage: "No dimensions" }}>
                 <MultiSelectGroup>
-                  {allDimensions.map((name) => (
-                    <MultiSelectItem key={name} value={name}>{name}</MultiSelectItem>
+                  {buildItems(allDimensions, selectedDimensions).map(({ value, disabled }) => (
+                    <MultiSelectItem key={value} value={value} disabled={disabled}>{value}</MultiSelectItem>
                   ))}
                 </MultiSelectGroup>
               </MultiSelectContent>
             </MultiSelect>
           </div>
 
-          {/* Unit Category multi-select */}
+          {/* Unit Category */}
           <div className="min-w-0">
             <div className="mb-1 flex items-center justify-between">
               <label className="block text-[12px] text-foreground/80">Unit Category</label>
@@ -140,19 +162,21 @@ export function PricingFilters({
                 size="sm"
                 onClick={() => setSelectedUnitCategories([])}
                 disabled={selectedUnitCategories.length === 0}
-                aria-label="Clear selected unit categories"
               >
                 Clear
               </Button>
             </div>
-            <MultiSelect values={selectedUnitCategories} onValuesChange={setSelectedUnitCategories}>
+            <MultiSelect
+              values={selectedUnitCategories}
+              onValuesChange={(vals) => handleChange(vals, setSelectedUnitCategories)}
+            >
               <MultiSelectTrigger className="w-full justify-between data-[placeholder]:text-foreground/70">
                 <MultiSelectValue placeholder="Select unit categories" />
               </MultiSelectTrigger>
               <MultiSelectContent search={{ placeholder: "Search categories...", emptyMessage: "No categories" }}>
                 <MultiSelectGroup>
-                  {allUnitCategories.map((name) => (
-                    <MultiSelectItem key={name} value={name}>{name}</MultiSelectItem>
+                  {buildItems(allUnitCategories, selectedUnitCategories).map(({ value, disabled }) => (
+                    <MultiSelectItem key={value} value={value} disabled={disabled}>{value}</MultiSelectItem>
                   ))}
                 </MultiSelectGroup>
               </MultiSelectContent>
