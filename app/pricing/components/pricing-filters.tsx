@@ -25,6 +25,19 @@ interface PricingFiltersProps {
   selectedUnitCategories: string[]
   setSelectedUnitCategories: (values: string[]) => void
   allUnitCategories: string[]
+
+  // NEW: flags and setters for All-mode
+  competitorsAll?: boolean
+  setCompetitorsAll?: (v: boolean) => void
+
+  locationsAll?: boolean
+  setLocationsAll?: (v: boolean) => void
+
+  dimensionsAll?: boolean
+  setDimensionsAll?: (v: boolean) => void
+
+  unitCategoriesAll?: boolean
+  setUnitCategoriesAll?: (v: boolean) => void
 }
 
 /**
@@ -32,8 +45,8 @@ interface PricingFiltersProps {
  *
  * Behavior:
  * - Empty selection [] means "no filtering" (include all)
- * - No special "All" option
- * - UI stays dumb; logic lives in parent + hooks
+ * - "All" mode is controlled by parent (competitorsAll, ...). The UI shows a toggle that flips that mode.
+ * - When a filter is in All mode the multi-select is inactive (user cannot change values).
  */
 export function PricingFilters({
   selectedCompetitors,
@@ -51,6 +64,15 @@ export function PricingFilters({
   selectedUnitCategories,
   setSelectedUnitCategories,
   allUnitCategories,
+
+  competitorsAll = false,
+  setCompetitorsAll,
+  locationsAll = false,
+  setLocationsAll,
+  dimensionsAll = false,
+  setDimensionsAll,
+  unitCategoriesAll = false,
+  setUnitCategoriesAll,
 }: PricingFiltersProps) {
   return (
     <>
@@ -66,6 +88,8 @@ export function PricingFilters({
             onChange={setSelectedCompetitors}
             placeholder="Select competitors"
             searchPlaceholder="Search competitors..."
+            allFlag={competitorsAll}
+            onToggleAll={(v) => setCompetitorsAll?.(v)}
           />
 
           <FilterBlock
@@ -76,6 +100,8 @@ export function PricingFilters({
             onChange={setSelectedLocations}
             placeholder="Select locations"
             searchPlaceholder="Search locations..."
+            allFlag={locationsAll}
+            onToggleAll={(v) => setLocationsAll?.(v)}
           />
 
           <FilterBlock
@@ -86,6 +112,8 @@ export function PricingFilters({
             onChange={setSelectedDimensions}
             placeholder="Select dimensions"
             searchPlaceholder="Search dimensions..."
+            allFlag={dimensionsAll}
+            onToggleAll={(v) => setDimensionsAll?.(v)}
           />
 
           <FilterBlock
@@ -96,6 +124,8 @@ export function PricingFilters({
             onChange={setSelectedUnitCategories}
             placeholder="Select unit categories"
             searchPlaceholder="Search categories..."
+            allFlag={unitCategoriesAll}
+            onToggleAll={(v) => setUnitCategoriesAll?.(v)}
           />
 
         </div>
@@ -112,8 +142,19 @@ interface FilterBlockProps {
   onChange: (values: string[]) => void
   placeholder: string
   searchPlaceholder: string
+
+  // NEW:
+  allFlag?: boolean
+  onToggleAll?: (value: boolean) => void
 }
 
+/**
+ * FilterBlock renders:
+ * - label + Clear + small "All" toggle
+ * - MultiSelect
+ *
+ * When allFlag === true, the multiselect is inert (onChange is a noop) and the UI indicates All mode.
+ */
 function FilterBlock({
   label,
   selected,
@@ -122,29 +163,50 @@ function FilterBlock({
   onChange,
   placeholder,
   searchPlaceholder,
+  allFlag = false,
+  onToggleAll,
 }: FilterBlockProps) {
+  // If All is active, we show no selected values in the multiselect and prevent changes
+  const effectiveValues = allFlag ? [] : selected
+  const effectiveOnChange = allFlag ? (_: string[]) => {} : onChange
+
   return (
     <div className="min-w-0">
-      <div className="mb-1 flex items-center justify-between">
+      <div className="mb-1 flex items-center justify-between gap-2">
         <label className="block text-[12px] text-foreground/80">
           {label}
         </label>
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={onClear}
-          disabled={selected.length === 0}
-        >
-          Clear
-        </Button>
+
+        <div className="flex items-center gap-2">
+          {/* Clear button */}
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={onClear}
+            disabled={selected.length === 0}
+          >
+            Clear
+          </Button>
+
+          {/* All toggle */}
+          <button
+            type="button"
+            aria-pressed={allFlag}
+            onClick={() => onToggleAll?.(!allFlag)}
+            className={`inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-semibold ${allFlag ? 'bg-primary/10 text-primary' : 'bg-muted/10 text-muted-foreground'}`}
+            title={allFlag ? `Showing all ${label}` : `Select specific ${label}`}
+          >
+            All
+          </button>
+        </div>
       </div>
 
       <MultiSelect
-        values={selected}
-        onValuesChange={onChange}
+        values={effectiveValues}
+        onValuesChange={effectiveOnChange}
       >
         <MultiSelectTrigger className="w-full justify-between data-[placeholder]:text-foreground/70">
-          <MultiSelectValue placeholder={placeholder} />
+          <MultiSelectValue placeholder={allFlag ? `All ${label}` : placeholder} />
         </MultiSelectTrigger>
 
         <MultiSelectContent
