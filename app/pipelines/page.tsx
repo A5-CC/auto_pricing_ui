@@ -275,38 +275,63 @@ export default function PipelinesPage() {
 
       <AdjustersList
         adjusters={localAdjusters}
-        onRemoveAdjuster={handleRemoveAdjuster}
         actions={
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1 rounded-full bg-muted/40 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              <Plus className="h-3.5 w-3.5" /> Add adjuster
+            </span>
             <Button
               size="sm"
               variant="outline"
               disabled={!canAddAdjusters}
               onClick={competitiveDialog.handleOpen}
+              className="border-blue-200 text-blue-700 hover:bg-blue-50 hover:text-blue-800 disabled:opacity-50"
+              title={!canAddAdjusters ? "Add competitor data with prices to enable adjusters" : undefined}
             >
-              <TrendingDown className="h-4 w-4 mr-1" />
+              <TrendingDown className="h-4 w-4 mr-1.5" />
               Competitive
             </Button>
             <Button
               size="sm"
               variant="outline"
-              disabled={!canAddAdjusters}
+              disabled={!canAddNonCompetitiveAdjusters}
               onClick={functionDialog.handleOpen}
+              className="border-amber-200 text-amber-700 hover:bg-amber-50 hover:text-amber-800 disabled:opacity-50"
+              title={
+                !canAddNonCompetitiveAdjusters
+                  ? !canAddAdjusters
+                    ? "Add competitor data with prices to enable adjusters"
+                    : !hasCompetitiveAdjuster
+                      ? "Add a competitive adjuster first to set the base price"
+                      : "Step 1 must remain competitive"
+                  : undefined
+              }
             >
-              <Calculator className="h-4 w-4 mr-1" />
+              <Calculator className="h-4 w-4 mr-1.5" />
               Function
             </Button>
             <Button
               size="sm"
               variant="outline"
-              disabled={!canAddAdjusters}
+              disabled={!canAddNonCompetitiveAdjusters}
               onClick={temporalDialog.handleOpen}
+              className="border-violet-200 text-violet-700 hover:bg-violet-50 hover:text-violet-800 disabled:opacity-50"
+              title={
+                !canAddNonCompetitiveAdjusters
+                  ? !canAddAdjusters
+                    ? "Add competitor data with prices to enable adjusters"
+                    : !hasCompetitiveAdjuster
+                      ? "Add a competitive adjuster first to set the base price"
+                      : "Step 1 must remain competitive"
+                  : undefined
+              }
             >
-              <Clock className="h-4 w-4 mr-1" />
+              <Clock className="h-4 w-4 mr-1.5" />
               Temporal
             </Button>
           </div>
         }
+        onRemoveAdjuster={handleRemoveAdjuster}
       />
 
       <CalculatedPrice
