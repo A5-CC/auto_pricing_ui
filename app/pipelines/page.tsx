@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   getE1Snapshots,
@@ -9,31 +9,20 @@ import {
   exportE1CompetitorsCSV,
   getE1CompetitorsStatistics,
 } from "@/lib/api/client/pipelines";
-import { getPricingSchemas } from "@/lib/api/client/pricing";
 import type {
   E1Snapshot,
   E1DataResponse,
   ColumnStatistics,
-  PricingSchemas,
 } from "@/lib/api/types";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
 import { ContextChips } from "@/components/context-chips";
 import { useContextChips } from "@/hooks/useContextChips";
-import { SortableTh } from "@/components/table/SortableTh";
-import { useSortableRows } from "@/hooks/useSortableRows";
 import { useCompetitorFilter } from "@/hooks/useCompetitorFilter";
 import { useLocationFilter } from "@/hooks/useLocationFilter";
 import { useDimensionsFilter } from "@/hooks/useDimensionsFilter";
 import { useUnitCategoryFilter } from "@/hooks/useUnitCategoryFilter";
-import GroupByControl from "@/components/pricing/group-by-control";
 import { SectionLabel } from "@/components/ui/section-label";
-import { getCompetitorColor } from "@/lib/pricing/formatters";
-import { getColumnLabel } from "@/lib/pricing/column-labels";
-import { TableCell } from "@/components/pricing/table-cell";
 import { PricingOverview } from "../pricing/components/pricing-overview";
 import { PricingFilters } from "../pricing/components/pricing-filters";
 import { PipelineSelector } from "@/components/pipelines/pipeline-selector";
@@ -50,8 +39,7 @@ import { hasValidCompetitorPrices, getPriceDiagnostics } from "@/lib/adjusters";
 import { TrendingDown, Calculator, Clock, Plus } from "lucide-react";
 
 /**
- * Filter shape we will pass to CalculatedPrice.
- * This mirrors the types used by CalculatedPrice (mode: 'all' | subset).
+ * Filter shape passed to CalculatedPrice
  */
 type CalcFilter = { mode: "all" } | { mode: "subset"; values: string[] };
 type CalcFiltersShape = {
@@ -62,198 +50,81 @@ type CalcFiltersShape = {
 };
 
 export default function PipelinesPage() {
+  const { createChips } = useContextChips();
+
   const [snapshots, setSnapshots] = useState<E1Snapshot[]>([]);
   const [selectedSnapshot, setSelectedSnapshot] = useState<string>("latest");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
   const [localAdjusters, setLocalAdjusters] = useState<Adjuster[]>([]);
 
-  // Adjuster dialogs state
   const competitiveDialog = useAdjusterDialog();
   const functionDialog = useAdjusterDialog();
   const temporalDialog = useAdjusterDialog();
 
-  // Client-side competitor multi-select
+  // Filters
   const [selectedCompetitors, setSelectedCompetitors] = useState<string[]>([]);
-  // Client-side location multi-select
   const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
-  // Client-side dimensions multi-select
   const [selectedDimensions, setSelectedDimensions] = useState<string[]>([]);
-  // Client-side unit category multi-select
-  const [selectedUnitCategories, setSelectedUnitCategories] = useState<
-    string[]
-  >([]);
+  const [selectedUnitCategories, setSelectedUnitCategories] = useState<string[]>([]);
 
-  // NEW: explicit "All" flags for each filter (mutually-exclusive with explicit values)
-  const [competitorsAll, setCompetitorsAll] = useState<boolean>(false);
-  const [locationsAll, setLocationsAll] = useState<boolean>(false);
-  const [dimensionsAll, setDimensionsAll] = useState<boolean>(false);
-  const [unitCategoriesAll, setUnitCategoriesAll] = useState<boolean>(false);
+  const [competitorsAll, setCompetitorsAll] = useState(false);
+  const [locationsAll, setLocationsAll] = useState(false);
+  const [dimensionsAll, setDimensionsAll] = useState(false);
+  const [unitCategoriesAll, setUnitCategoriesAll] = useState(false);
 
   const [dataResponse, setDataResponse] = useState<E1DataResponse | null>(null);
   const [clientDataResponse, setClientDataResponse] = useState<E1DataResponse | null>(null);
-  const [columnsStats, setColumnsStats] = useState<
-    Record<string, ColumnStatistics>
-  >({});
-  const [visibleColumns, setVisibleColumns] = useState<string[]>([]);
-  const [pricingSchemas, setPricingSchemas] = useState<PricingSchemas | null>(
-    null
-  );
-  const [showSparseColumns, setShowSparseColumns] = useState(false);
-  const sparseThreshold = 85; // 85% fill-rate (backend returns 0-100, not 0-1)
+  const [columnsStats, setColumnsStats] = useState<Record<string, ColumnStatistics>>({});
 
-  // Client-side filtering (competitors -> locations)
+  // Filter pipeline
   const { filteredRows: competitorFilteredRows, allCompetitors } =
     useCompetitorFilter(dataResponse?.data ?? [], selectedCompetitors);
-  const { filteredRows, allLocations } = useLocationFilter(
-    competitorFilteredRows,
-    selectedLocations
-  );
+
+  const { filteredRows, allLocations } =
+    useLocationFilter(competitorFilteredRows, selectedLocations);
+
   const { filteredRows: locationAndDimFilteredRows, allDimensions } =
     useDimensionsFilter(filteredRows, selectedDimensions);
+
   const { filteredRows: fullyFilteredRows, allUnitCategories } =
     useUnitCategoryFilter(locationAndDimFilteredRows, selectedUnitCategories);
 
-  // Sorting on filtered rows
-  const {
-    sortedRows: displayedRows,
-    sortBy,
-    sortDir,
-    handleSortClick,
-    setSortBy,
-    setSortDir,
-  } = useSortableRows(fullyFilteredRows, columnsStats, null, "asc");
-
-  // Client-side pagination
-  const [currentPage, setCurrentPage] = useState(1);
-  const rowsPerPage = 25;
-
-  // Group by (single level)
-  const [groupBy, setGroupBy] = useState<string | null>(null);
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
-  const { createChips } = useContextChips();
-
-  const grouped = useMemo(() => {
-    if (!groupBy) return null;
-    const map = new Map<string, typeof displayedRows>();
-    for (const row of displayedRows) {
-      const raw = row[groupBy as keyof typeof row];
-      const key =
-        raw === null || raw === undefined || raw === "" ? "—" : String(raw);
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(row);
-    }
-    const keys = Array.from(map.keys()).sort((a, b) =>
-      a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" })
-    );
-    return { keys, map };
-  }, [displayedRows, groupBy]);
-
-  // Pagination: calculate total pages and slice displayedRows
-  const totalPages = Math.ceil(displayedRows.length / rowsPerPage);
-  const paginatedRows = useMemo(() => {
-    if (groupBy) return displayedRows; // No pagination when grouping
-    return displayedRows.slice(
-      (currentPage - 1) * rowsPerPage,
-      currentPage * rowsPerPage
-    );
-  }, [displayedRows, currentPage, rowsPerPage, groupBy]);
-
-  // Auto-expand groups only when grouping mode changes
+  // Load snapshots
   useEffect(() => {
-    if (!groupBy) {
-      setExpandedGroups(new Set());
-      return;
-    }
-    if (grouped) setExpandedGroups(new Set(grouped.keys));
-  }, [groupBy, grouped]);
-
-  const toggleGroup = (key: string) => {
-    setExpandedGroups((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  };
-
-  const expandAllGroups = () => {
-    if (grouped) setExpandedGroups(new Set(grouped.keys));
-  };
-  const collapseAllGroups = () => setExpandedGroups(new Set());
-
-  const loadSnapshots = async () => {
-    try {
-      const s = await getE1Snapshots();
-      setSnapshots(s);
-    } catch {
-      // silently ignore
-    }
-  };
-
-  const loadSchemas = async () => {
-    try {
-      const schemas = await getPricingSchemas();
-      setPricingSchemas(schemas);
-    } catch {
-      // silently ignore
-    }
-  };
-
-  useEffect(() => {
-    loadSnapshots();
-    loadSchemas();
+    getE1Snapshots().then(setSnapshots).catch(() => {});
   }, []);
 
+  // Load data
   const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      // Fetch E1 competitor data (modSTORAGE automatically excluded by backend)
       const res = await getE1Competitors(selectedSnapshot, { limit: 10000 });
       setDataResponse(res);
 
-      // Fetch E1 client data (only modSTORAGE, competitors excluded by backend)
       const clientRes = await getE1Client(selectedSnapshot, { limit: 10000 });
       setClientDataResponse(clientRes);
 
       if (res.columns?.length) {
-        // Get statistics for ALL columns that are being displayed (competitor data only)
         const stats = await getE1CompetitorsStatistics(selectedSnapshot, res.columns);
-        const byName = Object.fromEntries(stats.map((s) => [s.column, s]));
-        setColumnsStats(byName);
-
-        // Filter out columns that are already shown in fixed columns
-        const fixedColumns = [
-          "competitor_name",
-          "competitor_address",
-          "location_normalized",
-          "snapshot_date",
-          "dimensions_normalized",
-        ];
-        const filteredColumns = res.columns.filter(
-          (col) => !fixedColumns.includes(col)
-        );
-        setVisibleColumns((prev) => (prev.length ? prev : filteredColumns));
+        setColumnsStats(Object.fromEntries(stats.map(s => [s.column, s])));
       }
     } catch {
-      setError("Failed to load E1 data");
+      setError("Failed to load pricing data");
     } finally {
       setLoading(false);
     }
   }, [selectedSnapshot]);
 
-  // Reload when inputs change (snapshot only)
   useEffect(() => {
     loadData();
-  }, [selectedSnapshot, loadData]);
+  }, [loadData]);
 
   const onExport = async () => {
     if (!selectedSnapshot) return;
-    // Export competitor data via backend (modSTORAGE automatically excluded)
-    const blob = await exportE1CompetitorsCSV(selectedSnapshot, {
-      columns: visibleColumns,
-    });
+    const blob = await exportE1CompetitorsCSV(selectedSnapshot, {});
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -274,167 +145,36 @@ export default function PipelinesPage() {
   };
 
   const handleAddAdjuster = (adjuster: Adjuster) => {
-    setLocalAdjusters((prev) => [...prev, adjuster]);
+    setLocalAdjusters(prev => [...prev, adjuster]);
   };
 
   const handleRemoveAdjuster = (index: number) => {
-    const nextAdjusters = localAdjusters.filter((_, idx) => idx !== index);
-
-    if (nextAdjusters.length > 0) {
-      const nextFirst = nextAdjusters[0];
-      if (nextFirst.type !== "competitive") {
-        toast.warning(
-          <span>
-            Cannot remove this adjuster because the pipeline must start with a <strong>Competitive</strong> step.
-          </span>,
-          { duration: 5400 }
-        );
-        return;
-      }
+    const next = localAdjusters.filter((_, i) => i !== index);
+    if (next.length && next[0].type !== "competitive") {
+      toast.warning("Pipeline must start with a Competitive adjuster");
+      return;
     }
-
-    setLocalAdjusters(nextAdjusters);
+    setLocalAdjusters(next);
   };
 
-  // Current date for temporal adjusters (day of week, month)
   const currentDate = useMemo(() => new Date(), []);
 
-  // Check if competitor data has valid prices for adjusters
   const canAddAdjusters = useMemo(
     () => hasValidCompetitorPrices(fullyFilteredRows),
     [fullyFilteredRows]
   );
 
-  const hasCompetitiveAdjuster = localAdjusters.some((adj) => adj.type === "competitive");
-  const firstAdjusterIsCompetitive =
-    localAdjusters.length === 0 || localAdjusters[0].type === "competitive";
-  const pipelineNeedsBase = localAdjusters.length > 0 && !firstAdjusterIsCompetitive;
-  const canAddNonCompetitiveAdjusters =
-    canAddAdjusters && hasCompetitiveAdjuster && firstAdjusterIsCompetitive;
-
-  // Get price data diagnostics for display
   const priceDiagnostics = useMemo(
     () => getPriceDiagnostics(fullyFilteredRows),
     [fullyFilteredRows]
   );
 
-  // Filter columns based on sparse threshold (unless toggle is on)
-  const displayColumns = useMemo(() => {
-    if (showSparseColumns) return visibleColumns;
-
-    return visibleColumns.filter(col => {
-      const stats = columnsStats[col];
-      // Only show columns WITH stats AND high fill rate
-      // Backend returns fill_rate as percentage (0-100), not decimal (0-1)
-      return stats && stats.fill_rate >= sparseThreshold;
-    });
-  }, [visibleColumns, columnsStats, showSparseColumns, sparseThreshold]);
-
-  // Get available numeric variables for function adjuster
-  const availableVariables = useMemo(() => {
-    console.log('[availableVariables] Total columns:', Object.keys(columnsStats).length);
-
-    // Show ALL columns with their data_type
-    const allColumnsWithType = Object.entries(columnsStats).map(([col, stats]) => ({
-      column: col,
-      data_type: stats.data_type
-    }));
-    console.log('[availableVariables] ALL columns with data_type:', allColumnsWithType);
-
-    // Show unique data_types
-    const uniqueTypes = [...new Set(Object.values(columnsStats).map(s => s.data_type))];
-    console.log('[availableVariables] Unique data_types in dataset:', uniqueTypes);
-
-    // Count by data_type
-    const countByType = Object.values(columnsStats).reduce((acc, stats) => {
-      acc[stats.data_type] = (acc[stats.data_type] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-    console.log('[availableVariables] Count by data_type:', countByType);
-
-    // Filter numeric columns from competitor data statistics
-    // Backend returns pandas/numpy types: Int64, float64, Float64, int64, etc.
-    const numericCols = Object.entries(columnsStats)
-      .filter(([, stats]) => {
-        const dtype = stats.data_type.toLowerCase();
-        return dtype.includes('int') || dtype.includes('float');
-      })
-      .map(([col]) => col)
-      .sort();
-
-    console.log('[availableVariables] Numeric columns found:', numericCols.length);
-    console.log('[availableVariables] Numeric columns list:', numericCols);
-
-    return numericCols;
-  }, [columnsStats]);
-
-  // Reset sort when dataset changes significantly (e.g., new snapshot or filters)
-  useEffect(() => {
-    setSortBy(null);
-    setSortDir("asc");
-  }, [
-    selectedSnapshot,
-    selectedCompetitors,
-    selectedLocations,
-    selectedDimensions,
-    selectedUnitCategories,
-    setSortBy,
-    setSortDir,
-  ]);
-
-  // Reset pagination when filters or sorting change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [
-    selectedSnapshot,
-    selectedCompetitors,
-    selectedLocations,
-    selectedDimensions,
-    selectedUnitCategories,
-    sortBy,
-    sortDir,
-  ]);
-
-  // ---- Wrappers that enforce mutual exclusion between "All" flags and explicit selections ----
-
-  const handleSetSelectedCompetitors = (vals: string[]) => {
-    if (vals.length > 0 && competitorsAll) {
-      setCompetitorsAll(false);
-    }
-    setSelectedCompetitors(vals);
-  };
-
-  const handleSetSelectedLocations = (vals: string[]) => {
-    if (vals.length > 0 && locationsAll) {
-      setLocationsAll(false);
-    }
-    setSelectedLocations(vals);
-  };
-
-  const handleSetSelectedDimensions = (vals: string[]) => {
-    if (vals.length > 0 && dimensionsAll) {
-      setDimensionsAll(false);
-    }
-    setSelectedDimensions(vals);
-  };
-
-  const handleSetSelectedUnitCategories = (vals: string[]) => {
-    if (vals.length > 0 && unitCategoriesAll) {
-      setUnitCategoriesAll(false);
-    }
-    setSelectedUnitCategories(vals);
-  };
-
-  // ---- Build filters + available values object for CalculatedPrice ----
-
-  const calcFilters = useMemo<CalcFiltersShape>(() => {
-    return {
-      competitors: competitorsAll ? { mode: "all" } : { mode: "subset", values: selectedCompetitors },
-      locations: locationsAll ? { mode: "all" } : { mode: "subset", values: selectedLocations },
-      dimensions: dimensionsAll ? { mode: "all" } : { mode: "subset", values: selectedDimensions },
-      unit_categories: unitCategoriesAll ? { mode: "all" } : { mode: "subset", values: selectedUnitCategories },
-    };
-  }, [
+  const calcFilters = useMemo<CalcFiltersShape>(() => ({
+    competitors: competitorsAll ? { mode: "all" } : { mode: "subset", values: selectedCompetitors },
+    locations: locationsAll ? { mode: "all" } : { mode: "subset", values: selectedLocations },
+    dimensions: dimensionsAll ? { mode: "all" } : { mode: "subset", values: selectedDimensions },
+    unit_categories: unitCategoriesAll ? { mode: "all" } : { mode: "subset", values: selectedUnitCategories },
+  }), [
     competitorsAll,
     locationsAll,
     dimensionsAll,
@@ -445,53 +185,18 @@ export default function PipelinesPage() {
     selectedUnitCategories,
   ]);
 
-  const availableFilterValues = useMemo<Record<keyof CalcFiltersShape, string[]>>(() => {
-    return {
-      competitors: allCompetitors ?? [],
-      locations: allLocations ?? [],
-      dimensions: allDimensions ?? [],
-      unit_categories: allUnitCategories ?? [],
-    };
-  }, [allCompetitors, allLocations, allDimensions, allUnitCategories]);
+  const availableFilterValues = {
+    competitors: allCompetitors ?? [],
+    locations: allLocations ?? [],
+    dimensions: allDimensions ?? [],
+    unit_categories: allUnitCategories ?? [],
+  };
 
   return (
     <main className="mx-auto max-w-7xl p-6 space-y-5">
       <ContextChips
-        chips={createChips({
-          label: "Pricing Pipelines",
-          isCurrent: true,
-        })}
+        chips={createChips({ label: "Pricing Pipelines", isCurrent: true })}
       />
-      <header>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-sm text-muted-foreground">
-              Build pricing strategies with Filters, and Competitive, Function-based, and Temporal Adjusters
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <PipelineSelector
-              currentFilters={{
-                competitors: selectedCompetitors,
-                locations: selectedLocations,
-                dimensions: selectedDimensions,
-                unit_categories: selectedUnitCategories,
-              }}
-              currentAdjusters={localAdjusters}
-              onLoadPipeline={handleLoadPipeline}
-              onPipelineChange={handlePipelineChange}
-            />
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onExport}
-              disabled={!dataResponse}
-            >
-              Export CSV
-            </Button>
-          </div>
-        </div>
-      </header>
 
       {error && (
         <Alert variant="destructive">
@@ -509,144 +214,71 @@ export default function PipelinesPage() {
       />
 
       <PricingFilters
-        // NOTE: we pass *wrapped* setters so selecting explicit values clears the "All" flag
         selectedCompetitors={selectedCompetitors}
-        setSelectedCompetitors={handleSetSelectedCompetitors}
+        setSelectedCompetitors={setSelectedCompetitors}
         allCompetitors={allCompetitors}
         selectedLocations={selectedLocations}
-        setSelectedLocations={handleSetSelectedLocations}
+        setSelectedLocations={setSelectedLocations}
         allLocations={allLocations}
         selectedDimensions={selectedDimensions}
-        setSelectedDimensions={handleSetSelectedDimensions}
+        setSelectedDimensions={setSelectedDimensions}
         allDimensions={allDimensions}
         selectedUnitCategories={selectedUnitCategories}
-        setSelectedUnitCategories={handleSetSelectedUnitCategories}
+        setSelectedUnitCategories={setSelectedUnitCategories}
         allUnitCategories={allUnitCategories}
       />
 
-      {/* Price Calculation Section */}
-      <div className="space-y-4">
-        <SectionLabel
-          text="Price Calculation"
-          right={
-            <div className="text-xs text-muted-foreground">
-              {priceDiagnostics.pricesFound}/{priceDiagnostics.competitorRows} units with prices
-            </div>
-          }
-        />
-
-
-        {/* Warning if no price data available (only after data loads) */}
-        {!loading && !canAddAdjusters && (
-          <PriceDataWarning competitorData={fullyFilteredRows} />
-        )}
-
-        {pipelineNeedsBase && (
-          <Alert className="border-amber-200 bg-amber-50">
-            <AlertTitle>Competitive step required</AlertTitle>
-            <AlertDescription>
-              Step 1 must be a competitive adjuster to establish the base price. Remove or re-add cards until a competitive
-              card leads the pipeline.
-            </AlertDescription>
-          </Alert>
-        )}
-
-        <AdjustersList
-          adjusters={localAdjusters}
-          actions={
-            <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1 rounded-full bg-muted/40 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                <Plus className="h-3.5 w-3.5" /> Add adjuster
-              </span>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={!canAddAdjusters}
-                onClick={competitiveDialog.handleOpen}
-                className="border-blue-200 text-blue-700 hover:bg-blue-50 hover:text-blue-800 disabled:opacity-50"
-                title={!canAddAdjusters ? "Add competitor data with prices to enable adjusters" : undefined}
-              >
-                <TrendingDown className="h-4 w-4 mr-1.5" />
-                Competitive
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={!canAddNonCompetitiveAdjusters}
-                onClick={functionDialog.handleOpen}
-                className="border-amber-200 text-amber-700 hover:bg-amber-50 hover:text-amber-800 disabled:opacity-50"
-                title={
-                  !canAddNonCompetitiveAdjusters
-                    ? !canAddAdjusters
-                      ? "Add competitor data with prices to enable adjusters"
-                      : !hasCompetitiveAdjuster
-                        ? "Add a competitive adjuster first to set the base price"
-                        : "Step 1 must remain competitive"
-                    : undefined
-                }
-              >
-                <Calculator className="h-4 w-4 mr-1.5" />
-                Function
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={!canAddNonCompetitiveAdjusters}
-                onClick={temporalDialog.handleOpen}
-                className="border-violet-200 text-violet-700 hover:bg-violet-50 hover:text-violet-800 disabled:opacity-50"
-                title={
-                  !canAddNonCompetitiveAdjusters
-                    ? !canAddAdjusters
-                      ? "Add competitor data with prices to enable adjusters"
-                      : !hasCompetitiveAdjuster
-                        ? "Add a competitive adjuster first to set the base price"
-                        : "Step 1 must remain competitive"
-                    : undefined
-                }
-              >
-                <Clock className="h-4 w-4 mr-1.5" />
-                Temporal
-              </Button>
-            </div>
-          }
-          onRemoveAdjuster={handleRemoveAdjuster}
-        />
-
-        resultCard={
-          <CalculatedPrice
-            variant="inline"
-            competitorData={fullyFilteredRows}
-            clientAvailableUnits={clientDataResponse?.data.length || 0}
-            adjusters={localAdjusters}
-            currentDate={currentDate}
-            // NEW: pass filter instructions so CalculatedPrice can expand combos
-            filters={calcFilters}
-            availableFilterValues={availableFilterValues}
-            // optionally adjust max results
-            maxCombinations={50}
-          />
+      <SectionLabel
+        text="Price Calculation"
+        right={
+          <div className="text-xs text-muted-foreground">
+            {priceDiagnostics.pricesFound}/{priceDiagnostics.competitorRows} units with prices
+          </div>
         }
+      />
 
-        {/* Adjuster Dialogs */}
-        <AddCompetitiveAdjusterDialog
-          open={competitiveDialog.open}
-          onOpenChange={competitiveDialog.setOpen}
-          onAdd={handleAddAdjuster}
-        />
-        <AddFunctionAdjusterDialog
-          open={functionDialog.open}
-          onOpenChange={functionDialog.setOpen}
-          onAdd={handleAddAdjuster}
-          availableVariables={availableVariables}
-          competitorData={fullyFilteredRows}
-          clientAvailableUnits={clientDataResponse?.data.length || 0}
-        />
-        <AddTemporalAdjusterDialog
-          open={temporalDialog.open}
-          onOpenChange={temporalDialog.setOpen}
-          onAdd={handleAddAdjuster}
-        />
-      </div>
+      {!loading && !canAddAdjusters && (
+        <PriceDataWarning competitorData={fullyFilteredRows} />
+      )}
+
+      <AdjustersList
+        adjusters={localAdjusters}
+        actions={
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={competitiveDialog.handleOpen}>
+              <TrendingDown className="h-4 w-4 mr-1.5" /> Competitive
+            </Button>
+            <Button size="sm" variant="outline" onClick={functionDialog.handleOpen}>
+              <Calculator className="h-4 w-4 mr-1.5" /> Function
+            </Button>
+            <Button size="sm" variant="outline" onClick={temporalDialog.handleOpen}>
+              <Clock className="h-4 w-4 mr-1.5" /> Temporal
+            </Button>
+          </div>
+        }
+        onRemoveAdjuster={handleRemoveAdjuster}
+      />
+
+      <CalculatedPrice
+        variant="inline"
+        competitorData={fullyFilteredRows}
+        clientAvailableUnits={clientDataResponse?.data.length || 0}
+        adjusters={localAdjusters}
+        currentDate={currentDate}
+        filters={calcFilters}
+        availableFilterValues={availableFilterValues}
+        maxCombinations={50}
+      />
+
+      <AddCompetitiveAdjusterDialog {...competitiveDialog} onAdd={handleAddAdjuster} />
+      <AddFunctionAdjusterDialog
+        {...functionDialog}
+        onAdd={handleAddAdjuster}
+        competitorData={fullyFilteredRows}
+        clientAvailableUnits={clientDataResponse?.data.length || 0}
+        availableVariables={[]}
+      />
+      <AddTemporalAdjusterDialog {...temporalDialog} onAdd={handleAddAdjuster} />
     </main>
   );
 }
