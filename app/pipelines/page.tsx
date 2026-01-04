@@ -626,7 +626,7 @@ export default function PipelinesPage() {
             maxCombinations={50}
           />
         }
-        
+
         {/* Adjuster Dialogs */}
         <AddCompetitiveAdjusterDialog
           open={competitiveDialog.open}
@@ -649,7 +649,7 @@ export default function PipelinesPage() {
       </div>
 
       {/* Display controls */}
-      <SectionLabel
+      {/* <SectionLabel
         text={`Display (${(displayedRows?.length ?? 0).toLocaleString()})`}
         right={
           <div className="flex items-center gap-4">
@@ -683,7 +683,7 @@ export default function PipelinesPage() {
             />
           </div>
         }
-      />
+      /> */}
 
       <section className="space-y-3">
         <div className="overflow-x-auto rounded-lg border">
