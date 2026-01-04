@@ -113,7 +113,8 @@ export default function PipelinesPage() {
   } = useSortableRows(fullyFilteredRows, columnsStats, null, "asc");
 
   // Client-side pagination
-  const [ setCurrentPage] = useState(1);
+  const [ , setCurrentPage] = useState(1);
+  
 
   // Group by (single level)
   const [groupBy] = useState<string | null>(null);
