@@ -9,10 +9,7 @@ import {
   getE1Client,
 } from "@/lib/api/client/pipelines";
 
-import type {
-  E1Snapshot,
-  E1DataResponse,
-} from "@/lib/api/types";
+import type { E1Snapshot, E1DataResponse } from "@/lib/api/types";
 
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -40,9 +37,9 @@ import { PriceDataWarning } from "@/components/pipelines/price-data-warning";
 import type { Adjuster } from "@/lib/adjusters";
 import { hasValidCompetitorPrices, getPriceDiagnostics } from "@/lib/adjusters";
 
-import { Calculator, Clock, TrendingDown, Plus } from "lucide-react";
+import { Calculator, Clock, TrendingDown } from "lucide-react";
 
-/* ---------------- Types passed to CalculatedPrice ---------------- */
+/* ---------------- Types ---------------- */
 
 type CalcFilter =
   | { mode: "all" }
@@ -69,7 +66,7 @@ export default function PipelinesPage() {
 
   const [localAdjusters, setLocalAdjusters] = useState<Adjuster[]>([]);
 
-  /* -------- Filter state -------- */
+  /* -------- Filters -------- */
 
   const [selectedCompetitors, setSelectedCompetitors] = useState<string[]>([]);
   const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
@@ -78,10 +75,11 @@ export default function PipelinesPage() {
     []
   );
 
-  const [competitorsAll, setCompetitorsAll] = useState(false);
-  const [locationsAll, setLocationsAll] = useState(false);
-  const [dimensionsAll, setDimensionsAll] = useState(false);
-  const [unitCategoriesAll, setUnitCategoriesAll] = useState(false);
+  // 🔥 Only destructure what you USE
+  const [competitorsAll] = useState(false);
+  const [locationsAll] = useState(false);
+  const [dimensionsAll] = useState(false);
+  const [unitCategoriesAll] = useState(false);
 
   /* -------- Dialogs -------- */
 
@@ -119,6 +117,25 @@ export default function PipelinesPage() {
     loadData();
   }, [loadData]);
 
+  /* -------- Derived data (memoized) -------- */
+
+  const competitorRows = useMemo(
+    () => dataResponse?.data ?? [],
+    [dataResponse]
+  );
+
+  const currentDate = useMemo(() => new Date(), []);
+
+  const canAddAdjusters = useMemo(
+    () => hasValidCompetitorPrices(competitorRows),
+    [competitorRows]
+  );
+
+  const priceDiagnostics = useMemo(
+    () => getPriceDiagnostics(competitorRows),
+    [competitorRows]
+  );
+
   /* -------- Adjusters -------- */
 
   const handleAddAdjuster = (adjuster: Adjuster) => {
@@ -137,22 +154,7 @@ export default function PipelinesPage() {
     setLocalAdjusters(next);
   };
 
-  /* -------- Derived -------- */
-
-  const competitorRows = dataResponse?.data ?? [];
-  const currentDate = useMemo(() => new Date(), []);
-
-  const canAddAdjusters = useMemo(
-    () => hasValidCompetitorPrices(competitorRows),
-    [competitorRows]
-  );
-
-  const priceDiagnostics = useMemo(
-    () => getPriceDiagnostics(competitorRows),
-    [competitorRows]
-  );
-
-  /* -------- Filters passed to CalculatedPrice -------- */
+  /* -------- Filters for calculation -------- */
 
   const calcFilters = useMemo<CalcFiltersShape>(
     () => ({
@@ -190,12 +192,7 @@ export default function PipelinesPage() {
           Build pricing pipelines using competitive, functional, and temporal
           adjusters.
         </p>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {}}
-          disabled
-        >
+        <Button variant="outline" size="sm" disabled>
           Export CSV
         </Button>
       </header>
@@ -289,8 +286,6 @@ export default function PipelinesPage() {
         filters={calcFilters}
         maxCombinations={50}
       />
-
-      {/* -------- Dialogs -------- */}
 
       <AddCompetitiveAdjusterDialog
         open={competitiveDialog.open}
