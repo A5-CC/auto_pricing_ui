@@ -118,7 +118,7 @@ export default function PipelinesPage() {
 
   // Group by (single level)
   const [groupBy] = useState<string | null>(null);
-  const [ setExpandedGroups] = useState<Set<string>>(new Set());
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const { createChips } = useContextChips();
 
   const grouped = useMemo(() => {
