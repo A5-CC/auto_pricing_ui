@@ -170,17 +170,18 @@ function FilterBlock({
   const effectiveValues = allFlag ? [] : selected
   const effectiveOnChange = allFlag ? () => {} : onChange
 
-  // inside FilterBlock
+  // handle All toggle: when turning ON, programmatically select all real options;
+  // when turning OFF, clear the selection. Then sync the parent's flag.
   const handleAllClick = () => {
     if (!allFlag) {
       // Toggle ON: select all real options
-      onChange(all ?? []);
+      onChange(options ?? [])
     } else {
       // Toggle OFF: clear selection
-      onChange([]);
+      onChange([])
     }
-    onToggleAll?.(!allFlag); // keep the external flag in sync
-  };
+    onToggleAll?.(!allFlag) // keep the external flag in sync
+  }
 
   return (
     <div className="min-w-0">
