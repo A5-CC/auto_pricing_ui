@@ -231,7 +231,7 @@ export function CalculatedPrice({
                       {label || 'Calculated Price'}
                     </div>
                     <div className={cn('text-3xl font-bold text-primary', isInline && 'text-4xl')}>
-                      {calculatedPrice !== null && !Number.isNaN(calculatedPrice)
+                      {typeof calculatedPrice === 'number' && !Number.isNaN(calculatedPrice)
                         ? `$${calculatedPrice.toFixed(2)}`
                         : '--'}
                     </div>
