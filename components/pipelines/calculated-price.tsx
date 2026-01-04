@@ -55,12 +55,45 @@ export function CalculatedPrice({
   const results = useMemo(() => {
     if (!adjusters || adjusters.length === 0) return []
 
-    // Build arrays of values for each filter (typed)
-    const arrays: FilterValue[][] = Object.entries(filters).map(([key, filter]) =>
-      filter.mode === 'all' ? availableFilterValues[key] ?? [] : filter.values
-    )
+    // Build arrays of values for each filter (typed), but:
+    // - if filter.mode === 'all' -> use availableFilterValues[key] if present, else derive from competitorData
+    // - if filter.mode === 'subset' with empty values -> skip (wildcard)
+    const arrays: FilterValue[][] = []
+    const keys: string[] = []
 
-    // Cartesian product
+    for (const [key, filter] of Object.entries(filters)) {
+      if (filter.mode === 'all') {
+        let vals = availableFilterValues[key] ?? []
+        if (!vals || vals.length === 0) {
+          // derive unique values from competitorData for this key
+          const derived = Array.from(
+            new Set(
+              competitorData
+                .map((r: any) => r[key])
+                .filter((v) => v !== null && v !== undefined && v !== '')
+            )
+          )
+          vals = derived as FilterValue[]
+        }
+        // if still empty, treat as wildcard (skip this filter)
+        if (!vals || vals.length === 0) {
+          continue
+        }
+        arrays.push(vals)
+        keys.push(key)
+      } else {
+        // subset
+        const vals = (filter as { mode: 'subset'; values: FilterValue[] }).values ?? []
+        if (!vals || vals.length === 0) {
+          // empty subset -> wildcard (skip)
+          continue
+        }
+        arrays.push(vals)
+        keys.push(key)
+      }
+    }
+
+    // If no filter constraints (keys.length === 0), produce a single empty combo -> means "no filtering"
     const combinations = cartesianProduct<FilterValue>(arrays)
 
     // Cap to avoid UI explosion
@@ -71,22 +104,52 @@ export function CalculatedPrice({
       combinations.length = maxCombinations
     }
 
-    // For each combination: call calculatePrice with the expected input (do not pass unknown props)
-    return combinations.map(combo => {
+    // For each combination: filter competitorData to the subset matching the combo (by keys), then call calculatePrice
+    return combinations.map((combo) => {
+      // build a map of key -> value for label/filtering
+      const comboMap: Record<string, FilterValue> = {}
+      keys.forEach((k, i) => {
+        comboMap[k] = combo[i]
+      })
+
+      // subset competitorData by matching comboMap
+      const subset = competitorData.filter((row: any) =>
+        // all keys must match; compare as strings for robustness
+        keys.every((k, i) => {
+          const rowVal = row[k]
+          const comboVal = combo[i]
+          // treat numeric/string equivalence by stringifying
+          return String(rowVal) === String(comboVal)
+        })
+      )
+
       let result: PriceResult = null
       try {
+        // call calculatePrice with the subset competitor data (do not pass unknown props)
         result = calculatePrice({
-          competitorData,
+          competitorData: subset,
           clientUnit: { available_units: clientAvailableUnits },
           adjusters,
           currentDate
         }) as PriceResult
+
+        // If calculatePrice returns null but subset exists, include a warning
+        if ((result == null || result.price == null) && subset.length === 0) {
+          result = {
+            price: NaN,
+            warnings: [`No competitor rows for combination: ${keys.map((k, i) => `${k}=${combo[i]}`).join(', ')}`]
+          }
+        }
       } catch (error) {
-        console.error('[CalculatedPrice] Error calculating price:', error)
-        result = null
+        console.error('[CalculatedPrice] Error calculating price for combo:', comboMap, error)
+        result = {
+          price: NaN,
+          warnings: [`Error calculating price: ${(error as any)?.message ?? String(error)}`]
+        }
       }
-      return { combo, result }
+      return { combo, comboMap, keys, result }
     })
+  // dependencies: competitorData so derived values update, adjusters, filters, etc.
   }, [
     competitorData,
     clientAvailableUnits,
@@ -112,8 +175,9 @@ export function CalculatedPrice({
     )
   }
 
-  // All calculations failed
-  if (results.length === 0 || results.every(r => r.result?.price == null)) {
+  // All calculations failed or no combos
+  if (results.length === 0 || results.every(r => r.result == null || Number.isNaN(r.result.price))) {
+    // show aggregated failure but keep console logs above for details
     return (
       <Card className={cn('p-6 bg-destructive/10 border-destructive/20', isInline && 'h-full rounded-2xl')}>
         <div className="flex items-center gap-3 text-destructive">
@@ -121,7 +185,7 @@ export function CalculatedPrice({
           <div>
             <div className="font-medium">Calculation failed</div>
             <div className="text-sm">
-              Unable to calculate price with current adjusters. Check console for details.
+              Unable to calculate price with current adjusters and filter combinations. Check console for details.
             </div>
           </div>
         </div>
@@ -131,8 +195,8 @@ export function CalculatedPrice({
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-      {results.map(({ combo, result }, i) => {
-        const calculatedPrice = result?.price ?? null
+      {results.map(({ combo, comboMap, keys, result }, i) => {
+        const calculatedPrice = result?.price
         const warnings = result?.warnings ?? []
         const dateDisplay = currentDate.toLocaleDateString('en-US', {
           weekday: 'short',
@@ -140,7 +204,12 @@ export function CalculatedPrice({
           month: 'short',
           day: 'numeric'
         })
-        const label = combo.length > 0 ? combo.join(' · ') : null
+        // label: "key1:val · key2:val" or fallback to join
+        const label = keys && keys.length > 0
+          ? keys.map((k, idx) => `${k}: ${String(combo[idx])}`).join(' · ')
+          : combo.length > 0
+            ? combo.join(' · ')
+            : null
 
         return (
           <Card
@@ -162,7 +231,9 @@ export function CalculatedPrice({
                       {label || 'Calculated Price'}
                     </div>
                     <div className={cn('text-3xl font-bold text-primary', isInline && 'text-4xl')}>
-                      {calculatedPrice !== null ? `$${calculatedPrice.toFixed(2)}` : '--'}
+                      {calculatedPrice !== null && !Number.isNaN(calculatedPrice)
+                        ? `$${calculatedPrice.toFixed(2)}`
+                        : '--'}
                     </div>
                   </div>
                 </div>
@@ -170,7 +241,20 @@ export function CalculatedPrice({
                 <div className={cn('text-right text-xs text-muted-foreground space-y-1', isInline && 'text-left xl:text-right')}>
                   <div className="font-medium text-foreground">{dateDisplay}</div>
                   <div>{adjusters.length} adjuster{adjusters.length !== 1 ? 's' : ''} applied</div>
-                  <div>{competitorData.length} competitor unit{competitorData.length !== 1 ? 's' : ''}</div>
+                  <div>{ /* show number of competitor units used for this combo */ }
+                    {
+                      (() => {
+                        try {
+                          // If result came from subset, we don't have subset length attached — best effort:
+                          // If calculatePrice returned warnings telling "No competitor rows...", show 0
+                          if (warnings && warnings.length > 0 && warnings[0].startsWith('No competitor rows')) {
+                            return '0 competitor units'
+                          }
+                        } catch {}
+                        return ''
+                      })()
+                    }
+                  </div>
                 </div>
               </div>
 
