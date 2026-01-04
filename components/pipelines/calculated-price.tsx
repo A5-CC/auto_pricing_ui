@@ -194,7 +194,7 @@ export function CalculatedPrice({
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-      {results.map(({ combo, comboMap, keys, result }, i) => {
+      {results.map(({ combo, keys, result }, i) => {
         const calculatedPrice = result?.price
         const warnings = result?.warnings ?? []
         const dateDisplay = currentDate.toLocaleDateString('en-US', {
