@@ -38,6 +38,7 @@ import type { Adjuster } from "@/lib/adjusters";
 import { hasValidCompetitorPrices, getPriceDiagnostics } from "@/lib/adjusters";
 
 import { Calculator, Clock, TrendingDown } from "lucide-react";
+import { Plus } from "lucide-react";
 
 // 🔥 NEW: import PipelineSelector
 import { PipelineSelector } from "@/components/pipelines/pipeline-selector";
