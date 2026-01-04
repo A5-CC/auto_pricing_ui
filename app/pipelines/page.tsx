@@ -647,7 +647,6 @@ export default function PipelinesPage() {
           onAdd={handleAddAdjuster}
         />
       </div>
-
     </main>
   );
 }
