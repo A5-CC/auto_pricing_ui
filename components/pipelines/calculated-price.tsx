@@ -69,7 +69,7 @@ export function CalculatedPrice({
           const derived = Array.from(
             new Set(
               competitorData
-                .map((r: any) => r[key])
+                .map((r: E1DataRow) => r[key])
                 .filter((v) => v !== null && v !== undefined && v !== '')
             )
           )
@@ -107,13 +107,13 @@ export function CalculatedPrice({
     // For each combination: filter competitorData to the subset matching the combo (by keys), then call calculatePrice
     return combinations.map((combo) => {
       // build a map of key -> value for label/filtering
-      const comboMap: Record<string, FilterValue> = {}
+      // const comboMap: Record<string, FilterValue> = {}
       keys.forEach((k, i) => {
         comboMap[k] = combo[i]
       })
 
       // subset competitorData by matching comboMap
-      const subset = competitorData.filter((row: any) =>
+      const subset = competitorData.filter((row: E1DataRow) =>
         // all keys must match; compare as strings for robustness
         keys.every((k, i) => {
           const rowVal = row[k]
@@ -144,7 +144,7 @@ export function CalculatedPrice({
         console.error('[CalculatedPrice] Error calculating price for combo:', comboMap, error)
         result = {
           price: NaN,
-          warnings: [`Error calculating price: ${(error as any)?.message ?? String(error)}`]
+          warnings: [`Error calculating price: ${(error as E1DataRow)?.message ?? String(error)}`]
         }
       }
       return { combo, comboMap, keys, result }
