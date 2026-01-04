@@ -9,7 +9,7 @@ import {
   getE1Client,
 } from "@/lib/api/client/pipelines";
 
-import type { E1Snapshot, E1DataResponse } from "@/lib/api/types";
+import type { E1Snapshot, E1DataResponse, PipelineFilters as PipelineFiltersType, Pipeline } from "@/lib/api/types";
 
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -38,6 +38,9 @@ import type { Adjuster } from "@/lib/adjusters";
 import { hasValidCompetitorPrices, getPriceDiagnostics } from "@/lib/adjusters";
 
 import { Calculator, Clock, TrendingDown } from "lucide-react";
+
+// 🔥 NEW: import PipelineSelector
+import { PipelineSelector } from "@/components/pipelines/pipeline-selector";
 
 /* ---------------- Types ---------------- */
 
@@ -75,7 +78,6 @@ export default function PipelinesPage() {
     []
   );
 
-  // 🔥 Only destructure what you USE
   const [competitorsAll] = useState(false);
   const [locationsAll] = useState(false);
   const [dimensionsAll] = useState(false);
@@ -154,6 +156,19 @@ export default function PipelinesPage() {
     setLocalAdjusters(next);
   };
 
+  /* -------- NEW: pipeline handlers -------- */
+
+  const handleLoadPipeline = (filters: PipelineFiltersType) => {
+    setSelectedCompetitors(filters.competitors);
+    setSelectedLocations(filters.locations);
+    setSelectedDimensions(filters.dimensions);
+    setSelectedUnitCategories(filters.unit_categories);
+  };
+
+  const handlePipelineChange = (pipeline: Pipeline | null) => {
+    setLocalAdjusters(pipeline?.adjusters || []);
+  };
+
   /* -------- Filters for calculation -------- */
 
   const calcFilters = useMemo<CalcFiltersShape>(
@@ -192,9 +207,26 @@ export default function PipelinesPage() {
           Build pricing pipelines using competitive, functional, and temporal
           adjusters.
         </p>
-        <Button variant="outline" size="sm" disabled>
-          Export CSV
-        </Button>
+
+        {/* ---------------- NEW: PipelineSelector + Export ---------------- */}
+        <div className="flex items-center gap-2">
+          <PipelineSelector
+            currentFilters={{
+              competitors: selectedCompetitors,
+              locations: selectedLocations,
+              dimensions: selectedDimensions,
+              unit_categories: selectedUnitCategories,
+            }}
+            currentAdjusters={localAdjusters}
+            onLoadPipeline={handleLoadPipeline}
+            onPipelineChange={handlePipelineChange}
+          />
+
+          <Button variant="outline" size="sm" disabled>
+            Export CSV
+          </Button>
+        </div>
+        {/* ---------------- END NEW ---------------- */}
       </header>
 
       {error && (
