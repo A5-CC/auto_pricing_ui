@@ -88,9 +88,8 @@ export default function PipelinesPage() {
     Record<string, ColumnStatistics>
   >({});
   const [visibleColumns, setVisibleColumns] = useState<string[]>([]);
-  const [ setPricingSchemas] = useState<PricingSchemas | null>(
-    null
-  );
+  const [, setPricingSchemas] = useState<PricingSchemas | null>(null);
+
 
   // Client-side filtering (competitors -> locations)
   const { filteredRows: competitorFilteredRows, allCompetitors } =
