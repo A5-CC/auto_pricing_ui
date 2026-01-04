@@ -107,7 +107,6 @@ export function CalculatedPrice({
     // For each combination: filter competitorData to the subset matching the combo (by keys), then call calculatePrice
     return combinations.map((combo) => {
       // build a map of key -> value for label/filtering
-      // const comboMap: Record<string, FilterValue> = {}
       keys.forEach((k, i) => {
         comboMap[k] = combo[i]
       })
