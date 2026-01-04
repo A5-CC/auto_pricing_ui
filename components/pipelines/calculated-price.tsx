@@ -1,5 +1,4 @@
-import React from 'react'
-import { useMemo } from 'react'
+import React, { useMemo } from 'react'
 import { calculatePrice } from '@/lib/adjusters'
 import type { Adjuster } from '@/lib/adjusters'
 import type { E1DataRow } from '@/lib/api/types'
@@ -7,10 +6,8 @@ import { Card } from '@/components/ui/card'
 import { AlertCircle, AlertTriangle, Calculator } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-// Concrete filter value types — expand if you need Date or objects
 type FilterValue = string | number | boolean
 
-// Cartesian product utility
 function cartesianProduct<T>(arrays: T[][]): T[][] {
   return arrays.reduce<T[][]>(
     (acc, curr) => acc.flatMap(a => curr.map(b => [...a, b])),
@@ -18,12 +15,10 @@ function cartesianProduct<T>(arrays: T[][]): T[][] {
   )
 }
 
-// Filter selection type
 type FilterSelection<T = FilterValue> =
   | { mode: 'all' }
   | { mode: 'subset'; values: T[] }
 
-// Minimal expected structure for price results returned by calculatePrice
 type PriceResult = {
   price: number
   warnings?: string[]
@@ -36,7 +31,7 @@ interface CalculatedPriceProps {
   currentDate: Date
   variant?: 'panel' | 'inline'
   filters?: Record<string, FilterSelection>
-  availableFilterValues?: Record<string, FilterValue[]> // used when mode === 'all'
+  availableFilterValues?: Record<string, FilterValue[]> 
   maxCombinations?: number
 }
 
@@ -107,7 +102,6 @@ export function CalculatedPrice({
           currentDate
         }) as PriceResult
 
-        // If calculatePrice returns null or missing price, always replace with safe NaN + warning
         if (!result || result.price == null) {
           result = {
             price: NaN,
@@ -137,18 +131,6 @@ export function CalculatedPrice({
     maxCombinations
   ])
 
-  // dependencies: competitorData so derived values update, adjusters, filters, etc.
-  }, [
-    competitorData,
-    clientAvailableUnits,
-    adjusters,
-    currentDate,
-    filters,
-    availableFilterValues,
-    maxCombinations
-  ])
-
-  // No adjusters
   if (!adjusters || adjusters.length === 0) {
     return (
       <Card className={cn('p-6 bg-muted/30', isInline && 'h-full rounded-2xl border-dashed border-muted/40 bg-muted/10')}>
@@ -163,9 +145,7 @@ export function CalculatedPrice({
     )
   }
 
-  // All calculations failed or no combos
   if (results.length === 0 || results.every(r => r.result == null || Number.isNaN(r.result.price))) {
-    // show aggregated failure but keep console logs above for details
     return (
       <Card className={cn('p-6 bg-destructive/10 border-destructive/20', isInline && 'h-full rounded-2xl')}>
         <div className="flex items-center gap-3 text-destructive">
@@ -183,7 +163,7 @@ export function CalculatedPrice({
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-      {results.map(({ combo,  keys, result }, i) => {
+      {results.map(({ combo, keys, result }, i) => {
         const calculatedPrice = result?.price
         const warnings = result?.warnings ?? []
         const dateDisplay = currentDate.toLocaleDateString('en-US', {
@@ -192,8 +172,7 @@ export function CalculatedPrice({
           month: 'short',
           day: 'numeric'
         })
-        // label: "key1:val · key2:val" or fallback to join
-        const label = keys && keys.length > 0
+        const label = keys.length > 0
           ? keys.map((k, idx) => `${k}: ${String(combo[idx])}`).join(' · ')
           : combo.length > 0
             ? combo.join(' · ')
@@ -229,19 +208,8 @@ export function CalculatedPrice({
                 <div className={cn('text-right text-xs text-muted-foreground space-y-1', isInline && 'text-left xl:text-right')}>
                   <div className="font-medium text-foreground">{dateDisplay}</div>
                   <div>{adjusters.length} adjuster{adjusters.length !== 1 ? 's' : ''} applied</div>
-                  <div>{ /* show number of competitor units used for this combo */ }
-                    {
-                      (() => {
-                        try {
-                          // If result came from subset, we don't have subset length attached — best effort:
-                          // If calculatePrice returned warnings telling "No competitor rows...", show 0
-                          if (warnings && warnings.length > 0 && warnings[0].startsWith('No competitor rows')) {
-                            return '0 competitor units'
-                          }
-                        } catch {}
-                        return ''
-                      })()
-                    }
+                  <div>
+                    {warnings.length > 0 && warnings[0].startsWith('No competitor rows') ? '0 competitor units' : ''}
                   </div>
                 </div>
               </div>
