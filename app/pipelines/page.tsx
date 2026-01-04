@@ -611,21 +611,19 @@ export default function PipelinesPage() {
           }
           onRemoveAdjuster={handleRemoveAdjuster}
         />
-
-        resultCard={
+        
+        {/* Calculated price always below filters & adjusters */}
+        <div className="pt-4">
           <CalculatedPrice
-            variant="inline"
             competitorData={fullyFilteredRows}
             clientAvailableUnits={clientDataResponse?.data.length || 0}
             adjusters={localAdjusters}
             currentDate={currentDate}
-            // NEW: pass filter instructions so CalculatedPrice can expand combos
             filters={calcFilters}
             availableFilterValues={availableFilterValues}
-            // optionally adjust max results
             maxCombinations={50}
           />
-        }
+        </div>
         
         {/* Adjuster Dialogs */}
         <AddCompetitiveAdjusterDialog
