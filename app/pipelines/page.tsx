@@ -1,54 +1,59 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-
 import {
   getE1Snapshots,
   getE1Competitors,
   getE1Client,
+  exportE1CompetitorsCSV,
+  getE1CompetitorsStatistics,
 } from "@/lib/api/client/pipelines";
-
-import type { E1Snapshot, E1DataResponse, PipelineFilters as PipelineFiltersType, Pipeline } from "@/lib/api/types";
-
+import { getPricingSchemas } from "@/lib/api/client/pricing";
+import type {
+  E1Snapshot,
+  E1DataResponse,
+  ColumnStatistics,
+  PricingSchemas,
+} from "@/lib/api/types";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { ContextChips } from "@/components/context-chips";
+import { useContextChips } from "@/hooks/useContextChips";
+import { SortableTh } from "@/components/table/SortableTh";
+import { useSortableRows } from "@/hooks/useSortableRows";
+import { useCompetitorFilter } from "@/hooks/useCompetitorFilter";
+import { useLocationFilter } from "@/hooks/useLocationFilter";
+import { useDimensionsFilter } from "@/hooks/useDimensionsFilter";
+import { useUnitCategoryFilter } from "@/hooks/useUnitCategoryFilter";
+import GroupByControl from "@/components/pricing/group-by-control";
 import { SectionLabel } from "@/components/ui/section-label";
-
+import { getCompetitorColor } from "@/lib/pricing/formatters";
+import { getColumnLabel } from "@/lib/pricing/column-labels";
+import { TableCell } from "@/components/pricing/table-cell";
 import { PricingOverview } from "../pricing/components/pricing-overview";
 import { PricingFilters } from "../pricing/components/pricing-filters";
-
+import { PipelineSelector } from "@/components/pipelines/pipeline-selector";
 import { AdjustersList } from "@/components/pipelines/adjusters-list";
 import { CalculatedPrice } from "@/components/pipelines/calculated-price";
-
-import {
-  AddCompetitiveAdjusterDialog,
-} from "@/components/pipelines/adjusters/add-competitive-adjuster-dialog";
-import {
-  AddFunctionAdjusterDialog,
-} from "@/components/pipelines/adjusters/add-function-adjuster-dialog";
-import {
-  AddTemporalAdjusterDialog,
-} from "@/components/pipelines/adjusters/add-temporal-adjuster-dialog";
-
+import { AddCompetitiveAdjusterDialog } from "@/components/pipelines/adjusters/add-competitive-adjuster-dialog";
+import { AddFunctionAdjusterDialog } from "@/components/pipelines/adjusters/add-function-adjuster-dialog";
+import { AddTemporalAdjusterDialog } from "@/components/pipelines/adjusters/add-temporal-adjuster-dialog";
 import { useAdjusterDialog } from "@/components/pipelines/adjusters/use-adjuster-dialog";
 import { PriceDataWarning } from "@/components/pipelines/price-data-warning";
-
+import type { PipelineFilters as PipelineFiltersType, Pipeline } from "@/lib/api/types";
 import type { Adjuster } from "@/lib/adjusters";
 import { hasValidCompetitorPrices, getPriceDiagnostics } from "@/lib/adjusters";
+import { TrendingDown, Calculator, Clock, Plus } from "lucide-react";
 
-import { Calculator, Clock, TrendingDown } from "lucide-react";
-import { Plus } from "lucide-react";
-
-// 🔥 NEW: import PipelineSelector
-import { PipelineSelector } from "@/components/pipelines/pipeline-selector";
-
-/* ---------------- Types ---------------- */
-
-type CalcFilter =
-  | { mode: "all" }
-  | { mode: "subset"; values: string[] };
-
+/**
+ * Filter shape we will pass to CalculatedPrice.
+ * This mirrors the types used by CalculatedPrice (mode: 'all' | subset).
+ */
+type CalcFilter = { mode: "all" } | { mode: "subset"; values: string[] };
 type CalcFiltersShape = {
   competitors: CalcFilter;
   locations: CalcFilter;
@@ -56,108 +61,206 @@ type CalcFiltersShape = {
   unit_categories: CalcFilter;
 };
 
-/* ---------------- Page ---------------- */
-
 export default function PipelinesPage() {
   const [snapshots, setSnapshots] = useState<E1Snapshot[]>([]);
-  const [selectedSnapshot, setSelectedSnapshot] = useState("latest");
+  const [selectedSnapshot, setSelectedSnapshot] = useState<string>("latest");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  const [dataResponse, setDataResponse] = useState<E1DataResponse | null>(null);
-  const [clientDataResponse, setClientDataResponse] =
-    useState<E1DataResponse | null>(null);
-
   const [localAdjusters, setLocalAdjusters] = useState<Adjuster[]>([]);
 
-  /* -------- Filters -------- */
-
-  const [selectedCompetitors, setSelectedCompetitors] = useState<string[]>([]);
-  const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
-  const [selectedDimensions, setSelectedDimensions] = useState<string[]>([]);
-  const [selectedUnitCategories, setSelectedUnitCategories] = useState<string[]>(
-    []
-  );
-
-  const [competitorsAll] = useState(false);
-  const [locationsAll] = useState(false);
-  const [dimensionsAll] = useState(false);
-  const [unitCategoriesAll] = useState(false);
-
-  /* -------- Dialogs -------- */
-
+  // Adjuster dialogs state
   const competitiveDialog = useAdjusterDialog();
   const functionDialog = useAdjusterDialog();
   const temporalDialog = useAdjusterDialog();
 
-  /* -------- Load snapshots -------- */
+  // Client-side competitor multi-select
+  const [selectedCompetitors, setSelectedCompetitors] = useState<string[]>([]);
+  // Client-side location multi-select
+  const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
+  // Client-side dimensions multi-select
+  const [selectedDimensions, setSelectedDimensions] = useState<string[]>([]);
+  // Client-side unit category multi-select
+  const [selectedUnitCategories, setSelectedUnitCategories] = useState<
+    string[]
+  >([]);
+
+  // NEW: explicit "All" flags for each filter (mutually-exclusive with explicit values)
+  const [competitorsAll, setCompetitorsAll] = useState<boolean>(false);
+  const [locationsAll, setLocationsAll] = useState<boolean>(false);
+  const [dimensionsAll, setDimensionsAll] = useState<boolean>(false);
+  const [unitCategoriesAll, setUnitCategoriesAll] = useState<boolean>(false);
+
+  const [dataResponse, setDataResponse] = useState<E1DataResponse | null>(null);
+  const [clientDataResponse, setClientDataResponse] = useState<E1DataResponse | null>(null);
+  const [columnsStats, setColumnsStats] = useState<
+    Record<string, ColumnStatistics>
+  >({});
+  const [visibleColumns, setVisibleColumns] = useState<string[]>([]);
+  const [pricingSchemas, setPricingSchemas] = useState<PricingSchemas | null>(
+    null
+  );
+  const [showSparseColumns, setShowSparseColumns] = useState(false);
+  const sparseThreshold = 85; // 85% fill-rate (backend returns 0-100, not 0-1)
+
+  // Client-side filtering (competitors -> locations)
+  const { filteredRows: competitorFilteredRows, allCompetitors } =
+    useCompetitorFilter(dataResponse?.data ?? [], selectedCompetitors);
+  const { filteredRows, allLocations } = useLocationFilter(
+    competitorFilteredRows,
+    selectedLocations
+  );
+  const { filteredRows: locationAndDimFilteredRows, allDimensions } =
+    useDimensionsFilter(filteredRows, selectedDimensions);
+  const { filteredRows: fullyFilteredRows, allUnitCategories } =
+    useUnitCategoryFilter(locationAndDimFilteredRows, selectedUnitCategories);
+
+  // Sorting on filtered rows
+  const {
+    sortedRows: displayedRows,
+    sortBy,
+    sortDir,
+    handleSortClick,
+    setSortBy,
+    setSortDir,
+  } = useSortableRows(fullyFilteredRows, columnsStats, null, "asc");
+
+  // Client-side pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const rowsPerPage = 25;
+
+  // Group by (single level)
+  const [groupBy, setGroupBy] = useState<string | null>(null);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const { createChips } = useContextChips();
+
+  const grouped = useMemo(() => {
+    if (!groupBy) return null;
+    const map = new Map<string, typeof displayedRows>();
+    for (const row of displayedRows) {
+      const raw = row[groupBy as keyof typeof row];
+      const key =
+        raw === null || raw === undefined || raw === "" ? "—" : String(raw);
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(row);
+    }
+    const keys = Array.from(map.keys()).sort((a, b) =>
+      a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" })
+    );
+    return { keys, map };
+  }, [displayedRows, groupBy]);
+
+  // Pagination: calculate total pages and slice displayedRows
+  const totalPages = Math.ceil(displayedRows.length / rowsPerPage);
+  const paginatedRows = useMemo(() => {
+    if (groupBy) return displayedRows; // No pagination when grouping
+    return displayedRows.slice(
+      (currentPage - 1) * rowsPerPage,
+      currentPage * rowsPerPage
+    );
+  }, [displayedRows, currentPage, rowsPerPage, groupBy]);
+
+  // Auto-expand groups only when grouping mode changes
+  useEffect(() => {
+    if (!groupBy) {
+      setExpandedGroups(new Set());
+      return;
+    }
+    if (grouped) setExpandedGroups(new Set(grouped.keys));
+  }, [groupBy, grouped]);
+
+  const toggleGroup = (key: string) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const expandAllGroups = () => {
+    if (grouped) setExpandedGroups(new Set(grouped.keys));
+  };
+  const collapseAllGroups = () => setExpandedGroups(new Set());
+
+  const loadSnapshots = async () => {
+    try {
+      const s = await getE1Snapshots();
+      setSnapshots(s);
+    } catch {
+      // silently ignore
+    }
+  };
+
+  const loadSchemas = async () => {
+    try {
+      const schemas = await getPricingSchemas();
+      setPricingSchemas(schemas);
+    } catch {
+      // silently ignore
+    }
+  };
 
   useEffect(() => {
-    getE1Snapshots().then(setSnapshots).catch(() => {});
+    loadSnapshots();
+    loadSchemas();
   }, []);
-
-  /* -------- Load data -------- */
 
   const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const competitors = await getE1Competitors(selectedSnapshot, {
-        limit: 10000,
-      });
-      const client = await getE1Client(selectedSnapshot, { limit: 10000 });
+      // Fetch E1 competitor data (modSTORAGE automatically excluded by backend)
+      const res = await getE1Competitors(selectedSnapshot, { limit: 10000 });
+      setDataResponse(res);
 
-      setDataResponse(competitors);
-      setClientDataResponse(client);
+      // Fetch E1 client data (only modSTORAGE, competitors excluded by backend)
+      const clientRes = await getE1Client(selectedSnapshot, { limit: 10000 });
+      setClientDataResponse(clientRes);
+
+      if (res.columns?.length) {
+        // Get statistics for ALL columns that are being displayed (competitor data only)
+        const stats = await getE1CompetitorsStatistics(selectedSnapshot, res.columns);
+        const byName = Object.fromEntries(stats.map((s) => [s.column, s]));
+        setColumnsStats(byName);
+
+        // Filter out columns that are already shown in fixed columns
+        const fixedColumns = [
+          "competitor_name",
+          "competitor_address",
+          "location_normalized",
+          "snapshot_date",
+          "dimensions_normalized",
+        ];
+        const filteredColumns = res.columns.filter(
+          (col) => !fixedColumns.includes(col)
+        );
+        setVisibleColumns((prev) => (prev.length ? prev : filteredColumns));
+      }
     } catch {
-      setError("Failed to load pricing data");
+      setError("Failed to load E1 data");
     } finally {
       setLoading(false);
     }
   }, [selectedSnapshot]);
 
+  // Reload when inputs change (snapshot only)
   useEffect(() => {
     loadData();
-  }, [loadData]);
+  }, [selectedSnapshot, loadData]);
 
-  /* -------- Derived data (memoized) -------- */
-
-  const competitorRows = useMemo(
-    () => dataResponse?.data ?? [],
-    [dataResponse]
-  );
-
-  const currentDate = useMemo(() => new Date(), []);
-
-  const canAddAdjusters = useMemo(
-    () => hasValidCompetitorPrices(competitorRows),
-    [competitorRows]
-  );
-
-  const priceDiagnostics = useMemo(
-    () => getPriceDiagnostics(competitorRows),
-    [competitorRows]
-  );
-
-  /* -------- Adjusters -------- */
-
-  const handleAddAdjuster = (adjuster: Adjuster) => {
-    setLocalAdjusters((prev) => [...prev, adjuster]);
+  const onExport = async () => {
+    if (!selectedSnapshot) return;
+    // Export competitor data via backend (modSTORAGE automatically excluded)
+    const blob = await exportE1CompetitorsCSV(selectedSnapshot, {
+      columns: visibleColumns,
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `e1-competitors-${selectedSnapshot}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
-
-  const handleRemoveAdjuster = (index: number) => {
-    const next = localAdjusters.filter((_, i) => i !== index);
-
-    if (next.length && next[0].type !== "competitive") {
-      toast.warning(
-        "The pipeline must start with a Competitive adjuster."
-      );
-      return;
-    }
-    setLocalAdjusters(next);
-  };
-
-  /* -------- NEW: pipeline handlers -------- */
 
   const handleLoadPipeline = (filters: PipelineFiltersType) => {
     setSelectedCompetitors(filters.competitors);
@@ -170,64 +273,224 @@ export default function PipelinesPage() {
     setLocalAdjusters(pipeline?.adjusters || []);
   };
 
-  /* -------- Filters for calculation -------- */
+  const handleAddAdjuster = (adjuster: Adjuster) => {
+    setLocalAdjusters((prev) => [...prev, adjuster]);
+  };
 
-  const calcFilters = useMemo<CalcFiltersShape>(
-    () => ({
-      competitors: competitorsAll
-        ? { mode: "all" }
-        : { mode: "subset", values: selectedCompetitors },
-      locations: locationsAll
-        ? { mode: "all" }
-        : { mode: "subset", values: selectedLocations },
-      dimensions: dimensionsAll
-        ? { mode: "all" }
-        : { mode: "subset", values: selectedDimensions },
-      unit_categories: unitCategoriesAll
-        ? { mode: "all" }
-        : { mode: "subset", values: selectedUnitCategories },
-    }),
-    [
-      competitorsAll,
-      locationsAll,
-      dimensionsAll,
-      unitCategoriesAll,
-      selectedCompetitors,
-      selectedLocations,
-      selectedDimensions,
-      selectedUnitCategories,
-    ]
+  const handleRemoveAdjuster = (index: number) => {
+    const nextAdjusters = localAdjusters.filter((_, idx) => idx !== index);
+
+    if (nextAdjusters.length > 0) {
+      const nextFirst = nextAdjusters[0];
+      if (nextFirst.type !== "competitive") {
+        toast.warning(
+          <span>
+            Cannot remove this adjuster because the pipeline must start with a <strong>Competitive</strong> step.
+          </span>,
+          { duration: 5400 }
+        );
+        return;
+      }
+    }
+
+    setLocalAdjusters(nextAdjusters);
+  };
+
+  // Current date for temporal adjusters (day of week, month)
+  const currentDate = useMemo(() => new Date(), []);
+
+  // Check if competitor data has valid prices for adjusters
+  const canAddAdjusters = useMemo(
+    () => hasValidCompetitorPrices(fullyFilteredRows),
+    [fullyFilteredRows]
   );
 
-  /* ---------------- Render ---------------- */
+  const hasCompetitiveAdjuster = localAdjusters.some((adj) => adj.type === "competitive");
+  const firstAdjusterIsCompetitive =
+    localAdjusters.length === 0 || localAdjusters[0].type === "competitive";
+  const pipelineNeedsBase = localAdjusters.length > 0 && !firstAdjusterIsCompetitive;
+  const canAddNonCompetitiveAdjusters =
+    canAddAdjusters && hasCompetitiveAdjuster && firstAdjusterIsCompetitive;
+
+  // Get price data diagnostics for display
+  const priceDiagnostics = useMemo(
+    () => getPriceDiagnostics(fullyFilteredRows),
+    [fullyFilteredRows]
+  );
+
+  // Filter columns based on sparse threshold (unless toggle is on)
+  const displayColumns = useMemo(() => {
+    if (showSparseColumns) return visibleColumns;
+
+    return visibleColumns.filter(col => {
+      const stats = columnsStats[col];
+      // Only show columns WITH stats AND high fill rate
+      // Backend returns fill_rate as percentage (0-100), not decimal (0-1)
+      return stats && stats.fill_rate >= sparseThreshold;
+    });
+  }, [visibleColumns, columnsStats, showSparseColumns, sparseThreshold]);
+
+  // Get available numeric variables for function adjuster
+  const availableVariables = useMemo(() => {
+    console.log('[availableVariables] Total columns:', Object.keys(columnsStats).length);
+
+    // Show ALL columns with their data_type
+    const allColumnsWithType = Object.entries(columnsStats).map(([col, stats]) => ({
+      column: col,
+      data_type: stats.data_type
+    }));
+    console.log('[availableVariables] ALL columns with data_type:', allColumnsWithType);
+
+    // Show unique data_types
+    const uniqueTypes = [...new Set(Object.values(columnsStats).map(s => s.data_type))];
+    console.log('[availableVariables] Unique data_types in dataset:', uniqueTypes);
+
+    // Count by data_type
+    const countByType = Object.values(columnsStats).reduce((acc, stats) => {
+      acc[stats.data_type] = (acc[stats.data_type] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    console.log('[availableVariables] Count by data_type:', countByType);
+
+    // Filter numeric columns from competitor data statistics
+    // Backend returns pandas/numpy types: Int64, float64, Float64, int64, etc.
+    const numericCols = Object.entries(columnsStats)
+      .filter(([, stats]) => {
+        const dtype = stats.data_type.toLowerCase();
+        return dtype.includes('int') || dtype.includes('float');
+      })
+      .map(([col]) => col)
+      .sort();
+
+    console.log('[availableVariables] Numeric columns found:', numericCols.length);
+    console.log('[availableVariables] Numeric columns list:', numericCols);
+
+    return numericCols;
+  }, [columnsStats]);
+
+  // Reset sort when dataset changes significantly (e.g., new snapshot or filters)
+  useEffect(() => {
+    setSortBy(null);
+    setSortDir("asc");
+  }, [
+    selectedSnapshot,
+    selectedCompetitors,
+    selectedLocations,
+    selectedDimensions,
+    selectedUnitCategories,
+    setSortBy,
+    setSortDir,
+  ]);
+
+  // Reset pagination when filters or sorting change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [
+    selectedSnapshot,
+    selectedCompetitors,
+    selectedLocations,
+    selectedDimensions,
+    selectedUnitCategories,
+    sortBy,
+    sortDir,
+  ]);
+
+  // ---- Wrappers that enforce mutual exclusion between "All" flags and explicit selections ----
+
+  const handleSetSelectedCompetitors = (vals: string[]) => {
+    if (vals.length > 0 && competitorsAll) {
+      setCompetitorsAll(false);
+    }
+    setSelectedCompetitors(vals);
+  };
+
+  const handleSetSelectedLocations = (vals: string[]) => {
+    if (vals.length > 0 && locationsAll) {
+      setLocationsAll(false);
+    }
+    setSelectedLocations(vals);
+  };
+
+  const handleSetSelectedDimensions = (vals: string[]) => {
+    if (vals.length > 0 && dimensionsAll) {
+      setDimensionsAll(false);
+    }
+    setSelectedDimensions(vals);
+  };
+
+  const handleSetSelectedUnitCategories = (vals: string[]) => {
+    if (vals.length > 0 && unitCategoriesAll) {
+      setUnitCategoriesAll(false);
+    }
+    setSelectedUnitCategories(vals);
+  };
+
+  // ---- Build filters + available values object for CalculatedPrice ----
+
+  const calcFilters = useMemo<CalcFiltersShape>(() => {
+    return {
+      competitors: competitorsAll ? { mode: "all" } : { mode: "subset", values: selectedCompetitors },
+      locations: locationsAll ? { mode: "all" } : { mode: "subset", values: selectedLocations },
+      dimensions: dimensionsAll ? { mode: "all" } : { mode: "subset", values: selectedDimensions },
+      unit_categories: unitCategoriesAll ? { mode: "all" } : { mode: "subset", values: selectedUnitCategories },
+    };
+  }, [
+    competitorsAll,
+    locationsAll,
+    dimensionsAll,
+    unitCategoriesAll,
+    selectedCompetitors,
+    selectedLocations,
+    selectedDimensions,
+    selectedUnitCategories,
+  ]);
+
+  const availableFilterValues = useMemo<Record<keyof CalcFiltersShape, string[]>>(() => {
+    return {
+      competitors: allCompetitors ?? [],
+      locations: allLocations ?? [],
+      dimensions: allDimensions ?? [],
+      unit_categories: allUnitCategories ?? [],
+    };
+  }, [allCompetitors, allLocations, allDimensions, allUnitCategories]);
 
   return (
-    <main className="mx-auto max-w-7xl p-6 space-y-6">
-      <header className="flex justify-between items-center">
-        <p className="text-sm text-muted-foreground">
-          Build pricing pipelines using competitive, functional, and temporal
-          adjusters.
-        </p>
-
-        {/* ---------------- NEW: PipelineSelector + Export ---------------- */}
-        <div className="flex items-center gap-2">
-          <PipelineSelector
-            currentFilters={{
-              competitors: selectedCompetitors,
-              locations: selectedLocations,
-              dimensions: selectedDimensions,
-              unit_categories: selectedUnitCategories,
-            }}
-            currentAdjusters={localAdjusters}
-            onLoadPipeline={handleLoadPipeline}
-            onPipelineChange={handlePipelineChange}
-          />
-
-          <Button variant="outline" size="sm" disabled>
-            Export CSV
-          </Button>
+    <main className="mx-auto max-w-7xl p-6 space-y-5">
+      <ContextChips
+        chips={createChips({
+          label: "Pricing Pipelines",
+          isCurrent: true,
+        })}
+      />
+      <header>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-sm text-muted-foreground">
+              Build pricing strategies with Filters, and Competitive, Function-based, and Temporal Adjusters
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <PipelineSelector
+              currentFilters={{
+                competitors: selectedCompetitors,
+                locations: selectedLocations,
+                dimensions: selectedDimensions,
+                unit_categories: selectedUnitCategories,
+              }}
+              currentAdjusters={localAdjusters}
+              onLoadPipeline={handleLoadPipeline}
+              onPipelineChange={handlePipelineChange}
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onExport}
+              disabled={!dataResponse}
+            >
+              Export CSV
+            </Button>
+          </div>
         </div>
-        {/* ---------------- END NEW ---------------- */}
       </header>
 
       {error && (
@@ -241,130 +504,426 @@ export default function PipelinesPage() {
         selectedSnapshot={selectedSnapshot}
         snapshots={snapshots}
         dataResponse={dataResponse}
-        columnsStats={{}}
+        columnsStats={columnsStats}
         onSnapshotChange={setSelectedSnapshot}
       />
 
       <PricingFilters
+        // NOTE: we pass *wrapped* setters so selecting explicit values clears the "All" flag
         selectedCompetitors={selectedCompetitors}
-        setSelectedCompetitors={setSelectedCompetitors}
-        allCompetitors={[]}
+        setSelectedCompetitors={handleSetSelectedCompetitors}
+        allCompetitors={allCompetitors}
         selectedLocations={selectedLocations}
-        setSelectedLocations={setSelectedLocations}
-        allLocations={[]}
+        setSelectedLocations={handleSetSelectedLocations}
+        allLocations={allLocations}
         selectedDimensions={selectedDimensions}
-        setSelectedDimensions={setSelectedDimensions}
-        allDimensions={[]}
+        setSelectedDimensions={handleSetSelectedDimensions}
+        allDimensions={allDimensions}
         selectedUnitCategories={selectedUnitCategories}
-        setSelectedUnitCategories={setSelectedUnitCategories}
-        allUnitCategories={[]}
+        setSelectedUnitCategories={handleSetSelectedUnitCategories}
+        allUnitCategories={allUnitCategories}
       />
 
-      <SectionLabel
-        text="Price Calculation"
-        right={
-          <span className="text-xs text-muted-foreground">
-            {priceDiagnostics.pricesFound}/{priceDiagnostics.competitorRows} units
-            with prices
-          </span>
+      {/* Price Calculation Section */}
+      <div className="space-y-4">
+        <SectionLabel
+          text="Price Calculation"
+          right={
+            <div className="text-xs text-muted-foreground">
+              {priceDiagnostics.pricesFound}/{priceDiagnostics.competitorRows} units with prices
+            </div>
+          }
+        />
+
+
+        {/* Warning if no price data available (only after data loads) */}
+        {!loading && !canAddAdjusters && (
+          <PriceDataWarning competitorData={fullyFilteredRows} />
+        )}
+
+        {pipelineNeedsBase && (
+          <Alert className="border-amber-200 bg-amber-50">
+            <AlertTitle>Competitive step required</AlertTitle>
+            <AlertDescription>
+              Step 1 must be a competitive adjuster to establish the base price. Remove or re-add cards until a competitive
+              card leads the pipeline.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        <AdjustersList
+          adjusters={localAdjusters}
+          actions={
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1 rounded-full bg-muted/40 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <Plus className="h-3.5 w-3.5" /> Add adjuster
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={!canAddAdjusters}
+                onClick={competitiveDialog.handleOpen}
+                className="border-blue-200 text-blue-700 hover:bg-blue-50 hover:text-blue-800 disabled:opacity-50"
+                title={!canAddAdjusters ? "Add competitor data with prices to enable adjusters" : undefined}
+              >
+                <TrendingDown className="h-4 w-4 mr-1.5" />
+                Competitive
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={!canAddNonCompetitiveAdjusters}
+                onClick={functionDialog.handleOpen}
+                className="border-amber-200 text-amber-700 hover:bg-amber-50 hover:text-amber-800 disabled:opacity-50"
+                title={
+                  !canAddNonCompetitiveAdjusters
+                    ? !canAddAdjusters
+                      ? "Add competitor data with prices to enable adjusters"
+                      : !hasCompetitiveAdjuster
+                        ? "Add a competitive adjuster first to set the base price"
+                        : "Step 1 must remain competitive"
+                    : undefined
+                }
+              >
+                <Calculator className="h-4 w-4 mr-1.5" />
+                Function
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={!canAddNonCompetitiveAdjusters}
+                onClick={temporalDialog.handleOpen}
+                className="border-violet-200 text-violet-700 hover:bg-violet-50 hover:text-violet-800 disabled:opacity-50"
+                title={
+                  !canAddNonCompetitiveAdjusters
+                    ? !canAddAdjusters
+                      ? "Add competitor data with prices to enable adjusters"
+                      : !hasCompetitiveAdjuster
+                        ? "Add a competitive adjuster first to set the base price"
+                        : "Step 1 must remain competitive"
+                    : undefined
+                }
+              >
+                <Clock className="h-4 w-4 mr-1.5" />
+                Temporal
+              </Button>
+            </div>
+          }
+          onRemoveAdjuster={handleRemoveAdjuster}
+        />
+
+        resultCard={
+          <CalculatedPrice
+            variant="inline"
+            competitorData={fullyFilteredRows}
+            clientAvailableUnits={clientDataResponse?.data.length || 0}
+            adjusters={localAdjusters}
+            currentDate={currentDate}
+            // NEW: pass filter instructions so CalculatedPrice can expand combos
+            filters={calcFilters}
+            availableFilterValues={availableFilterValues}
+            // optionally adjust max results
+            maxCombinations={50}
+          />
         }
-      />
+        
+        {/* Adjuster Dialogs */}
+        <AddCompetitiveAdjusterDialog
+          open={competitiveDialog.open}
+          onOpenChange={competitiveDialog.setOpen}
+          onAdd={handleAddAdjuster}
+        />
+        <AddFunctionAdjusterDialog
+          open={functionDialog.open}
+          onOpenChange={functionDialog.setOpen}
+          onAdd={handleAddAdjuster}
+          availableVariables={availableVariables}
+          competitorData={fullyFilteredRows}
+          clientAvailableUnits={clientDataResponse?.data.length || 0}
+        />
+        <AddTemporalAdjusterDialog
+          open={temporalDialog.open}
+          onOpenChange={temporalDialog.setOpen}
+          onAdd={handleAddAdjuster}
+        />
+      </div>
 
-      {!loading && !canAddAdjusters && (
-        <PriceDataWarning competitorData={competitorRows} />
-      )}
-
-      <AdjustersList
-        adjusters={localAdjusters}
-        actions={
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1 rounded-full bg-muted/40 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-              <Plus className="h-3.5 w-3.5" /> Add adjuster
-            </span>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={!canAddAdjusters}
-              onClick={competitiveDialog.handleOpen}
-              className="border-blue-200 text-blue-700 hover:bg-blue-50 hover:text-blue-800 disabled:opacity-50"
-              title={!canAddAdjusters ? "Add competitor data with prices to enable adjusters" : undefined}
-            >
-              <TrendingDown className="h-4 w-4 mr-1.5" />
-              Competitive
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={!canAddNonCompetitiveAdjusters}
-              onClick={functionDialog.handleOpen}
-              className="border-amber-200 text-amber-700 hover:bg-amber-50 hover:text-amber-800 disabled:opacity-50"
-              title={
-                !canAddNonCompetitiveAdjusters
-                  ? !canAddAdjusters
-                    ? "Add competitor data with prices to enable adjusters"
-                    : !hasCompetitiveAdjuster
-                      ? "Add a competitive adjuster first to set the base price"
-                      : "Step 1 must remain competitive"
-                  : undefined
-              }
-            >
-              <Calculator className="h-4 w-4 mr-1.5" />
-              Function
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={!canAddNonCompetitiveAdjusters}
-              onClick={temporalDialog.handleOpen}
-              className="border-violet-200 text-violet-700 hover:bg-violet-50 hover:text-violet-800 disabled:opacity-50"
-              title={
-                !canAddNonCompetitiveAdjusters
-                  ? !canAddAdjusters
-                    ? "Add competitor data with prices to enable adjusters"
-                    : !hasCompetitiveAdjuster
-                      ? "Add a competitive adjuster first to set the base price"
-                      : "Step 1 must remain competitive"
-                  : undefined
-              }
-            >
-              <Clock className="h-4 w-4 mr-1.5" />
-              Temporal
-            </Button>
+      {/* Display controls */}
+      <SectionLabel
+        text={`Display (${(displayedRows?.length ?? 0).toLocaleString()})`}
+        right={
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="show-sparse"
+                checked={showSparseColumns}
+                onCheckedChange={(checked) => setShowSparseColumns(checked === true)}
+              />
+              <Label htmlFor="show-sparse" className="text-sm font-normal cursor-pointer">
+                Show sparse columns
+                {!showSparseColumns && visibleColumns.length > displayColumns.length && (
+                  <Badge variant="secondary" className="ml-2">
+                    {visibleColumns.length - displayColumns.length} hidden
+                  </Badge>
+                )}
+              </Label>
+            </div>
+            <GroupByControl
+              className="min-w-[220px]"
+              fullWidth={false}
+              value={groupBy}
+              onChange={setGroupBy}
+              onExpandAll={groupBy ? expandAllGroups : undefined}
+              onCollapseAll={groupBy ? collapseAllGroups : undefined}
+              options={[
+                { id: "competitor_name", label: "Competitor" },
+                { id: "location_normalized", label: "Location" },
+                { id: "dimensions_normalized", label: "Unit" },
+              ]}
+            />
           </div>
         }
-        onRemoveAdjuster={handleRemoveAdjuster}
       />
 
-      <CalculatedPrice
-        variant="inline"
-        competitorData={competitorRows}
-        clientAvailableUnits={clientDataResponse?.data.length || 0}
-        adjusters={localAdjusters}
-        currentDate={currentDate}
-        filters={calcFilters}
-        maxCombinations={50}
-      />
+      <section className="space-y-3">
+        <div className="overflow-x-auto rounded-lg border">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/40 text-left">
+              <tr>
+                <SortableTh
+                  columnId="competitor_name"
+                  label="Competitor"
+                  sortBy={sortBy}
+                  sortDir={sortDir}
+                  onSortClick={handleSortClick}
+                  className="px-4 py-2 sticky left-0 z-20 bg-background border-r w-[280px] min-w-[280px] max-w-[280px]"
+                />
+                <SortableTh
+                  columnId="location_normalized"
+                  label="Location"
+                  sortBy={sortBy}
+                  sortDir={sortDir}
+                  onSortClick={handleSortClick}
+                  className="px-4 py-2 w-[240px] min-w-[240px] max-w-[240px]"
+                />
+                <SortableTh
+                  columnId="dimensions_normalized"
+                  label="Dimensions"
+                  sortBy={sortBy}
+                  sortDir={sortDir}
+                  onSortClick={handleSortClick}
+                  className="px-4 py-2"
+                />
+                {displayColumns.map((c) => (
+                  <SortableTh
+                    key={c}
+                    columnId={c}
+                    label={getColumnLabel(c, pricingSchemas)}
+                    sortBy={sortBy}
+                    sortDir={sortDir}
+                    onSortClick={handleSortClick}
+                    className="px-4 py-2 whitespace-nowrap"
+                  />
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                Array.from({ length: 8 }).map((_, i) => (
+                  <tr key={`skeleton-${i}`} className="border-t">
+                    <td className="px-4 py-2">
+                      <div className="h-4 w-28 animate-pulse rounded bg-muted" />
+                    </td>
+                    <td className="px-4 py-2">
+                      <div className="h-4 w-40 animate-pulse rounded bg-muted" />
+                    </td>
+                    <td className="px-4 py-2">
+                      <div className="h-4 w-16 animate-pulse rounded bg-muted" />
+                    </td>
+                    {Array.from({
+                      length: Math.min(displayColumns.length || 6, 6),
+                    }).map((_, j) => (
+                      <td key={`s-${i}-${j}`} className="px-4 py-2">
+                        <div className="h-4 w-24 animate-pulse rounded bg-muted" />
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              ) : groupBy && grouped ? (
+                grouped.keys.map((key) => (
+                  <Fragment key={`group-frag-${key}`}>
+                    <tr className="border-t bg-muted/30">
+                      <td
+                        className="px-4 py-2"
+                        colSpan={3 + (displayColumns.length || 0)}
+                      >
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-2 font-medium text-muted-foreground hover:text-foreground"
+                          onClick={() => toggleGroup(key)}
+                          aria-expanded={expandedGroups.has(key)}
+                          aria-controls={`group-body-${key}`}
+                        >
+                          <span className="inline-block h-2 w-2 rounded-full bg-border" />
+                          <span className="uppercase text-[11px] tracking-wide">
+                            {getColumnLabel(groupBy, pricingSchemas)}
+                          </span>
+                          <span className="text-foreground">{key}</span>
+                          <span className="text-xs text-muted-foreground">
+                            ({grouped.map.get(key)?.length ?? 0})
+                          </span>
+                        </button>
+                      </td>
+                    </tr>
+                    {expandedGroups.has(key) &&
+                      (grouped.map.get(key) ?? []).map((row, idx) => (
+                        <tr
+                          key={`${key}-${idx}`}
+                          className="border-t align-top"
+                          id={`group-body-${key}`}
+                        >
+                          <td className="px-4 py-2 whitespace-nowrap sticky left-0 z-10 bg-background border-r w-[280px] min-w-[280px] max-w-[280px]">
+                            <div className="space-y-0.5">
+                              <div className="flex min-w-0 items-center gap-2">
+                                <span
+                                  aria-hidden="true"
+                                  className="inline-block h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-black/5"
+                                  style={{
+                                    backgroundColor: getCompetitorColor(
+                                      String(row.competitor_name)
+                                    ),
+                                  }}
+                                />
+                                <span
+                                  className="font-medium truncate"
+                                  title={row.competitor_name}
+                                >
+                                  {row.competitor_name}
+                                </span>
+                              </div>
+                              <div
+                                className="text-xs text-muted-foreground truncate"
+                                title={row.competitor_address}
+                              >
+                                {row.competitor_address}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-2 whitespace-nowrap">
+                            {row.location_normalized || "—"}
+                          </td>
+                          <td className="px-4 py-2 whitespace-nowrap">
+                            {row.dimensions_normalized || "—"}
+                          </td>
+                          {displayColumns.map((c) => (
+                            <td key={`${idx}-${c}`} className="px-4 py-2">
+                              <TableCell
+                                value={row[c]}
+                                type={columnsStats[c]?.data_type}
+                                columnId={c}
+                              />
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                  </Fragment>
+                ))
+              ) : paginatedRows?.length ? (
+                paginatedRows.map((row, idx) => (
+                  <tr
+                    key={`${row.location_normalized}-${idx}`}
+                    className="border-t align-top"
+                  >
+                    <td className="px-4 py-2 whitespace-nowrap sticky left-0 z-10 bg-background border-r w-[280px] min-w-[280px] max-w-[280px]">
+                      <div className="space-y-0.5">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <span
+                            aria-hidden="true"
+                            className="inline-block h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-black/5"
+                            style={{
+                              backgroundColor: getCompetitorColor(
+                                String(row.competitor_name)
+                              ),
+                            }}
+                          />
+                          <span
+                            className="font-medium truncate"
+                            title={row.competitor_name}
+                          >
+                            {row.competitor_name}
+                          </span>
+                        </div>
+                        <div
+                          className="text-xs text-muted-foreground truncate"
+                          title={row.competitor_address}
+                        >
+                          {row.competitor_address}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-2 whitespace-nowrap">
+                      {row.location_normalized || "—"}
+                    </td>
+                    <td className="px-4 py-2 whitespace-nowrap">
+                      {row.dimensions_normalized || "—"}
+                    </td>
+                    {displayColumns.map((c) => (
+                      <td key={`${idx}-${c}`} className="px-4 py-2">
+                        <TableCell
+                          value={row[c]}
+                          type={columnsStats[c]?.data_type}
+                          columnId={c}
+                        />
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td
+                    className="px-4 py-6 text-center text-muted-foreground"
+                    colSpan={3 + (displayColumns.length || 0)}
+                  >
+                    No results. Broaden filters.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
 
-      <AddCompetitiveAdjusterDialog
-        open={competitiveDialog.open}
-        onOpenChange={competitiveDialog.setOpen}
-        onAdd={handleAddAdjuster}
-      />
-
-      <AddFunctionAdjusterDialog
-        open={functionDialog.open}
-        onOpenChange={functionDialog.setOpen}
-        onAdd={handleAddAdjuster}
-        competitorData={competitorRows}
-        clientAvailableUnits={clientDataResponse?.data.length || 0}
-        availableVariables={[]}
-      />
-
-      <AddTemporalAdjusterDialog
-        open={temporalDialog.open}
-        onOpenChange={temporalDialog.setOpen}
-        onAdd={handleAddAdjuster}
-      />
+        {/* Pagination controls */}
+        {!groupBy && displayedRows.length > rowsPerPage && (
+          <div className="flex items-center justify-between px-2 py-3">
+            <div className="text-sm text-muted-foreground">
+              Showing {Math.min((currentPage - 1) * rowsPerPage + 1, displayedRows.length)}-
+              {Math.min(currentPage * rowsPerPage, displayedRows.length)} of{" "}
+              {displayedRows.length.toLocaleString()} rows
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+              >
+                Previous
+              </Button>
+              <div className="text-sm text-muted-foreground">
+                Page {currentPage} of {totalPages}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        )}
+      </section>
     </main>
   );
 }
