@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import {  useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   getE1Snapshots,
@@ -18,22 +18,14 @@ import type {
 } from "@/lib/api/types";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
 import { ContextChips } from "@/components/context-chips";
 import { useContextChips } from "@/hooks/useContextChips";
-import { SortableTh } from "@/components/table/SortableTh";
 import { useSortableRows } from "@/hooks/useSortableRows";
 import { useCompetitorFilter } from "@/hooks/useCompetitorFilter";
 import { useLocationFilter } from "@/hooks/useLocationFilter";
 import { useDimensionsFilter } from "@/hooks/useDimensionsFilter";
 import { useUnitCategoryFilter } from "@/hooks/useUnitCategoryFilter";
-import GroupByControl from "@/components/pricing/group-by-control";
 import { SectionLabel } from "@/components/ui/section-label";
-import { getCompetitorColor } from "@/lib/pricing/formatters";
-import { getColumnLabel } from "@/lib/pricing/column-labels";
-import { TableCell } from "@/components/pricing/table-cell";
 import { PricingOverview } from "../pricing/components/pricing-overview";
 import { PricingFilters } from "../pricing/components/pricing-filters";
 import { PipelineSelector } from "@/components/pipelines/pipeline-selector";
@@ -96,10 +88,10 @@ export default function PipelinesPage() {
     Record<string, ColumnStatistics>
   >({});
   const [visibleColumns, setVisibleColumns] = useState<string[]>([]);
-  const [pricingSchemas, setPricingSchemas] = useState<PricingSchemas | null>(
+  const [ setPricingSchemas] = useState<PricingSchemas | null>(
     null
   );
-  const [showSparseColumns, setShowSparseColumns] = useState(false);
+  const [showSparseColumns] = useState(false);
   const sparseThreshold = 85; // 85% fill-rate (backend returns 0-100, not 0-1)
 
   // Client-side filtering (competitors -> locations)
@@ -119,7 +111,6 @@ export default function PipelinesPage() {
     sortedRows: displayedRows,
     sortBy,
     sortDir,
-    handleSortClick,
     setSortBy,
     setSortDir,
   } = useSortableRows(fullyFilteredRows, columnsStats, null, "asc");
@@ -129,8 +120,8 @@ export default function PipelinesPage() {
   const rowsPerPage = 25;
 
   // Group by (single level)
-  const [groupBy, setGroupBy] = useState<string | null>(null);
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [groupBy] = useState<string | null>(null);
+  const [ setExpandedGroups] = useState<Set<string>>(new Set());
   const { createChips } = useContextChips();
 
   const grouped = useMemo(() => {
@@ -149,15 +140,6 @@ export default function PipelinesPage() {
     return { keys, map };
   }, [displayedRows, groupBy]);
 
-  // Pagination: calculate total pages and slice displayedRows
-  const totalPages = Math.ceil(displayedRows.length / rowsPerPage);
-  const paginatedRows = useMemo(() => {
-    if (groupBy) return displayedRows; // No pagination when grouping
-    return displayedRows.slice(
-      (currentPage - 1) * rowsPerPage,
-      currentPage * rowsPerPage
-    );
-  }, [displayedRows, currentPage, rowsPerPage, groupBy]);
 
   // Auto-expand groups only when grouping mode changes
   useEffect(() => {
@@ -168,19 +150,7 @@ export default function PipelinesPage() {
     if (grouped) setExpandedGroups(new Set(grouped.keys));
   }, [groupBy, grouped]);
 
-  const toggleGroup = (key: string) => {
-    setExpandedGroups((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  };
 
-  const expandAllGroups = () => {
-    if (grouped) setExpandedGroups(new Set(grouped.keys));
-  };
-  const collapseAllGroups = () => setExpandedGroups(new Set());
 
   const loadSnapshots = async () => {
     try {
@@ -318,17 +288,6 @@ export default function PipelinesPage() {
     [fullyFilteredRows]
   );
 
-  // Filter columns based on sparse threshold (unless toggle is on)
-  const displayColumns = useMemo(() => {
-    if (showSparseColumns) return visibleColumns;
-
-    return visibleColumns.filter(col => {
-      const stats = columnsStats[col];
-      // Only show columns WITH stats AND high fill rate
-      // Backend returns fill_rate as percentage (0-100), not decimal (0-1)
-      return stats && stats.fill_rate >= sparseThreshold;
-    });
-  }, [visibleColumns, columnsStats, showSparseColumns, sparseThreshold]);
 
   // Get available numeric variables for function adjuster
   const availableVariables = useMemo(() => {
