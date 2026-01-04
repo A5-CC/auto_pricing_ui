@@ -91,8 +91,6 @@ export default function PipelinesPage() {
   const [ setPricingSchemas] = useState<PricingSchemas | null>(
     null
   );
-  const [showSparseColumns] = useState(false);
-  const sparseThreshold = 85; // 85% fill-rate (backend returns 0-100, not 0-1)
 
   // Client-side filtering (competitors -> locations)
   const { filteredRows: competitorFilteredRows, allCompetitors } =
@@ -116,8 +114,7 @@ export default function PipelinesPage() {
   } = useSortableRows(fullyFilteredRows, columnsStats, null, "asc");
 
   // Client-side pagination
-  const [currentPage, setCurrentPage] = useState(1);
-  const rowsPerPage = 25;
+  const [ setCurrentPage] = useState(1);
 
   // Group by (single level)
   const [groupBy] = useState<string | null>(null);
