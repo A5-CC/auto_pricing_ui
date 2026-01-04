@@ -69,7 +69,7 @@ export function CalculatedPrice({
           const derived = Array.from(
             new Set(
               competitorData
-                .map((r: E1DataRow) => r[key])
+                .map((r: E1DataRow) => (r as any)[key])
                 .filter((v) => v !== null && v !== undefined && v !== '')
             )
           )
@@ -106,48 +106,60 @@ export function CalculatedPrice({
 
     // For each combination: filter competitorData to the subset matching the combo (by keys), then call calculatePrice
     return combinations.map((combo) => {
-      // build a map of key -> value for label/filtering
-      const comboMap: Record<string, FilterValue> = {}
-      keys.forEach((k, i) => {
-        comboMap[k] = combo[i]
-      })
-
-      // subset competitorData by matching comboMap
+      // subset competitorData by matching combo (use keys)
       const subset = competitorData.filter((row: E1DataRow) =>
         // all keys must match; compare as strings for robustness
         keys.every((k, i) => {
-          const rowVal = row[k]
+          const rowVal = (row as any)[k]
           const comboVal = combo[i]
           // treat numeric/string equivalence by stringifying
           return String(rowVal) === String(comboVal)
         })
       )
 
+      // create a helpful label/object for logging (only when needed)
+      const comboLabel = keys.length
+        ? keys.map((k, i) => `${k}=${String(combo[i])}`).join(', ')
+        : combo.length > 0
+          ? combo.join(' · ')
+          : '(no filters)'
+
+      // If the subset is empty, skip calling calculatePrice and return a NaN + warning result
+      if (!subset || subset.length === 0) {
+        console.debug(`[CalculatedPrice] Skipping calculatePrice for empty subset — combo: ${comboLabel}`)
+        const warning = `No competitor rows for combination: ${comboLabel}`
+        return { combo, keys, result: { price: NaN, warnings: [warning] } as PriceResult }
+      }
+
       let result: PriceResult = null
       try {
         // call calculatePrice with the subset competitor data (do not pass unknown props)
-        result = calculatePrice({
+        const maybe = calculatePrice({
           competitorData: subset,
           clientUnit: { available_units: clientAvailableUnits },
           adjusters,
           currentDate
-        }) as PriceResult
+        }) as unknown
 
-        // If calculatePrice returns null but subset exists, include a warning
-        if ((result == null || result.price == null) && subset.length === 0) {
-          result = {
-            price: NaN,
-            warnings: [`No competitor rows for combination: ${keys.map((k, i) => `${k}=${combo[i]}`).join(', ')}`]
+        // Normalize return values: calculatePrice may return null or an object
+        if (maybe == null) {
+          console.error(`[CalculatedPrice] calculatePrice returned null for combo: ${comboLabel}`)
+          result = { price: NaN, warnings: ['Calculation returned null'] }
+        } else {
+          result = maybe as PriceResult
+          // If the adjuster logic returns an object without price, convert to NaN + warning
+          if (result == null || (result && (result as any).price == null)) {
+            result = { price: NaN, warnings: ['Calculation returned no price'] }
           }
         }
       } catch (error) {
-        console.error('[CalculatedPrice] Error calculating price for combo:', comboMap, error)
+        console.error('[CalculatedPrice] Error calculating price for combo:', comboLabel, error)
         result = {
           price: NaN,
-          warnings: [`Error calculating price: ${(error as E1DataRow)?.message ?? String(error)}`]
+          warnings: [`Error calculating price: ${(error as Error)?.message ?? String(error)}`]
         }
       }
-      return { combo, comboMap, keys, result }
+      return { combo, keys, result }
     })
   // dependencies: competitorData so derived values update, adjusters, filters, etc.
   }, [
@@ -195,7 +207,7 @@ export function CalculatedPrice({
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-      {results.map(({ combo,  keys, result }, i) => {
+      {results.map(({ combo, keys, result }, i) => {
         const calculatedPrice = result?.price
         const warnings = result?.warnings ?? []
         const dateDisplay = currentDate.toLocaleDateString('en-US', {
