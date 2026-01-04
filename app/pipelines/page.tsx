@@ -6,7 +6,6 @@ import {
   getE1Snapshots,
   getE1Competitors,
   getE1Client,
-  exportE1CompetitorsCSV,
   getE1CompetitorsStatistics,
 } from "@/lib/api/client/pipelines";
 import type {
@@ -14,7 +13,6 @@ import type {
   E1DataResponse,
   ColumnStatistics,
 } from "@/lib/api/types";
-import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ContextChips } from "@/components/context-chips";
 import { useContextChips } from "@/hooks/useContextChips";
@@ -25,7 +23,6 @@ import { useUnitCategoryFilter } from "@/hooks/useUnitCategoryFilter";
 import { SectionLabel } from "@/components/ui/section-label";
 import { PricingOverview } from "../pricing/components/pricing-overview";
 import { PricingFilters } from "../pricing/components/pricing-filters";
-import { PipelineSelector } from "@/components/pipelines/pipeline-selector";
 import { AdjustersList } from "@/components/pipelines/adjusters-list";
 import { CalculatedPrice } from "@/components/pipelines/calculated-price";
 import { AddCompetitiveAdjusterDialog } from "@/components/pipelines/adjusters/add-competitive-adjuster-dialog";
@@ -33,15 +30,14 @@ import { AddFunctionAdjusterDialog } from "@/components/pipelines/adjusters/add-
 import { AddTemporalAdjusterDialog } from "@/components/pipelines/adjusters/add-temporal-adjuster-dialog";
 import { useAdjusterDialog } from "@/components/pipelines/adjusters/use-adjuster-dialog";
 import { PriceDataWarning } from "@/components/pipelines/price-data-warning";
-import type { PipelineFilters as PipelineFiltersType, Pipeline } from "@/lib/api/types";
 import type { Adjuster } from "@/lib/adjusters";
 import { hasValidCompetitorPrices, getPriceDiagnostics } from "@/lib/adjusters";
-import { TrendingDown, Calculator, Clock, Plus } from "lucide-react";
+import { TrendingDown, Calculator, Clock } from "lucide-react";
 
 /**
  * Filter shape passed to CalculatedPrice
  */
-type CalcFilter = { mode: "all" } | { mode: "subset"; values: string[] };
+type CalcFilter = { mode: "subset"; values: string[] };
 type CalcFiltersShape = {
   competitors: CalcFilter;
   locations: CalcFilter;
@@ -68,11 +64,6 @@ export default function PipelinesPage() {
   const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
   const [selectedDimensions, setSelectedDimensions] = useState<string[]>([]);
   const [selectedUnitCategories, setSelectedUnitCategories] = useState<string[]>([]);
-
-  const [competitorsAll, setCompetitorsAll] = useState(false);
-  const [locationsAll, setLocationsAll] = useState(false);
-  const [dimensionsAll, setDimensionsAll] = useState(false);
-  const [unitCategoriesAll, setUnitCategoriesAll] = useState(false);
 
   const [dataResponse, setDataResponse] = useState<E1DataResponse | null>(null);
   const [clientDataResponse, setClientDataResponse] = useState<E1DataResponse | null>(null);
@@ -122,28 +113,6 @@ export default function PipelinesPage() {
     loadData();
   }, [loadData]);
 
-  const onExport = async () => {
-    if (!selectedSnapshot) return;
-    const blob = await exportE1CompetitorsCSV(selectedSnapshot, {});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `e1-competitors-${selectedSnapshot}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const handleLoadPipeline = (filters: PipelineFiltersType) => {
-    setSelectedCompetitors(filters.competitors);
-    setSelectedLocations(filters.locations);
-    setSelectedDimensions(filters.dimensions);
-    setSelectedUnitCategories(filters.unit_categories);
-  };
-
-  const handlePipelineChange = (pipeline: Pipeline | null) => {
-    setLocalAdjusters(pipeline?.adjusters || []);
-  };
-
   const handleAddAdjuster = (adjuster: Adjuster) => {
     setLocalAdjusters(prev => [...prev, adjuster]);
   };
@@ -170,15 +139,11 @@ export default function PipelinesPage() {
   );
 
   const calcFilters = useMemo<CalcFiltersShape>(() => ({
-    competitors: competitorsAll ? { mode: "all" } : { mode: "subset", values: selectedCompetitors },
-    locations: locationsAll ? { mode: "all" } : { mode: "subset", values: selectedLocations },
-    dimensions: dimensionsAll ? { mode: "all" } : { mode: "subset", values: selectedDimensions },
-    unit_categories: unitCategoriesAll ? { mode: "all" } : { mode: "subset", values: selectedUnitCategories },
+    competitors: { mode: "subset", values: selectedCompetitors },
+    locations: { mode: "subset", values: selectedLocations },
+    dimensions: { mode: "subset", values: selectedDimensions },
+    unit_categories: { mode: "subset", values: selectedUnitCategories },
   }), [
-    competitorsAll,
-    locationsAll,
-    dimensionsAll,
-    unitCategoriesAll,
     selectedCompetitors,
     selectedLocations,
     selectedDimensions,
@@ -245,15 +210,15 @@ export default function PipelinesPage() {
         adjusters={localAdjusters}
         actions={
           <div className="flex gap-2">
-            <Button size="sm" variant="outline" onClick={competitiveDialog.handleOpen}>
-              <TrendingDown className="h-4 w-4 mr-1.5" /> Competitive
-            </Button>
-            <Button size="sm" variant="outline" onClick={functionDialog.handleOpen}>
-              <Calculator className="h-4 w-4 mr-1.5" /> Function
-            </Button>
-            <Button size="sm" variant="outline" onClick={temporalDialog.handleOpen}>
-              <Clock className="h-4 w-4 mr-1.5" /> Temporal
-            </Button>
+            <button onClick={competitiveDialog.handleOpen}>
+              <TrendingDown className="h-4 w-4" />
+            </button>
+            <button onClick={functionDialog.handleOpen}>
+              <Calculator className="h-4 w-4" />
+            </button>
+            <button onClick={temporalDialog.handleOpen}>
+              <Clock className="h-4 w-4" />
+            </button>
           </div>
         }
         onRemoveAdjuster={handleRemoveAdjuster}
