@@ -80,8 +80,9 @@ export function SiteNavbar() {
   return (
     <nav className="sticky top-0 z-40 w-full border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
-        
-        <div className="flex items-center gap-3">
+        {/* Left side: nav links */}
+        <div className="flex items-center gap-6">
+          {/* Pricing Schema button */}
           <Button
             asChild
             variant="default"
@@ -93,42 +94,40 @@ export function SiteNavbar() {
               <span>Pricing Schema</span>
             </Link>
           </Button>
+
+          {/* API status dot */}
           <ApiStatusDot />
+
+          {/* Other nav links */}
+          <Link href="/url-dumps" className={linkCls("/url-dumps")}>
+            URL Discovery
+          </Link>
+
+          <Link href="/raw-scrapes" className={linkCls("/raw-scrapes")}>
+            Raw Scrapes
+          </Link>
+
+          <Link href="/runs" className={linkCls("/runs")}>
+            Scraping Runs
+          </Link>
+
+          <Link href="/pricing" className={`${linkCls("/pricing")} gap-1.5`}>
+            <BarChart3 className="h-3.5 w-3.5" aria-hidden />
+            Competitor Pricing
+          </Link>
+
+          <span aria-hidden className="mx-2 h-6 w-px bg-border" />
+
+          <Link
+            href="/pipelines"
+            className={`${primaryLinkCls("/pipelines")} gap-1.5`}
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden />
+            Pricing Pipelines
+          </Link>
         </div>
       </div>
-      <div className="flex items-center gap-6">
-          <Link href="/" className="text-sm font-semibold tracking-tight"></Link>
-          <div className="hidden md:flex items-center gap-1">
-
-            <Link href="/url-dumps" className={linkCls("/url-dumps")}>
-              URL Discovery
-            </Link>
-
-            <Link href="/raw-scrapes" className={linkCls("/raw-scrapes")}>
-              Raw Scrapes
-            </Link>
-
-            <Link href="/runs" className={linkCls("/runs")}>
-              Scraping Runs
-            </Link>
-
-            <Link href="/pricing" className={`${linkCls("/pricing")} gap-1.5`}>
-              <BarChart3 className="h-3.5 w-3.5" aria-hidden />
-              Competitor Pricing
-            </Link>
-
-            <span aria-hidden className="mx-2 h-6 w-px bg-border" />
-
-            <Link
-              href="/pipelines"
-              className={`${primaryLinkCls("/pipelines")} gap-1.5`}
-            >
-              <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden />
-              Pricing Pipelines
-            </Link>
-
-          </div>
-        </div>
     </nav>
+
   );
 }
