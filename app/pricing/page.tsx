@@ -71,10 +71,11 @@ export default function PricingPage() {
     useCompetitorFilter(dataResponse?.data ?? [], selectedCompetitors);
   const { filteredRows, allLocations } = useLocationFilter(
     competitorFilteredRows,
-    selectedLocations
+    selectedLocations,
+    "modstorage_location"
   );
   const { filteredRows: locationAndDimFilteredRows, allDimensions } =
-    useDimensionsFilter(filteredRows, selectedDimensions);
+    useDimensionsFilter(filteredRows, selectedDimensions, "unit_dimensions");
   const { filteredRows: fullyFilteredRows, allUnitCategories } =
     useUnitCategoryFilter(locationAndDimFilteredRows, selectedUnitCategories);
 
