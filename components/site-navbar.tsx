@@ -80,7 +80,23 @@ export function SiteNavbar() {
   return (
     <nav className="sticky top-0 z-40 w-full border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
-        <div className="flex items-center gap-6">
+        
+        <div className="flex items-center gap-3">
+          <Button
+            asChild
+            variant="default"
+            size="sm"
+            className="rounded-full gap-1.5 ring-1 ring-primary/30 shadow-sm"
+          >
+            <Link href="/pricing-schemas">
+              <Table className="h-3.5 w-3.5" aria-hidden />
+              <span>Pricing Schema</span>
+            </Link>
+          </Button>
+          <ApiStatusDot />
+        </div>
+      </div>
+      <div className="flex items-center gap-6">
           <Link href="/" className="text-sm font-semibold tracking-tight"></Link>
           <div className="hidden md:flex items-center gap-1">
 
@@ -113,21 +129,6 @@ export function SiteNavbar() {
 
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <Button
-            asChild
-            variant="default"
-            size="sm"
-            className="rounded-full gap-1.5 ring-1 ring-primary/30 shadow-sm"
-          >
-            <Link href="/pricing-schemas">
-              <Table className="h-3.5 w-3.5" aria-hidden />
-              <span>Pricing Schema</span>
-            </Link>
-          </Button>
-          <ApiStatusDot />
-        </div>
-      </div>
     </nav>
   );
 }
