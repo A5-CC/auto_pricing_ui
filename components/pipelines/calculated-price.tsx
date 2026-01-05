@@ -35,19 +35,18 @@ export function CalculatedPrice({
   maxCombinations = 50
 }: CalculatedPriceProps) {
 
-  const FILTER_KEY_TO_COLUMN: Record<string, string> = {
-    competitors: 'competitor_name',
-    locations: 'location_normalized',
-    dimensions: 'dimensions_normalized',
-    unit_categories: 'unit_category',
-  }
-
   const rows = useMemo(() => {
     if (!adjusters || adjusters.length === 0) return []
 
     const arrays: FilterValue[][] = []
     const humanKeys: string[] = []
     const columnNames: string[] = []
+    const FILTER_KEY_TO_COLUMN: Record<string, string> = {
+      competitors: 'competitor_name',
+      locations: 'location_normalized',
+      dimensions: 'dimensions_normalized',
+      unit_categories: 'unit_category',
+    }
 
     for (const [key, filter] of Object.entries(filters)) {
       if (!filter) continue
@@ -94,7 +93,7 @@ export function CalculatedPrice({
         price
       }
     }).filter(r => r.price !== null) // skip invalid rows
-  }, [competitorData, clientAvailableUnits, adjusters, currentDate, filters, maxCombinations, deriveValuesForKey])
+  }, [competitorData, clientAvailableUnits, adjusters, currentDate, filters, maxCombinations])
 
   if (!adjusters || adjusters.length === 0) {
     return <p className="text-muted-foreground">Add adjusters to calculate prices</p>
