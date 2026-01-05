@@ -106,12 +106,17 @@ export function CalculatedPrice({
   const headers = [...new Set(rows.flatMap(r => Object.keys(r.comboMap))), 'Price']
 
   return (
-    <div className="overflow-x-auto"><div className="overflow-x-auto overflow-y-auto max-h-[70vh]">
+    <div className="overflow-x-auto overflow-y-auto max-h-[70vh]">
       <table className="w-full table-auto border border-gray-200">
-        <thead className="bg-gray-100">
+        <thead className="bg-gray-100 sticky top-0 z-10">
           <tr>
             {headers.map((h) => (
-              <th key={h} className="border px-3 py-2 text-left text-sm font-semibold">{h}</th>
+              <th
+                key={h}
+                className="border px-3 py-2 text-left text-sm font-semibold"
+              >
+                {h}
+              </th>
             ))}
           </tr>
         </thead>
@@ -119,9 +124,15 @@ export function CalculatedPrice({
           {rows.map((r, i) => (
             <tr key={i} className="even:bg-gray-50">
               {headers.map((h) =>
-                h === 'Price'
-                  ? <td key={h} className="border px-3 py-2 font-bold">{`$${r.price!.toFixed(2)}`}</td>
-                  : <td key={h} className="border px-3 py-2">{r.comboMap[h] ?? '-'}</td>
+                h === "Price" ? (
+                  <td key={h} className="border px-3 py-2 font-bold">
+                    {`$${r.price!.toFixed(2)}`}
+                  </td>
+                ) : (
+                  <td key={h} className="border px-3 py-2">
+                    {r.comboMap[h] ?? "-"}
+                  </td>
+                )
               )}
             </tr>
           ))}
