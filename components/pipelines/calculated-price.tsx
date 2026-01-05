@@ -32,7 +32,6 @@ export function CalculatedPrice({
   adjusters,
   currentDate,
   filters = {},
-  availableFilterValues = {},
   maxCombinations = 50
 }: CalculatedPriceProps) {
 
@@ -95,7 +94,7 @@ export function CalculatedPrice({
         price
       }
     }).filter(r => r.price !== null) // skip invalid rows
-  }, [competitorData, clientAvailableUnits, adjusters, currentDate, filters, maxCombinations])
+  }, [competitorData, clientAvailableUnits, adjusters, currentDate, filters, maxCombinations, deriveValuesForKey])
 
   if (!adjusters || adjusters.length === 0) {
     return <p className="text-muted-foreground">Add adjusters to calculate prices</p>
