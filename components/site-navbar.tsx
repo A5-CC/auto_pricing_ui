@@ -8,48 +8,6 @@ import { getSystemHealth } from "@/lib/api/client/system";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/AuthContext"; // ✅ import your auth hook
 
-function ApiStatusDot() {
-  const [status, setStatus] = useState<"checking" | "ok" | "offline">("checking");
-
-  useEffect(() => {
-    const checkHealth = async () => {
-      try {
-        const h = await getSystemHealth();
-        setStatus(
-          h.status === "ok" || h.status === "operational" ? "ok" : "offline"
-        );
-      } catch {
-        setStatus("offline");
-      }
-    };
-
-    checkHealth();
-    // Poll every 30 seconds to recover from initial failures (e.g., API cold start)
-    const interval = setInterval(checkHealth, 30 * 1000);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  const color =
-    status === "ok"
-      ? "bg-green-500"
-      : status === "offline"
-      ? "bg-red-500"
-      : "bg-gray-400";
-  const label =
-    status === "ok"
-      ? "API ok"
-      : status === "offline"
-      ? "API offline"
-      : "API checking";
-
-  return (
-    <span className="inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[11px] text-muted-foreground">
-      <span className={`h-2 w-2 rounded-full ${color}`} aria-hidden />
-      {label}
-    </span>
-  );
-}
 
 export function SiteNavbar() {
   const pathname = usePathname();
@@ -94,9 +52,6 @@ export function SiteNavbar() {
               <span>Pricing Schema</span>
             </Link>
           </Button>
-
-          {/* API status dot */}
-          <ApiStatusDot />
 
           {/* Other nav links */}
           <Link href="/url-dumps" className={linkCls("/url-dumps")}>
