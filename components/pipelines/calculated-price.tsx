@@ -106,7 +106,7 @@ export function CalculatedPrice({
   const headers = [...new Set(rows.flatMap(r => Object.keys(r.comboMap))), 'Price']
 
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto overflow-y-auto max-h-[70vh]">
       <table className="w-full table-auto border border-gray-200">
         <thead className="bg-gray-100 sticky top-0 z-10">
           <tr>

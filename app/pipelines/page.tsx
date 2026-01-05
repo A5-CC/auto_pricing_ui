@@ -575,7 +575,8 @@ export default function PipelinesPage() {
           onRemoveAdjuster={handleRemoveAdjuster}
         />
 
-        <div className="pt-4">
+        <div className="min-h-0 flex-1">
+
           <CalculatedPrice
             competitorData={fullyFilteredRows}
             clientAvailableUnits={clientDataResponse?.data.length || 0}
