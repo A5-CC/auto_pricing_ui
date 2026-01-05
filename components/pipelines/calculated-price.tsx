@@ -63,7 +63,6 @@ export function CalculatedPrice({
     if (arrays.length === 0) return []
 
     const combinations = cartesianProduct<FilterValue>(arrays)
-    if (combinations.length > maxCombinations) combinations.length = maxCombinations
 
     return combinations.map((combo) => {
       const subset = competitorData.filter((row) =>
