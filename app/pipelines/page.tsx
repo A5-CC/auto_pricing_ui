@@ -584,7 +584,6 @@ export default function PipelinesPage() {
             currentDate={currentDate}
             filters={calcFilters}
             availableFilterValues={availableFilterValues}
-            maxCombinations={50}
           />
         </div>
 
