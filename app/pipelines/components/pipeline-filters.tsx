@@ -142,30 +142,7 @@ type FilterRowProps = {
   presentValues: string[]
 }
 function FilterRow({ columnKey, rows, visibleColumns, schemaCols, values, combinatoricFlag, onChange, onRemove, onChangeColumn, onToggleCombinatoric, presentValues }: FilterRowProps) {
-  const deriveDataColumn = (key: string) => {
-    const candidates = [
-      key,
-      `${key}_normalized`,
-      key.replace(/^modstorage_/, ""),
-    ]
-
-    if (key.toLowerCase().includes("location")) candidates.push("location_normalized")
-    if (key.toLowerCase().includes("dim") || key.toLowerCase().includes("dimension")) candidates.push("dimensions_normalized")
-    if (key.toLowerCase().includes("category")) candidates.push("unit_category")
-    if (key.toLowerCase().includes("competitor")) candidates.push("competitor_name")
-
-    // prefer visibleColumns if provided
-    for (const c of candidates) {
-      if (visibleColumns && visibleColumns.includes(c)) return c
-    }
-
-    // otherwise scan rows for a non-empty value
-    for (const c of candidates) {
-      if (rows.some(r => r[c] !== undefined && r[c] !== null)) return c
-    }
-
-    return key
-  }
+  // deriveDataColumn removed (unused)
 
   // const dataColumn = deriveDataColumn(columnKey)
   // Use presentValues for value population (from filtered dataset)
