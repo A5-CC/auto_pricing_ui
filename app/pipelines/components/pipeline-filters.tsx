@@ -130,8 +130,6 @@ export function PricingFilters({
 
 type FilterRowProps = {
   columnKey: string
-  rows: E1DataRow[]
-  visibleColumns?: string[]
   schemaCols: { key: string; label: string }[]
   values: string[]
   combinatoricFlag: boolean
@@ -141,7 +139,7 @@ type FilterRowProps = {
   onToggleCombinatoric: (v: boolean) => void
   presentValues: string[]
 }
-function FilterRow({ columnKey, rows, visibleColumns, schemaCols, values, combinatoricFlag, onChange, onRemove, onChangeColumn, onToggleCombinatoric, presentValues }: FilterRowProps) {
+function FilterRow({ columnKey, schemaCols, values, combinatoricFlag, onChange, onRemove, onChangeColumn, onToggleCombinatoric, presentValues }: FilterRowProps) {
   // deriveDataColumn removed (unused)
 
   // const dataColumn = deriveDataColumn(columnKey)

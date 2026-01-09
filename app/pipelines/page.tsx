@@ -462,8 +462,8 @@ export default function PipelinesPage() {
   const subsetFilters = useMemo<Record<string, string[]>>(() => {
     return Object.entries(allFilters)
       .filter(([k, v]) => !allCombinatoricFlags[k])
-      .reduce((acc, [k, v]) => {
-        const filter = v as FilterMode
+      .reduce((acc, [k]) => {
+        const filter = allFilters[k] as FilterMode
         if (filter.mode === 'subset' && Array.isArray(filter.values) && filter.values.length > 0) {
           acc[k] = filter.values
         }
