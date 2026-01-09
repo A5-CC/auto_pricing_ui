@@ -96,21 +96,26 @@ export function PricingFilters({
             <div className="text-sm text-muted-foreground">No filters — add one to begin</div>
           )}
 
-          {activeColumns.map((col) => (
-            <FilterRow
-              key={col}
-              columnKey={col}
-              rows={rows}
-              visibleColumns={visibleColumns}
-              schemaCols={schemaCols}
-              values={selectedFilters[col] ?? []}
-              combinatoricFlag={Boolean(combinatoricFlags[col])}
-              onChange={(vals) => setSelectedFilters({ ...selectedFilters, [col]: vals })}
-              onRemove={() => removeFilterRow(col)}
-              onChangeColumn={(newCol) => changeColumnKey(col, newCol)}
-              onToggleCombinatoric={(v) => setCombinatoricFlags({ ...combinatoricFlags, [col]: v })}
-            />
-          ))}
+          {activeColumns.map((col) => {
+            // Only show values present in the current rows for this column
+            const presentValues = Array.from(new Set(rows.map(r => r[col]).filter(v => v != null)))
+            return (
+              <FilterRow
+                key={col}
+                columnKey={col}
+                rows={rows}
+                visibleColumns={visibleColumns}
+                schemaCols={schemaCols}
+                values={selectedFilters[col] ?? []}
+                combinatoricFlag={Boolean(combinatoricFlags[col])}
+                onChange={(vals) => setSelectedFilters({ ...selectedFilters, [col]: vals })}
+                onRemove={() => removeFilterRow(col)}
+                onChangeColumn={(newCol) => changeColumnKey(col, newCol)}
+                onToggleCombinatoric={(v) => setCombinatoricFlags({ ...combinatoricFlags, [col]: v })}
+                presentValues={presentValues}
+              />
+            )
+          })}
 
           <div>
             <Button variant="secondary" size="sm" onClick={addFilterRow}>
@@ -134,8 +139,9 @@ type FilterRowProps = {
   onRemove: () => void
   onChangeColumn: (newCol: string) => void
   onToggleCombinatoric: (v: boolean) => void
+  presentValues: string[]
 }
-function FilterRow({ columnKey, rows, visibleColumns, schemaCols, values, combinatoricFlag, onChange, onRemove, onChangeColumn, onToggleCombinatoric }: FilterRowProps) {
+function FilterRow({ columnKey, rows, visibleColumns, schemaCols, values, combinatoricFlag, onChange, onRemove, onChangeColumn, onToggleCombinatoric, presentValues }: FilterRowProps) {
   const deriveDataColumn = (key: string) => {
     const candidates = [
       key,
@@ -162,7 +168,7 @@ function FilterRow({ columnKey, rows, visibleColumns, schemaCols, values, combin
   }
 
   const dataColumn = deriveDataColumn(columnKey)
-  const { allValues } = useUniversalFilter<E1DataRow>(rows ?? [], dataColumn ?? "")
+  // Use presentValues for value population (from filtered dataset)
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
 
@@ -229,7 +235,7 @@ function FilterRow({ columnKey, rows, visibleColumns, schemaCols, values, combin
 
             <MultiSelectContent search={{ placeholder: "Search values...", emptyMessage: "No values" }}>
               <MultiSelectGroup>
-                {allValues.map((v) => (
+                {presentValues.map((v) => (
                   <MultiSelectItem key={v} value={v}>
                     {v}
                   </MultiSelectItem>
@@ -240,7 +246,7 @@ function FilterRow({ columnKey, rows, visibleColumns, schemaCols, values, combin
         </div>
 
         <div className="mt-2 flex gap-2">
-          <Button variant="secondary" size="sm" onClick={() => onChange(allValues)}>
+          <Button variant="secondary" size="sm" onClick={() => onChange(presentValues)}>
             All
           </Button>
           <Button variant="secondary" size="sm" onClick={() => onChange([])}>

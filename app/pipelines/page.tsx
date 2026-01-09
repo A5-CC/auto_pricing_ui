@@ -205,7 +205,7 @@ export default function PipelinesPage() {
         const filteredColumns = res.columns.filter(
           (col) => !fixedColumns.includes(col)
         );
-        setVisibleColumns((prev) => (prev.length ? prev : filteredColumns));
+        setVisibleColumns((prev: string[]) => (prev.length ? prev : filteredColumns));
       }
     } catch {
       setError("Failed to load E1 data");
@@ -288,11 +288,11 @@ export default function PipelinesPage() {
 
   /* ---------------- Adjuster actions ---------------- */
   const handleAddAdjuster = (adjuster: Adjuster) => {
-    setLocalAdjusters((prev) => [...prev, adjuster]);
+    setLocalAdjusters((prev: any[]) => [...prev, adjuster]);
   };
 
   const handleRemoveAdjuster = (index: number) => {
-    const nextAdjusters = localAdjusters.filter((_, idx) => idx !== index);
+    const nextAdjusters = localAdjusters.filter((_: any, idx: number) => idx !== index);
 
     if (nextAdjusters.length > 0) {
       const nextFirst = nextAdjusters[0];
@@ -319,7 +319,7 @@ export default function PipelinesPage() {
   );
 
   const hasCompetitiveAdjuster = localAdjusters.some(
-    (adj) => adj.type === "competitive"
+    (adj: any) => adj.type === "competitive"
   );
   const firstAdjusterIsCompetitive =
     localAdjusters.length === 0 || localAdjusters[0].type === "competitive";
@@ -344,7 +344,7 @@ export default function PipelinesPage() {
 
     const numericCols = Object.entries(columnsStats)
       .filter(([, stats]) => {
-        const dtype = stats.data_type.toLowerCase();
+        const dtype = (stats as { data_type: string }).data_type.toLowerCase();
         return dtype.includes("int") || dtype.includes("float");
       })
       .map(([col]) => col)
@@ -431,22 +431,24 @@ export default function PipelinesPage() {
     deriveValuesForKey,
   ]);
 
-  // Merge calcFilters (the classic four) with any universal filters the user added.
-  const mergedFilters = useMemo(() => {
-    const base: Record<string, { mode: 'all' } | { mode: 'subset'; values: string[] }> = {
+
+  // --- Universal filter logic: split filters into subset and combinatoric ---
+  type FilterMode = { mode: 'all' } | { mode: 'subset'; values: string[] }
+  const allFilters = useMemo<Record<string, FilterMode>>(() => {
+    const base: Record<string, FilterMode> = {
       competitors: calcFilters.competitors,
       locations: calcFilters.locations,
       dimensions: calcFilters.dimensions,
       unit_categories: calcFilters.unit_categories,
     };
     for (const [k, vals] of Object.entries(universalFilters)) {
-      if (!vals || vals.length === 0) continue
+      if (!Array.isArray(vals) || vals.length === 0) continue
       base[k] = { mode: 'subset', values: vals }
     }
     return base
   }, [calcFilters, universalFilters])
 
-  const mergedCombinatoricFlags = useMemo(() => {
+  const allCombinatoricFlags = useMemo<Record<string, boolean>>(() => {
     return {
       competitors: competitorsCombinatoric,
       locations: locationsCombinatoric,
@@ -455,6 +457,62 @@ export default function PipelinesPage() {
       ...universalCombinatoric,
     }
   }, [competitorsCombinatoric, locationsCombinatoric, dimensionsCombinatoric, unitCategoriesCombinatoric, universalCombinatoric])
+
+  // Split filters into subset and combinatoric
+  const subsetFilters = useMemo<Record<string, string[]>>(() => {
+    return Object.entries(allFilters)
+      .filter(([k, v]) => !allCombinatoricFlags[k])
+      .reduce((acc, [k, v]) => {
+        const filter = v as FilterMode
+        if (filter.mode === 'subset' && Array.isArray(filter.values) && filter.values.length > 0) {
+          acc[k] = filter.values
+        }
+        return acc
+      }, {} as Record<string, string[]>)
+  }, [allFilters, allCombinatoricFlags])
+
+  // Apply subset filters to get the filtered dataset
+  const subsetFilteredRows = useMemo(() => {
+    let rows = (dataResponse?.data ?? []) as Record<string, any>[]
+    for (const [col, vals] of Object.entries(subsetFilters)) {
+      if (!Array.isArray(vals) || vals.length === 0) continue
+      rows = rows.filter((r: Record<string, any>) => vals.includes(String(r[col])))
+    }
+    return rows
+  }, [dataResponse, subsetFilters])
+
+  // Combinatoric filters: only those with values in the filtered dataset
+  const combinatoricFilters = useMemo<Record<string, { mode: 'subset'; values: string[] }>>(() => {
+    return Object.entries(allFilters)
+      .filter(([k, v]) => {
+        const filter = v as FilterMode
+        return allCombinatoricFlags[k] && filter.mode === 'subset' && Array.isArray((filter as any).values) && (filter as any).values.length > 0
+      })
+      .reduce((acc, [k, v]) => {
+        const filter = v as { mode: 'subset'; values: string[] }
+        // Only keep values that exist in the filtered dataset
+        const present = Array.from(new Set(subsetFilteredRows.map((r: Record<string, any>) => r[k]))).filter(x => filter.values.includes(String(x)))
+        if (present.length > 0) {
+          acc[k] = { mode: 'subset', values: present.map(String) }
+        }
+        return acc
+      }, {} as Record<string, { mode: 'subset'; values: string[] }>)
+  }, [allFilters, allCombinatoricFlags, subsetFilteredRows])
+
+  // Pass these to CalculatedPrice
+  const mergedFilters = useMemo<Record<string, { mode: 'subset'; values: string[] }>>(() => {
+    return {
+      ...Object.entries(subsetFilters).reduce((acc, [k, vals]) => {
+        acc[k] = { mode: 'subset', values: vals as string[] }
+        return acc
+      }, {} as Record<string, { mode: 'subset'; values: string[] }>),
+      ...combinatoricFilters,
+    }
+  }, [subsetFilters, combinatoricFilters])
+
+  const mergedCombinatoricFlags = useMemo<Record<string, boolean>>(() => {
+    return Object.fromEntries(Object.keys(combinatoricFilters).map(k => [k, true]))
+  }, [combinatoricFilters])
 
   /* ---------------- availableFilterValues (used if some other component needs "UI options") ---------------- */
   const availableFilterValues = useMemo<
