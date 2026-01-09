@@ -461,7 +461,7 @@ export default function PipelinesPage() {
   // Split filters into subset and combinatoric
   const subsetFilters = useMemo<Record<string, string[]>>(() => {
     return Object.entries(allFilters)
-      .filter(([k, v]) => !allCombinatoricFlags[k])
+      .filter(([k]) => !allCombinatoricFlags[k])
       .reduce((acc, [k]) => {
         const filter = allFilters[k] as FilterMode
         if (filter.mode === 'subset' && Array.isArray(filter.values) && filter.values.length > 0) {
