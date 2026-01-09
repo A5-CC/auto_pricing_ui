@@ -84,15 +84,15 @@ export default function PipelinesPage() {
 
   // "All" flags (user intent). We'll expand these into explicit subsets
   // based on actual competitor values when building calcFilters.
-  const [competitorsAll, setCompetitorsAll] = useState<boolean>(false);
-  const [locationsAll, setLocationsAll] = useState<boolean>(false);
-  const [dimensionsAll, setDimensionsAll] = useState<boolean>(false);
-  const [unitCategoriesAll, setUnitCategoriesAll] = useState<boolean>(false);
+  const [competitorsAll] = useState<boolean>(false);
+  const [locationsAll] = useState<boolean>(false);
+  const [dimensionsAll] = useState<boolean>(false);
+  const [unitCategoriesAll] = useState<boolean>(false);
   // combinatoric flags (default true -> behave as before)
-  const [competitorsCombinatoric, _setCompetitorsCombinatoric] = useState<boolean>(true);
-  const [locationsCombinatoric, _setLocationsCombinatoric] = useState<boolean>(true);
-  const [dimensionsCombinatoric, _setDimensionsCombinatoric] = useState<boolean>(true);
-  const [unitCategoriesCombinatoric, _setUnitCategoriesCombinatoric] = useState<boolean>(true);
+  const [competitorsCombinatoric] = useState<boolean>(true);
+  const [locationsCombinatoric] = useState<boolean>(true);
+  const [dimensionsCombinatoric] = useState<boolean>(true);
+  const [unitCategoriesCombinatoric] = useState<boolean>(true);
 
   // Universal pipeline filters (column -> values)
   const [universalFilters, setUniversalFilters] = useState<Record<string, string[]>>({});
