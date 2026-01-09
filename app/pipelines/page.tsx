@@ -488,8 +488,8 @@ export default function PipelinesPage() {
         const filter = v as FilterMode
         return allCombinatoricFlags[k] && filter.mode === 'subset' && Array.isArray((filter as { mode: 'subset'; values: string[] }).values) && (filter as { mode: 'subset'; values: string[] }).values.length > 0
       })
-      .reduce((acc, [k, v]) => {
-        const filter = v as { mode: 'subset'; values: string[] }
+      .reduce((acc, [k]) => {
+        const filter = allFilters[k] as { mode: 'subset'; values: string[] }
         // Only keep values that exist in the filtered dataset
         const present = Array.from(new Set(subsetFilteredRows.map((r: { [key: string]: unknown }) => r[k]))).filter((x) => filter.values.includes(String(x)))
         if (present.length > 0) {
