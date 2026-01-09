@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/multi-select"
 import { SectionLabel } from "@/components/ui/section-label"
 import { useUniversalFilter } from "@/hooks/useUniversalFilter"
-import { useMemo } from "react"
+import { useMemo, useState, useRef } from "react"
 import type { PricingSchemas, PricingDataRow } from "@/lib/api/types"
 
 interface PricingFiltersProps {
@@ -23,8 +23,8 @@ export function PricingFilters({ rows, pricingSchemas, selectedFilters, setSelec
     const schemaCols = useMemo(() => {
       if (!pricingSchemas?.canonical?.columns) return [] as { key: string; label: string }[]
       return Object.keys(pricingSchemas.canonical.columns)
-        .sort()
         .map((k) => ({ key: k, label: pricingSchemas!.canonical!.columns[k]?.label ?? k }))
+        .sort((a, b) => a.label.localeCompare(b.label))
     }, [pricingSchemas])
 
     const activeColumns = Object.keys(selectedFilters)
@@ -91,20 +91,51 @@ export function PricingFilters({ rows, pricingSchemas, selectedFilters, setSelec
     onChangeColumn: (newCol: string) => void
   }) {
     const { allValues } = useUniversalFilter<PricingDataRow>(rows ?? [], columnKey ?? "")
+    const [open, setOpen] = useState(false)
+    const [query, setQuery] = useState("")
+    const containerRef = useRef<HTMLDivElement | null>(null)
+
+    const selectedLabel = schemaCols.find(s => s.key === columnKey)?.label ?? columnKey
+
+    const filteredCols = useMemo(() => {
+      const q = query.trim().toLowerCase()
+      return schemaCols
+        .filter(c => !q || c.label.toLowerCase().includes(q) || c.key.toLowerCase().includes(q))
+        .slice(0, 200)
+    }, [schemaCols, query])
 
     return (
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-start">
-        <div>
+        <div className="relative" ref={containerRef}>
           <label className="block text-[12px] text-foreground/80 mb-1">Column</label>
-          <select
+          <input
             className="w-full rounded-md border px-3 py-2 text-sm"
-            value={columnKey}
-            onChange={(e) => onChangeColumn(e.target.value)}
-          >
-            {schemaCols.map((c) => (
-              <option key={c.key} value={c.key}>{c.label || c.key}</option>
-            ))}
-          </select>
+            value={open ? query : selectedLabel}
+            onFocus={() => { setOpen(true); setQuery("") }}
+            onChange={(e) => { setQuery(e.target.value); setOpen(true) }}
+            placeholder="Search columns..."
+            aria-label="Select column"
+          />
+          {open && (
+            <div className="absolute z-40 mt-1 w-full rounded-md border bg-background shadow-lg max-h-60 overflow-auto">
+              <ul>
+                {filteredCols.length === 0 ? (
+                  <li className="px-3 py-2 text-sm text-muted-foreground">No matches</li>
+                ) : (
+                  filteredCols.map((c) => (
+                    <li
+                      key={c.key}
+                      className="cursor-pointer px-3 py-2 hover:bg-muted/50 text-sm"
+                      onMouseDown={(ev) => { ev.preventDefault(); onChangeColumn(c.key); setOpen(false); setQuery("") }}
+                    >
+                      <div className="font-medium">{c.label}</div>
+                      <div className="text-xs text-muted-foreground">{c.key}</div>
+                    </li>
+                  ))
+                )}
+              </ul>
+            </div>
+          )}
         </div>
 
         <div className="sm:col-span-1">
