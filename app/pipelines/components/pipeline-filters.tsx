@@ -10,10 +10,13 @@ import {
 import { SectionLabel } from "@/components/ui/section-label"
 import { useUniversalFilter } from "@/hooks/useUniversalFilter"
 import { useMemo, useState } from "react"
+import type { PricingSchemas, E1DataRow } from "@/lib/api/types"
+import { getCanonicalLabel } from "@/lib/pricing/column-labels"
 import type { E1DataRow } from "@/lib/api/types"
 
 interface PricingFiltersProps {
   rows: E1DataRow[]
+  pricingSchemas?: PricingSchemas | null
   visibleColumns?: string[]
   selectedFilters: Record<string, string[]>
   setSelectedFilters: (next: Record<string, string[]>) => void
@@ -30,18 +33,24 @@ export function PricingFilters({
   setCombinatoricFlags,
 }: PricingFiltersProps) {
   const schemaCols = useMemo(() => {
-    // build column list from visibleColumns and rows keys
+    const canonical = pricingSchemas?.canonical?.columns ?? {}
+    const spine = pricingSchemas?.spine ?? []
+
     const keySet = new Set<string>()
+    Object.keys(canonical).forEach((k) => keySet.add(k))
+    for (const s of spine) keySet.add(s.id)
     ;(visibleColumns ?? []).forEach((c) => keySet.add(c))
     for (const r of rows ?? []) {
       if (typeof r === "object" && r !== null) {
         Object.keys(r).forEach((k) => keySet.add(k))
       }
     }
-    const cols = Array.from(keySet).map((key) => ({ key, label: key }))
+
+    const cols = Array.from(keySet).map((key) => ({ key, label: getCanonicalLabel(key, pricingSchemas ?? null) }))
+
     cols.sort((a, b) => a.label.localeCompare(b.label))
     return cols
-  }, [visibleColumns, rows])
+  }, [pricingSchemas, visibleColumns, rows])
 
   const activeColumns = Object.keys(selectedFilters)
 
