@@ -25,6 +25,7 @@ interface PricingFiltersProps {
 
 export function PricingFilters({
   rows,
+  pricingSchemas,
   visibleColumns,
   selectedFilters,
   setSelectedFilters,
@@ -49,7 +50,7 @@ export function PricingFilters({
 
     cols.sort((a, b) => a.label.localeCompare(b.label))
     return cols
-  }, [visibleColumns, rows])
+  }, [pricingSchemas, visibleColumns, rows])
 
   const activeColumns = Object.keys(selectedFilters)
 
