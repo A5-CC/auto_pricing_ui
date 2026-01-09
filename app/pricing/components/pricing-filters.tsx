@@ -125,8 +125,8 @@ function FilterRow({ columnKey, rows, schemaCols, values, onChange, onRemove, on
   }, [schemaCols, query])
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-stretch">
-        <div className="relative flex flex-col h-full" ref={containerRef}>
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-start">
+      <div className="relative" ref={containerRef}>
         <label className="block text-[12px] text-foreground/80 mb-1">Column</label>
         <input
           className="w-full rounded-md border px-3 py-2 text-sm h-12"
@@ -170,20 +170,9 @@ function FilterRow({ columnKey, rows, schemaCols, values, onChange, onRemove, on
         )}
       </div>
 
-      <div className="sm:col-span-1 flex flex-col h-full">
-        <div className="flex items-center justify-between mb-2">
-          <label className="block text-[12px] text-foreground/80 mb-1">Values</label>
-          <div className="flex gap-2">
-            <Button variant="secondary" size="sm" onClick={() => onChange(allValues)}>
-              All
-            </Button>
-            <Button variant="secondary" size="sm" onClick={() => onChange([])}>
-              Clear
-            </Button>
-          </div>
-        </div>
-
-        <div className="flex-1">
+      <div className="sm:col-span-1">
+        <label className="block text-[12px] text-foreground/80 mb-1">Values</label>
+        <div className="h-12">
           <MultiSelect values={values} onValuesChange={onChange}>
             <MultiSelectTrigger className="w-full justify-between data-[placeholder]:text-foreground/70 h-12">
               <MultiSelectValue placeholder="Select values" />
@@ -200,9 +189,18 @@ function FilterRow({ columnKey, rows, schemaCols, values, onChange, onRemove, on
             </MultiSelectContent>
           </MultiSelect>
         </div>
+
+        <div className="mt-2 flex gap-2">
+          <Button variant="secondary" size="sm" onClick={() => onChange(allValues)}>
+            All
+          </Button>
+          <Button variant="secondary" size="sm" onClick={() => onChange([])}>
+            Clear
+          </Button>
+        </div>
       </div>
 
-      <div className="flex items-end gap-2">
+      <div className="flex items-start gap-2">
         <Button variant="secondary" size="sm" onClick={onRemove}>
           Remove
         </Button>
