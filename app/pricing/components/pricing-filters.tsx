@@ -20,17 +20,24 @@ interface PricingFiltersProps {
   extraColumns?: string[]
 }
 
-export function PricingFilters({ rows, pricingSchemas, selectedFilters, setSelectedFilters }: PricingFiltersProps) {
-    const schemaCols = useMemo(() => {
-      const canonical = pricingSchemas?.canonical?.columns ?? {}
-      const spineMap = new Map<string, string>()
-      (pricingSchemas?.spine ?? []).forEach(s => spineMap.set(s.id, s.label))
+export function PricingFilters({ rows, pricingSchemas, selectedFilters, setSelectedFilters, extraColumns }: PricingFiltersProps) {
+  const schemaCols = useMemo(() => {
+    const canonical = pricingSchemas?.canonical?.columns ?? {}
+    const spine = pricingSchemas?.spine ?? []
 
-      const keys = new Set<string>([...Object.keys(canonical), ...Array.from(spineMap.keys()), ...((props => props)([] as any))])
-      // note: we'll merge extraColumns below using the passed prop
-      // but since we can't reference props directly in this scope, we'll use the function below to pick up extraColumns via closure
-      return [] as { key: string; label: string }[]
-    }, [pricingSchemas])
+    const keySet = new Set<string>()
+    Object.keys(canonical).forEach(k => keySet.add(k))
+    spine.forEach(s => keySet.add(s.id))
+    (extraColumns ?? []).forEach(k => keySet.add(k))
+
+    const cols = Array.from(keySet).map((key) => {
+      const label = canonical[key]?.label ?? spine.find(s => s.id === key)?.label ?? key
+      return { key, label }
+    })
+
+    cols.sort((a, b) => a.label.localeCompare(b.label))
+    return cols
+  }, [pricingSchemas, extraColumns])
 
     const activeColumns = Object.keys(selectedFilters)
 

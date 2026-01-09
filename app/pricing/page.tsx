@@ -265,6 +265,7 @@ export default function PricingPage() {
         pricingSchemas={pricingSchemas}
         selectedFilters={selectedFilters}
         setSelectedFilters={setSelectedFilters}
+        extraColumns={visibleColumns}
       />
 
       {/* Display controls */}
