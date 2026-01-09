@@ -385,7 +385,7 @@ export default function PricingPage() {
                         >
                           <span className="inline-block h-2 w-2 rounded-full bg-border" />
                           <span className="uppercase text-[11px] tracking-wide">
-                            {getColumnLabel(groupBy, pricingSchemas)}
+                            {getCanonicalLabel(groupBy, pricingSchemas)}
                           </span>
                           <span className="text-foreground">{key}</span>
                           <span className="text-xs text-muted-foreground">
