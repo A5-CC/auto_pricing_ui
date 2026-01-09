@@ -432,15 +432,13 @@ export default function PipelinesPage() {
     selectedLocations,
     selectedDimensions,
     selectedUnitCategories,
-    // deps used by deriveValuesForKey indirectly:
-    dataResponse,
+    // deriveValuesForKey covers its closure deps
     deriveValuesForKey,
-    allUnitCategories,
   ]);
 
   // Merge calcFilters (the classic four) with any universal filters the user added.
   const mergedFilters = useMemo(() => {
-    const base: Record<string, { mode: string; values?: string[] }> = {
+    const base: Record<string, { mode: 'all' } | { mode: 'subset'; values: string[] }> = {
       competitors: calcFilters.competitors,
       locations: calcFilters.locations,
       dimensions: calcFilters.dimensions,
@@ -448,7 +446,7 @@ export default function PipelinesPage() {
     };
     for (const [k, vals] of Object.entries(universalFilters)) {
       if (!vals || vals.length === 0) continue
-      base[k] = { mode: "subset", values: vals }
+      base[k] = { mode: 'subset', values: vals }
     }
     return base
   }, [calcFilters, universalFilters])
