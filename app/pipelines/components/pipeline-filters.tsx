@@ -103,8 +103,6 @@ export function PricingFilters({
               <FilterRow
                 key={col}
                 columnKey={col}
-                rows={rows}
-                visibleColumns={visibleColumns}
                 schemaCols={schemaCols}
                 values={selectedFilters[col] ?? []}
                 combinatoricFlag={Boolean(combinatoricFlags[col])}
