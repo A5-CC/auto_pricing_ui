@@ -295,9 +295,9 @@ export default function PricingPage() {
               onExpandAll={groupBy ? expandAllGroups : undefined}
               onCollapseAll={groupBy ? collapseAllGroups : undefined}
               options={[
-                { id: "competitor_name", label: "Competitor" },
-                { id: "modstorage_location", label: "Location" },
-                { id: "unit_dimensions", label: "Unit" },
+                { id: "competitor_name", label: getColumnLabel("competitor_name", pricingSchemas) },
+                { id: "modstorage_location", label: getColumnLabel("modstorage_location", pricingSchemas) },
+                { id: "unit_dimensions", label: getColumnLabel("unit_dimensions", pricingSchemas) },
               ]}
             />
           </div>
@@ -311,7 +311,7 @@ export default function PricingPage() {
               <tr>
                 <SortableTh
                   columnId="competitor_name"
-                  label="Competitor"
+                  label={getColumnLabel("competitor_name", pricingSchemas)}
                   sortBy={sortBy}
                   sortDir={sortDir}
                   onSortClick={handleSortClick}
@@ -319,7 +319,7 @@ export default function PricingPage() {
                 />
                 <SortableTh
                   columnId="modstorage_location"
-                  label="modLocation"
+                  label={getColumnLabel("modstorage_location", pricingSchemas)}
                   sortBy={sortBy}
                   sortDir={sortDir}
                   onSortClick={handleSortClick}
@@ -327,7 +327,7 @@ export default function PricingPage() {
                 />
                 <SortableTh
                   columnId="unit_dimensions"
-                  label="Dimensions"
+                  label={getColumnLabel("unit_dimensions", pricingSchemas)}
                   sortBy={sortBy}
                   sortDir={sortDir}
                   onSortClick={handleSortClick}
