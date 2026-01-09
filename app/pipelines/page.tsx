@@ -25,6 +25,7 @@ import { useUnitCategoryFilter } from "@/hooks/useUnitCategoryFilter";
 import { SectionLabel } from "@/components/ui/section-label";
 import { PricingOverview } from "../pricing/components/pricing-overview";
 import { PricingFilters } from "../pipelines/components/pipeline-filters";
+import { UniversalPipelineFilters } from "./components/universal-pipeline-filters";
 import { PipelineSelector } from "@/components/pipelines/pipeline-selector";
 import { AdjustersList } from "@/components/pipelines/adjusters-list";
 import { CalculatedPrice } from "@/components/pipelines/calculated-price";
@@ -94,6 +95,10 @@ export default function PipelinesPage() {
   const [dimensionsCombinatoric, setDimensionsCombinatoric] = useState<boolean>(true);
   const [unitCategoriesCombinatoric, setUnitCategoriesCombinatoric] = useState<boolean>(true);
 
+  // Universal pipeline filters (column -> values)
+  const [universalFilters, setUniversalFilters] = useState<Record<string, string[]>>({});
+  const [universalCombinatoric, setUniversalCombinatoric] = useState<Record<string, boolean>>({});
+
   // data
   const [dataResponse, setDataResponse] = useState<E1DataResponse | null>(
     null
@@ -105,7 +110,7 @@ export default function PipelinesPage() {
   const [columnsStats, setColumnsStats] = useState<
     Record<string, ColumnStatistics>
   >({});
-  const [, setVisibleColumns] = useState<string[]>([]);
+  const [visibleColumns, setVisibleColumns] = useState<string[]>([]);
 
   /* ---------------- Derived filters from hooks ---------------- */
   const { filteredRows: competitorFilteredRows, allCompetitors } =
@@ -432,6 +437,31 @@ export default function PipelinesPage() {
     allUnitCategories,
   ]);
 
+  // Merge calcFilters (the classic four) with any universal filters the user added.
+  const mergedFilters = useMemo(() => {
+    const base: Record<string, any> = {
+      competitors: calcFilters.competitors,
+      locations: calcFilters.locations,
+      dimensions: calcFilters.dimensions,
+      unit_categories: calcFilters.unit_categories,
+    };
+    for (const [k, vals] of Object.entries(universalFilters)) {
+      if (!vals || vals.length === 0) continue
+      base[k] = { mode: "subset", values: vals }
+    }
+    return base as Record<string, { mode: string; values?: string[] }>
+  }, [calcFilters, universalFilters])
+
+  const mergedCombinatoricFlags = useMemo(() => {
+    return {
+      competitors: competitorsCombinatoric,
+      locations: locationsCombinatoric,
+      dimensions: dimensionsCombinatoric,
+      unit_categories: unitCategoriesCombinatoric,
+      ...universalCombinatoric,
+    }
+  }, [competitorsCombinatoric, locationsCombinatoric, dimensionsCombinatoric, unitCategoriesCombinatoric, universalCombinatoric])
+
   /* ---------------- availableFilterValues (used if some other component needs "UI options") ---------------- */
   const availableFilterValues = useMemo<
     Record<keyof CalcFiltersShape, string[]>
@@ -523,6 +553,15 @@ export default function PipelinesPage() {
         setUnitCategoriesCombinatoric={setUnitCategoriesCombinatoric}
       />
 
+      <UniversalPipelineFilters
+        rows={dataResponse?.data ?? []}
+        visibleColumns={visibleColumns}
+        selectedFilters={universalFilters}
+        setSelectedFilters={setUniversalFilters}
+        combinatoricFlags={universalCombinatoric}
+        setCombinatoricFlags={setUniversalCombinatoric}
+      />
+
       {/* Price Calculation Section */}
       <div className="space-y-4">
         <SectionLabel
@@ -604,14 +643,9 @@ export default function PipelinesPage() {
             clientAvailableUnits={clientDataResponse?.data.length || 0}
             adjusters={localAdjusters}
             currentDate={currentDate}
-            filters={calcFilters}
+            filters={mergedFilters}
             availableFilterValues={availableFilterValues}
-            combinatoricFlags={{
-              competitors: competitorsCombinatoric,
-              locations: locationsCombinatoric,
-              dimensions: dimensionsCombinatoric,
-              unit_categories: unitCategoriesCombinatoric,
-            }}
+            combinatoricFlags={mergedCombinatoricFlags}
           />
         </div>
 
