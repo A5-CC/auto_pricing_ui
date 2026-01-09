@@ -98,7 +98,8 @@ export function PricingFilters({
 
           {activeColumns.map((col) => {
             // Only show values present in the current rows for this column
-            const presentValues = Array.from(new Set(rows.map(r => r[col]).filter(v => v != null))).map(String)
+            // Show all possible values from the full dataset, not just filtered rows
+            const presentValues = Array.from(new Set((rows ?? []).map(r => r[col]).filter(v => v != null))).map(String)
             return (
               <FilterRow
                 key={col}
