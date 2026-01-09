@@ -151,7 +151,13 @@ export function PricingFilters({ rows, pricingSchemas, selectedFilters, setSelec
         </div>
 
         <div className="sm:col-span-1">
-          <label className="block text-[12px] text-foreground/80 mb-1">Values</label>
+          <div className="flex items-center justify-between">
+            <label className="block text-[12px] text-foreground/80 mb-1">Values</label>
+            <div className="flex gap-2">
+              <Button variant="secondary" size="sm" onClick={() => onChange(allValues)}>All</Button>
+              <Button variant="secondary" size="sm" onClick={() => onChange([])}>Clear</Button>
+            </div>
+          </div>
           <MultiSelect values={values} onValuesChange={onChange}>
             <MultiSelectTrigger className="w-full justify-between data-[placeholder]:text-foreground/70">
               <MultiSelectValue placeholder="Select values" />
