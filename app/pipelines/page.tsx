@@ -107,7 +107,8 @@ export default function PipelinesPage() {
     useCompetitorFilter(dataResponse?.data ?? [], selectedCompetitors);
   const { filteredRows, allLocations } = useLocationFilter(
     competitorFilteredRows,
-    selectedLocations
+    selectedLocations,
+    "modstorage_location"
   );
   const { filteredRows: locationAndDimFilteredRows, allDimensions } =
     useDimensionsFilter(filteredRows, selectedDimensions);
