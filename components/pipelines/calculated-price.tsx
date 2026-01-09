@@ -24,6 +24,7 @@ interface CalculatedPriceProps {
   filters?: Record<string, FilterSelection>
   availableFilterValues?: Record<string, FilterValue[]> 
   maxCombinations?: number
+  combinatoricFlags?: Record<string, boolean>
 }
 
 export function CalculatedPrice({
@@ -48,16 +49,32 @@ export function CalculatedPrice({
       unit_categories: 'unit_category',
     }
 
+    // Separate filters into combinatoric filters (contribute to cartesian product)
+    // and non-combinatoric filters (used to pre-filter the competitorData input).
+    const combinatoric: Array<{ key: string; values: FilterValue[]; column: string }> = []
+    const preFilters: Array<{ column: string; values: FilterValue[] }> = []
+
     for (const [key, filter] of Object.entries(filters)) {
       if (!filter) continue
       if (filter.mode === 'subset') {
         const vals = (filter as { mode: 'subset'; values: FilterValue[] }).values ?? []
         if (!vals || vals.length === 0) continue
-
-        arrays.push(vals)
-        humanKeys.push(key)
-        columnNames.push(FILTER_KEY_TO_COLUMN[key] ?? key)
+        const column = FILTER_KEY_TO_COLUMN[key] ?? key
+        const isCombinatoric = combinatoricFlags ? Boolean(combinatoricFlags[key]) : true
+        if (isCombinatoric) {
+          combinatoric.push({ key, values: vals, column })
+        } else {
+          preFilters.push({ column, values: vals })
+        }
       }
+    }
+
+
+    // Build arrays and metadata from combinatoric filters
+    for (const c of combinatoric) {
+      arrays.push(c.values)
+      humanKeys.push(c.key)
+      columnNames.push(c.column)
     }
 
     if (arrays.length === 0) return []
@@ -65,7 +82,18 @@ export function CalculatedPrice({
     const combinations = cartesianProduct<FilterValue>(arrays)
 
     return combinations.map((combo) => {
-      const subset = competitorData.filter((row) =>
+      // Apply pre-filters (non-combinatoric) first to the competitor data
+      let pool = competitorData
+      for (const pf of preFilters) {
+        const set = new Set(pf.values.map(String))
+        pool = pool.filter((row) => {
+          const val = (row as Record<string, unknown>)[pf.column]
+          if (val === null || val === undefined) return false
+          return set.has(String(val))
+        })
+      }
+
+      const subset = pool.filter((row) =>
         columnNames.every((col, i) => String((row as Record<string, unknown>)[col]) === String(combo[i]))
       )
 

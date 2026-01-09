@@ -88,6 +88,11 @@ export default function PipelinesPage() {
   const [locationsAll, setLocationsAll] = useState<boolean>(false);
   const [dimensionsAll, setDimensionsAll] = useState<boolean>(false);
   const [unitCategoriesAll, setUnitCategoriesAll] = useState<boolean>(false);
+  // combinatoric flags (default true -> behave as before)
+  const [competitorsCombinatoric, setCompetitorsCombinatoric] = useState<boolean>(true);
+  const [locationsCombinatoric, setLocationsCombinatoric] = useState<boolean>(true);
+  const [dimensionsCombinatoric, setDimensionsCombinatoric] = useState<boolean>(true);
+  const [unitCategoriesCombinatoric, setUnitCategoriesCombinatoric] = useState<boolean>(true);
 
   // data
   const [dataResponse, setDataResponse] = useState<E1DataResponse | null>(
@@ -500,6 +505,22 @@ export default function PipelinesPage() {
         selectedUnitCategories={selectedUnitCategories}
         setSelectedUnitCategories={handleSetSelectedUnitCategories}
         allUnitCategories={allUnitCategories}
+        competitorsAll={competitorsAll}
+        setCompetitorsAll={setCompetitorsAll}
+        competitorsCombinatoric={competitorsCombinatoric}
+        setCompetitorsCombinatoric={setCompetitorsCombinatoric}
+        locationsAll={locationsAll}
+        setLocationsAll={setLocationsAll}
+        locationsCombinatoric={locationsCombinatoric}
+        setLocationsCombinatoric={setLocationsCombinatoric}
+        dimensionsAll={dimensionsAll}
+        setDimensionsAll={setDimensionsAll}
+        dimensionsCombinatoric={dimensionsCombinatoric}
+        setDimensionsCombinatoric={setDimensionsCombinatoric}
+        unitCategoriesAll={unitCategoriesAll}
+        setUnitCategoriesAll={setUnitCategoriesAll}
+        unitCategoriesCombinatoric={unitCategoriesCombinatoric}
+        setUnitCategoriesCombinatoric={setUnitCategoriesCombinatoric}
       />
 
       {/* Price Calculation Section */}
@@ -585,6 +606,12 @@ export default function PipelinesPage() {
             currentDate={currentDate}
             filters={calcFilters}
             availableFilterValues={availableFilterValues}
+            combinatoricFlags={{
+              competitors: competitorsCombinatoric,
+              locations: locationsCombinatoric,
+              dimensions: dimensionsCombinatoric,
+              unit_categories: unitCategoriesCombinatoric,
+            }}
           />
         </div>
 

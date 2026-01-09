@@ -151,7 +151,7 @@ export function PricingFilters({ rows, pricingSchemas, selectedFilters, setSelec
         </div>
 
         <div className="sm:col-span-1">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-2">
             <label className="block text-[12px] text-foreground/80 mb-1">Values</label>
             <div className="flex gap-2">
               <Button variant="secondary" size="sm" onClick={() => onChange(allValues)}>All</Button>

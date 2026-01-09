@@ -29,15 +29,24 @@ interface PricingFiltersProps {
   // NEW: flags and setters for All-mode
   competitorsAll?: boolean
   setCompetitorsAll?: (v: boolean) => void
+  // NEW: combinatoric flags
+  competitorsCombinatoric?: boolean
+  setCompetitorsCombinatoric?: (v: boolean) => void
 
   locationsAll?: boolean
   setLocationsAll?: (v: boolean) => void
+  locationsCombinatoric?: boolean
+  setLocationsCombinatoric?: (v: boolean) => void
 
   dimensionsAll?: boolean
   setDimensionsAll?: (v: boolean) => void
+  dimensionsCombinatoric?: boolean
+  setDimensionsCombinatoric?: (v: boolean) => void
 
   unitCategoriesAll?: boolean
   setUnitCategoriesAll?: (v: boolean) => void
+  unitCategoriesCombinatoric?: boolean
+  setUnitCategoriesCombinatoric?: (v: boolean) => void
 }
 
 /**
@@ -67,12 +76,20 @@ export function PricingFilters({
 
   competitorsAll = false,
   setCompetitorsAll,
+  competitorsCombinatoric = true,
+  setCompetitorsCombinatoric,
   locationsAll = false,
   setLocationsAll,
+  locationsCombinatoric = true,
+  setLocationsCombinatoric,
   dimensionsAll = false,
   setDimensionsAll,
+  dimensionsCombinatoric = true,
+  setDimensionsCombinatoric,
   unitCategoriesAll = false,
   setUnitCategoriesAll,
+  unitCategoriesCombinatoric = true,
+  setUnitCategoriesCombinatoric,
 }: PricingFiltersProps) {
   return (
     <>
@@ -90,6 +107,8 @@ export function PricingFilters({
             searchPlaceholder="Search competitors..."
             allFlag={competitorsAll}
             onToggleAll={(v) => setCompetitorsAll?.(v)}
+            combinatoricFlag={competitorsCombinatoric}
+            onToggleCombinatoric={(v) => setCompetitorsCombinatoric?.(v)}
           />
 
           <FilterBlock
@@ -102,6 +121,8 @@ export function PricingFilters({
             searchPlaceholder="Search locations..."
             allFlag={locationsAll}
             onToggleAll={(v) => setLocationsAll?.(v)}
+            combinatoricFlag={locationsCombinatoric}
+            onToggleCombinatoric={(v) => setLocationsCombinatoric?.(v)}
           />
 
           <FilterBlock
@@ -114,6 +135,8 @@ export function PricingFilters({
             searchPlaceholder="Search dimensions..."
             allFlag={dimensionsAll}
             onToggleAll={(v) => setDimensionsAll?.(v)}
+            combinatoricFlag={dimensionsCombinatoric}
+            onToggleCombinatoric={(v) => setDimensionsCombinatoric?.(v)}
           />
 
           <FilterBlock
@@ -126,6 +149,8 @@ export function PricingFilters({
             searchPlaceholder="Search categories..."
             allFlag={unitCategoriesAll}
             onToggleAll={(v) => setUnitCategoriesAll?.(v)}
+            combinatoricFlag={unitCategoriesCombinatoric}
+            onToggleCombinatoric={(v) => setUnitCategoriesCombinatoric?.(v)}
           />
 
         </div>
@@ -146,6 +171,8 @@ interface FilterBlockProps {
   // NEW:
   allFlag?: boolean
   onToggleAll?: (value: boolean) => void
+  combinatoricFlag?: boolean
+  onToggleCombinatoric?: (value: boolean) => void
 }
 
 /**
@@ -165,6 +192,8 @@ function FilterBlock({
   searchPlaceholder,
   allFlag = false,
   onToggleAll,
+  combinatoricFlag = true,
+  onToggleCombinatoric,
 }: FilterBlockProps) {
   // If All is active, we show no selected values in the multiselect and prevent changes
   const effectiveValues = allFlag ? [] : selected
@@ -211,6 +240,16 @@ function FilterBlock({
           >
             All
           </button>
+
+          {/* Combinatoric toggle */}
+          <label className="inline-flex items-center gap-2 text-xs">
+            <input
+              type="checkbox"
+              checked={combinatoricFlag}
+              onChange={(e) => onToggleCombinatoric?.(e.target.checked)}
+            />
+            <span className="text-[11px]">Combinatoric</span>
+          </label>
         </div>
       </div>
 
