@@ -34,6 +34,7 @@ export function CalculatedPrice({
   currentDate,
   filters = {},
   maxCombinations = 50
+  , combinatoricFlags = {}
 }: CalculatedPriceProps) {
 
   const rows = useMemo(() => {
