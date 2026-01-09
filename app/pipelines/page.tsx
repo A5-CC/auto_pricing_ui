@@ -89,10 +89,10 @@ export default function PipelinesPage() {
   const [dimensionsAll, setDimensionsAll] = useState<boolean>(false);
   const [unitCategoriesAll, setUnitCategoriesAll] = useState<boolean>(false);
   // combinatoric flags (default true -> behave as before)
-  const [competitorsCombinatoric, setCompetitorsCombinatoric] = useState<boolean>(true);
-  const [locationsCombinatoric, setLocationsCombinatoric] = useState<boolean>(true);
-  const [dimensionsCombinatoric, setDimensionsCombinatoric] = useState<boolean>(true);
-  const [unitCategoriesCombinatoric, setUnitCategoriesCombinatoric] = useState<boolean>(true);
+  const [competitorsCombinatoric, _setCompetitorsCombinatoric] = useState<boolean>(true);
+  const [locationsCombinatoric, _setLocationsCombinatoric] = useState<boolean>(true);
+  const [dimensionsCombinatoric, _setDimensionsCombinatoric] = useState<boolean>(true);
+  const [unitCategoriesCombinatoric, _setUnitCategoriesCombinatoric] = useState<boolean>(true);
 
   // Universal pipeline filters (column -> values)
   const [universalFilters, setUniversalFilters] = useState<Record<string, string[]>>({});
@@ -245,7 +245,7 @@ export default function PipelinesPage() {
   }
 
 
-  const deriveValuesForKey = (key: keyof CalcFiltersShape) => {
+  const deriveValuesForKey = useCallback((key: keyof CalcFiltersShape) => {
     switch (key) {
       case "competitors":
         return deriveCompetitorValues("competitor_name");
@@ -261,7 +261,7 @@ export default function PipelinesPage() {
       default:
         return [] as string[];
     }
-  };
+  }, [allUnitCategories, dataResponse]);
 
   /* ---------------- Pipeline load/save handlers ---------------- */
   const handleLoadPipeline = (filters: PipelineFiltersType) => {

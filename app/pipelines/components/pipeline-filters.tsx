@@ -10,9 +10,10 @@ import {
 import { SectionLabel } from "@/components/ui/section-label"
 import { useUniversalFilter } from "@/hooks/useUniversalFilter"
 import { useMemo, useState } from "react"
+import type { E1DataRow } from "@/lib/api/types"
 
 interface PricingFiltersProps {
-  rows: any[]
+  rows: E1DataRow[]
   visibleColumns?: string[]
   selectedFilters: Record<string, string[]>
   setSelectedFilters: (next: Record<string, string[]>) => void
@@ -110,7 +111,7 @@ export function PricingFilters({
 
 type FilterRowProps = {
   columnKey: string
-  rows: any[]
+  rows: E1DataRow[]
   schemaCols: { key: string; label: string }[]
   values: string[]
   combinatoricFlag: boolean
@@ -121,7 +122,7 @@ type FilterRowProps = {
 }
 
 function FilterRow({ columnKey, rows, schemaCols, values, combinatoricFlag, onChange, onRemove, onChangeColumn, onToggleCombinatoric }: FilterRowProps) {
-  const { allValues } = useUniversalFilter<any>(rows ?? [], columnKey ?? "")
+  const { allValues } = useUniversalFilter<E1DataRow>(rows ?? [], columnKey ?? "")
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
 
