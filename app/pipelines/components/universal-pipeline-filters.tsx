@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/multi-select"
 import { SectionLabel } from "@/components/ui/section-label"
 import { useUniversalFilter } from "@/hooks/useUniversalFilter"
-import { useMemo, useState, useRef } from "react"
+import { useMemo, useState } from "react"
 import type { E1DataRow } from "@/lib/api/types"
 
 interface UniversalPipelineFiltersProps {
@@ -109,7 +109,6 @@ function FilterRow({ columnKey, rows, schemaCols, values, combinatoric, onChange
   const { allValues } = useUniversalFilter<E1DataRow>(rows ?? [], columnKey ?? "")
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
-  const containerRef = useRef<HTMLDivElement | null>(null)
 
   const selectedLabel = schemaCols.find((s) => s.key === columnKey)?.label ?? columnKey
 

@@ -414,7 +414,7 @@ export default function PipelinesPage() {
         locationsAll || locationsVals.length === 0
           ? { mode: "subset", values: locationsVals }
           : { mode: "subset", values: locationsVals },
-      dimensions:-
+      dimensions:
         dimensionsAll || dimensionsVals.length === 0
           ? { mode: "subset", values: dimensionsVals }
           : { mode: "subset", values: dimensionsVals },
@@ -434,6 +434,7 @@ export default function PipelinesPage() {
     selectedUnitCategories,
     // deps used by deriveValuesForKey indirectly:
     dataResponse,
+    deriveValuesForKey,
     allUnitCategories,
   ]);
 
