@@ -28,7 +28,7 @@ import { useSortableRows } from "@/hooks/useSortableRows";
 import GroupByControl from "@/components/pricing/group-by-control";
 import { SectionLabel } from "@/components/ui/section-label";
 import { getCompetitorColor } from "@/lib/pricing/formatters";
-import { getColumnLabel } from "@/lib/pricing/column-labels";
+import { getCanonicalLabel } from "@/lib/pricing/column-labels";
 import { TableCell } from "@/components/pricing/table-cell";
 import { PricingOverview } from "./components/pricing-overview";
 import { PricingFilters } from "./components/pricing-filters";
@@ -295,9 +295,9 @@ export default function PricingPage() {
               onExpandAll={groupBy ? expandAllGroups : undefined}
               onCollapseAll={groupBy ? collapseAllGroups : undefined}
               options={[
-                { id: "competitor_name", label: getColumnLabel("competitor_name", pricingSchemas) },
-                { id: "modstorage_location", label: getColumnLabel("modstorage_location", pricingSchemas) },
-                { id: "unit_dimensions", label: getColumnLabel("unit_dimensions", pricingSchemas) },
+                { id: "competitor_name", label: getCanonicalLabel("competitor_name", pricingSchemas) },
+                { id: "modstorage_location", label: getCanonicalLabel("modstorage_location", pricingSchemas) },
+                { id: "unit_dimensions", label: getCanonicalLabel("unit_dimensions", pricingSchemas) },
               ]}
             />
           </div>
@@ -311,7 +311,7 @@ export default function PricingPage() {
               <tr>
                 <SortableTh
                   columnId="competitor_name"
-                  label={getColumnLabel("competitor_name", pricingSchemas)}
+                  label={getCanonicalLabel("competitor_name", pricingSchemas)}
                   sortBy={sortBy}
                   sortDir={sortDir}
                   onSortClick={handleSortClick}
@@ -319,7 +319,7 @@ export default function PricingPage() {
                 />
                 <SortableTh
                   columnId="modstorage_location"
-                  label={getColumnLabel("modstorage_location", pricingSchemas)}
+                  label={getCanonicalLabel("modstorage_location", pricingSchemas)}
                   sortBy={sortBy}
                   sortDir={sortDir}
                   onSortClick={handleSortClick}
@@ -327,7 +327,7 @@ export default function PricingPage() {
                 />
                 <SortableTh
                   columnId="unit_dimensions"
-                  label={getColumnLabel("unit_dimensions", pricingSchemas)}
+                  label={getCanonicalLabel("unit_dimensions", pricingSchemas)}
                   sortBy={sortBy}
                   sortDir={sortDir}
                   onSortClick={handleSortClick}
@@ -337,7 +337,7 @@ export default function PricingPage() {
                   <SortableTh
                     key={c}
                     columnId={c}
-                    label={getColumnLabel(c, pricingSchemas)}
+                    label={getCanonicalLabel(c, pricingSchemas)}
                     sortBy={sortBy}
                     sortDir={sortDir}
                     onSortClick={handleSortClick}

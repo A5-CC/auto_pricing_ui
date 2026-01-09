@@ -18,3 +18,13 @@ export function getColumnLabel(columnId: string, pricingSchemas: PricingSchemas 
   // Fallback to formatted column ID
   return columnId.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
 }
+
+/**
+ * Prefer the canonical schema label if present; otherwise fall back to `getColumnLabel`.
+ */
+export function getCanonicalLabel(columnId: string, pricingSchemas: PricingSchemas | null): string {
+  if (!pricingSchemas) return columnId
+  const canonicalColumn = pricingSchemas.canonical?.columns?.[columnId]
+  if (canonicalColumn?.label) return canonicalColumn.label
+  return getColumnLabel(columnId, pricingSchemas)
+}
