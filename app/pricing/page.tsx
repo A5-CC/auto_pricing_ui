@@ -24,10 +24,6 @@ import { useContextChips } from "@/hooks/useContextChips";
 import { AddressCell } from "@/components/pricing/address-cell";
 import { SortableTh } from "@/components/table/SortableTh";
 import { useSortableRows } from "@/hooks/useSortableRows";
-import { useCompetitorFilter } from "@/hooks/useCompetitorFilter";
-import { useLocationFilter } from "@/hooks/useLocationFilter";
-import { useDimensionsFilter } from "@/hooks/useDimensionsFilter";
-import { useUnitCategoryFilter } from "@/hooks/useUnitCategoryFilter";
 import GroupByControl from "@/components/pricing/group-by-control";
 import { SectionLabel } from "@/components/ui/section-label";
 import { getCompetitorColor } from "@/lib/pricing/formatters";
@@ -42,17 +38,7 @@ export default function PricingPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Client-side competitor multi-select
-  const [selectedCompetitors, setSelectedCompetitors] = useState<string[]>([]);
-  // Client-side location multi-select
-  const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
-  // Client-side dimensions multi-select
-  const [selectedDimensions, setSelectedDimensions] = useState<string[]>([]);
-  // Client-side unit category multi-select
-  const [selectedUnitCategories, setSelectedUnitCategories] = useState<
-    string[]
-  >([]);
-
+  
   const [dataResponse, setDataResponse] = useState<PricingDataResponse | null>(
     null
   );
@@ -66,20 +52,30 @@ export default function PricingPage() {
   const [showSparseColumns, setShowSparseColumns] = useState(false);
   const sparseThreshold = 85; // 85% fill-rate (backend returns 0-100, not 0-1)
 
-  // Client-side filtering (competitors -> locations)
-  const { filteredRows: competitorFilteredRows, allCompetitors } =
-    useCompetitorFilter(dataResponse?.data ?? [], selectedCompetitors);
-  const { filteredRows, allLocations } = useLocationFilter(
-    competitorFilteredRows,
-    selectedLocations,
-    "modstorage_location"
-  );
-  const { filteredRows: locationAndDimFilteredRows, allDimensions } =
-    useDimensionsFilter(filteredRows, selectedDimensions, "unit_dimensions");
-  const { filteredRows: fullyFilteredRows, allUnitCategories } =
-    useUnitCategoryFilter(locationAndDimFilteredRows, selectedUnitCategories);
+  const [selectedFilters, setSelectedFilters] = useState<Record<string, string[]>>({})
 
+  // Client-side filtering (competitors -> locations)
+  
+  
   // Sorting on filtered rows
+  const applySelectedFilters = (rows: any[]) => {
+  if (!rows) return []
+  let out = rows
+  for (const [col, vals] of Object.entries(selectedFilters)) {
+    if (!vals || vals.length === 0) continue
+    const sel = new Set(vals)
+    out = out.filter((r) => {
+      const v = r[col]
+      if (v === null || v === undefined) return false
+      if (Array.isArray(v)) return v.some(x => sel.has(String(x)))
+      return sel.has(String(v))
+    })
+  }
+  return out
+}
+
+const filteredRows = useMemo(() => applySelectedFilters(dataResponse?.data ?? []), [dataResponse, selectedFilters])
+
   const {
     sortedRows: displayedRows,
     sortBy,
@@ -87,8 +83,7 @@ export default function PricingPage() {
     handleSortClick,
     setSortBy,
     setSortDir,
-  } = useSortableRows(fullyFilteredRows, columnsStats, null, "asc");
-
+  } = useSortableRows(filteredRows, columnsStats, null, "asc");
   // Group by (single level)
   const [groupBy, setGroupBy] = useState<string | null>(null);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
@@ -223,15 +218,7 @@ export default function PricingPage() {
   useEffect(() => {
     setSortBy(null);
     setSortDir("asc");
-  }, [
-    selectedSnapshot,
-    selectedCompetitors,
-    selectedLocations,
-    selectedDimensions,
-    selectedUnitCategories,
-    setSortBy,
-    setSortDir,
-  ]);
+  }, [selectedSnapshot, selectedFilters, setSortBy, setSortDir]);
 
   return (
     <main className="mx-auto max-w-7xl p-6 space-y-5">
@@ -277,18 +264,10 @@ export default function PricingPage() {
       />
 
       <PricingFilters
-        selectedCompetitors={selectedCompetitors}
-        setSelectedCompetitors={setSelectedCompetitors}
-        allCompetitors={allCompetitors}
-        selectedLocations={selectedLocations}
-        setSelectedLocations={setSelectedLocations}
-        allLocations={allLocations}
-        selectedDimensions={selectedDimensions}
-        setSelectedDimensions={setSelectedDimensions}
-        allDimensions={allDimensions}
-        selectedUnitCategories={selectedUnitCategories}
-        setSelectedUnitCategories={setSelectedUnitCategories}
-        allUnitCategories={allUnitCategories}
+        rows={dataResponse?.data ?? []}
+        pricingSchemas={pricingSchemas}
+        selectedFilters={selectedFilters}
+        setSelectedFilters={setSelectedFilters}
       />
 
       {/* Display controls */}
@@ -343,7 +322,7 @@ export default function PricingPage() {
                 />
                 <SortableTh
                   columnId="modstorage_location"
-                  label="ModLocation"
+                  label="modLocation"
                   sortBy={sortBy}
                   sortDir={sortDir}
                   onSortClick={handleSortClick}
