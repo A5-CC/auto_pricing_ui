@@ -126,10 +126,10 @@ function FilterRow({ columnKey, rows, schemaCols, values, onChange, onRemove, on
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-stretch">
-      <div className="relative flex flex-col h-full" ref={containerRef}>
+        <div className="relative flex flex-col h-full" ref={containerRef}>
         <label className="block text-[12px] text-foreground/80 mb-1">Column</label>
         <input
-          className="w-full rounded-md border px-3 py-2 text-sm flex-1"
+          className="w-full rounded-md border px-3 py-2 text-sm h-12"
           value={open ? query : selectedLabel}
           onFocus={() => {
             setOpen(true)
@@ -185,7 +185,7 @@ function FilterRow({ columnKey, rows, schemaCols, values, onChange, onRemove, on
 
         <div className="flex-1">
           <MultiSelect values={values} onValuesChange={onChange}>
-            <MultiSelectTrigger className="w-full justify-between data-[placeholder]:text-foreground/70 h-full">
+            <MultiSelectTrigger className="w-full justify-between data-[placeholder]:text-foreground/70 h-12">
               <MultiSelectValue placeholder="Select values" />
             </MultiSelectTrigger>
 
