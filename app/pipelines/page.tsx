@@ -440,7 +440,7 @@ export default function PipelinesPage() {
 
   // Merge calcFilters (the classic four) with any universal filters the user added.
   const mergedFilters = useMemo(() => {
-    const base: Record<string, any> = {
+    const base: Record<string, { mode: string; values?: string[] }> = {
       competitors: calcFilters.competitors,
       locations: calcFilters.locations,
       dimensions: calcFilters.dimensions,
@@ -450,7 +450,7 @@ export default function PipelinesPage() {
       if (!vals || vals.length === 0) continue
       base[k] = { mode: "subset", values: vals }
     }
-    return base as Record<string, { mode: string; values?: string[] }>
+    return base
   }, [calcFilters, universalFilters])
 
   const mergedCombinatoricFlags = useMemo(() => {
