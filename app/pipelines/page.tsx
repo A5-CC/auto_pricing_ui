@@ -67,7 +67,7 @@ export default function PipelinesPage() {
   const competitiveDialog = useAdjusterDialog();
   const functionDialog = useAdjusterDialog();
   const temporalDialog = useAdjusterDialog();
-
+  
   // filters (explicit values)
   const [selectedCompetitors, setSelectedCompetitors] = useState<string[]>(
     []
@@ -224,7 +224,7 @@ export default function PipelinesPage() {
   /* ---------------- Helpers: derive actual competitor values ---------------- */
 
   // derive unique, non-empty string values from the competitor dataset (exclude client rows)
-  const deriveCompetitorValues = (columnName: string) => {
+  const deriveCompetitorValues = useCallback((columnName: string) => {
     const rows = (dataResponse?.data ?? []) as PricingRow[]
     const set = new Set<string>()
 
@@ -242,7 +242,7 @@ export default function PipelinesPage() {
     }
 
     return Array.from(set).sort()
-  }
+  }, [dataResponse])
 
 
   const deriveValuesForKey = useCallback((key: keyof CalcFiltersShape) => {
@@ -261,7 +261,7 @@ export default function PipelinesPage() {
       default:
         return [] as string[];
     }
-  }, [allUnitCategories, dataResponse]);
+  }, [allUnitCategories, deriveCompetitorValues]);
 
   /* ---------------- Pipeline load/save handlers ---------------- */
   const handleLoadPipeline = (filters: PipelineFiltersType) => {

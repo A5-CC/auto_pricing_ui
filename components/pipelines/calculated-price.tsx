@@ -121,7 +121,7 @@ export function CalculatedPrice({
         price
       }
     }).filter(r => r.price !== null) // skip invalid rows
-  }, [competitorData, clientAvailableUnits, adjusters, currentDate, filters, maxCombinations, combinatoricFlags])
+  }, [competitorData, clientAvailableUnits, adjusters, currentDate, filters, combinatoricFlags])
 
   if (!adjusters || adjusters.length === 0) {
     return <p className="text-muted-foreground">Add adjusters to calculate prices</p>
