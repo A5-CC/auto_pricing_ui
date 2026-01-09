@@ -101,6 +101,7 @@ export function PricingFilters({
               key={col}
               columnKey={col}
               rows={rows}
+              visibleColumns={visibleColumns}
               schemaCols={schemaCols}
               values={selectedFilters[col] ?? []}
               combinatoricFlag={Boolean(combinatoricFlags[col])}
@@ -125,6 +126,7 @@ export function PricingFilters({
 type FilterRowProps = {
   columnKey: string
   rows: E1DataRow[]
+  visibleColumns?: string[]
   schemaCols: { key: string; label: string }[]
   values: string[]
   combinatoricFlag: boolean
@@ -133,9 +135,34 @@ type FilterRowProps = {
   onChangeColumn: (newCol: string) => void
   onToggleCombinatoric: (v: boolean) => void
 }
+function FilterRow({ columnKey, rows, visibleColumns, schemaCols, values, combinatoricFlag, onChange, onRemove, onChangeColumn, onToggleCombinatoric }: FilterRowProps) {
+  const deriveDataColumn = (key: string) => {
+    const candidates = [
+      key,
+      `${key}_normalized`,
+      key.replace(/^modstorage_/, ""),
+    ]
 
-function FilterRow({ columnKey, rows, schemaCols, values, combinatoricFlag, onChange, onRemove, onChangeColumn, onToggleCombinatoric }: FilterRowProps) {
-  const { allValues } = useUniversalFilter<E1DataRow>(rows ?? [], columnKey ?? "")
+    if (key.toLowerCase().includes("location")) candidates.push("location_normalized")
+    if (key.toLowerCase().includes("dim") || key.toLowerCase().includes("dimension")) candidates.push("dimensions_normalized")
+    if (key.toLowerCase().includes("category")) candidates.push("unit_category")
+    if (key.toLowerCase().includes("competitor")) candidates.push("competitor_name")
+
+    // prefer visibleColumns if provided
+    for (const c of candidates) {
+      if (visibleColumns && visibleColumns.includes(c)) return c
+    }
+
+    // otherwise scan rows for a non-empty value
+    for (const c of candidates) {
+      if (rows.some(r => r[c] !== undefined && r[c] !== null)) return c
+    }
+
+    return key
+  }
+
+  const dataColumn = deriveDataColumn(columnKey)
+  const { allValues } = useUniversalFilter<E1DataRow>(rows ?? [], dataColumn ?? "")
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
 
