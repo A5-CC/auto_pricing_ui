@@ -10,10 +10,10 @@ import {
 import { SectionLabel } from "@/components/ui/section-label"
 import { useUniversalFilter } from "@/hooks/useUniversalFilter"
 import { useMemo } from "react"
-import type { PricingSchemas } from "@/lib/api/types"
+import type { PricingSchemas, PricingDataRow } from "@/lib/api/types"
 
 interface PricingFiltersProps {
-  rows: any[]
+  rows: PricingDataRow[]
   pricingSchemas: PricingSchemas | null
   selectedFilters: Record<string, string[]>
   setSelectedFilters: (next: Record<string, string[]>) => void
@@ -80,14 +80,14 @@ export function PricingFilters({ rows, pricingSchemas, selectedFilters, setSelec
 
   function FilterRow({ columnKey, rows, schemaCols, values, onChange, onRemove, onChangeColumn }: {
     columnKey: string
-    rows: any[]
+    rows: PricingDataRow[]
     schemaCols: string[]
     values: string[]
     onChange: (vals: string[]) => void
     onRemove: () => void
     onChangeColumn: (newCol: string) => void
   }) {
-    const { allValues } = useUniversalFilter(rows ?? [], columnKey ?? "")
+    const { allValues } = useUniversalFilter<PricingDataRow>(rows ?? [], columnKey ?? "")
 
     return (
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-start">

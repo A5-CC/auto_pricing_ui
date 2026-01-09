@@ -13,6 +13,7 @@ import type {
   PricingDataResponse,
   ColumnStatistics,
   PricingSchemas,
+  PricingDataRow,
 } from "@/lib/api/types";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -54,27 +55,23 @@ export default function PricingPage() {
 
   const [selectedFilters, setSelectedFilters] = useState<Record<string, string[]>>({})
 
-  // Client-side filtering (competitors -> locations)
-  
-  
-  // Sorting on filtered rows
-  const applySelectedFilters = (rows: any[]) => {
-  if (!rows) return []
-  let out = rows
-  for (const [col, vals] of Object.entries(selectedFilters)) {
-    if (!vals || vals.length === 0) continue
-    const sel = new Set(vals)
-    out = out.filter((r) => {
-      const v = r[col]
-      if (v === null || v === undefined) return false
-      if (Array.isArray(v)) return v.some(x => sel.has(String(x)))
-      return sel.has(String(v))
-    })
-  }
-  return out
-}
-
-const filteredRows = useMemo(() => applySelectedFilters(dataResponse?.data ?? []), [dataResponse, selectedFilters])
+  // Client-side filtering (generic filters)
+  const filteredRows = useMemo(() => {
+    const rows = dataResponse?.data ?? [] as PricingDataRow[]
+    if (!rows || Object.keys(selectedFilters).length === 0) return rows
+    let out: PricingDataRow[] = rows
+    for (const [col, vals] of Object.entries(selectedFilters)) {
+      if (!vals || vals.length === 0) continue
+      const sel = new Set(vals)
+      out = out.filter((r) => {
+        const v = r[col as keyof PricingDataRow]
+        if (v === null || v === undefined) return false
+        if (Array.isArray(v)) return (v as unknown[]).some(x => sel.has(String(x)))
+        return sel.has(String(v))
+      })
+    }
+    return out
+  }, [dataResponse, selectedFilters])
 
   const {
     sortedRows: displayedRows,
