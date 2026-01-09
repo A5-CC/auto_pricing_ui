@@ -55,8 +55,12 @@ export function PricingFilters({
   const activeColumns = Object.keys(selectedFilters)
 
   const addFilterRow = () => {
+    // Prefer a visible column (actual data column) when adding a new filter so
+    // the Values list can be populated from the rows. Fall back to the first
+    // schema column if no visibleColumns exist.
     const first = schemaCols[0]
-    const col = first ? first.key : ""
+    const visibleFirst = (visibleColumns ?? [])[0]
+    const col = visibleFirst ?? (first ? first.key : "")
     if (!col) return
     setSelectedFilters({ ...selectedFilters, [col]: [] })
     setCombinatoricFlags({ ...combinatoricFlags, [col]: true })
