@@ -21,14 +21,17 @@ interface PricingFiltersProps {
 
 export function PricingFilters({ rows, pricingSchemas, selectedFilters, setSelectedFilters }: PricingFiltersProps) {
     const schemaCols = useMemo(() => {
-      if (!pricingSchemas?.canonical?.columns) return [] as string[]
-      return Object.keys(pricingSchemas.canonical.columns).sort()
+      if (!pricingSchemas?.canonical?.columns) return [] as { key: string; label: string }[]
+      return Object.keys(pricingSchemas.canonical.columns)
+        .sort()
+        .map((k) => ({ key: k, label: pricingSchemas!.canonical!.columns[k]?.label ?? k }))
     }, [pricingSchemas])
 
     const activeColumns = Object.keys(selectedFilters)
 
     const addFilterRow = () => {
-      const col = schemaCols[0] ?? ""
+      const first = schemaCols[0]
+      const col = first ? first.key : ""
       if (!col) return
       setSelectedFilters({ ...selectedFilters, [col]: [] })
     }
@@ -81,7 +84,7 @@ export function PricingFilters({ rows, pricingSchemas, selectedFilters, setSelec
   function FilterRow({ columnKey, rows, schemaCols, values, onChange, onRemove, onChangeColumn }: {
     columnKey: string
     rows: PricingDataRow[]
-    schemaCols: string[]
+    schemaCols: { key: string; label: string }[]
     values: string[]
     onChange: (vals: string[]) => void
     onRemove: () => void
@@ -99,7 +102,7 @@ export function PricingFilters({ rows, pricingSchemas, selectedFilters, setSelec
             onChange={(e) => onChangeColumn(e.target.value)}
           >
             {schemaCols.map((c) => (
-              <option key={c} value={c}>{c}</option>
+              <option key={c.key} value={c.key}>{c.label || c.key}</option>
             ))}
           </select>
         </div>
