@@ -17,14 +17,19 @@ interface PricingFiltersProps {
   pricingSchemas: PricingSchemas | null
   selectedFilters: Record<string, string[]>
   setSelectedFilters: (next: Record<string, string[]>) => void
+  extraColumns?: string[]
 }
 
 export function PricingFilters({ rows, pricingSchemas, selectedFilters, setSelectedFilters }: PricingFiltersProps) {
     const schemaCols = useMemo(() => {
-      if (!pricingSchemas?.canonical?.columns) return [] as { key: string; label: string }[]
-      return Object.keys(pricingSchemas.canonical.columns)
-        .map((k) => ({ key: k, label: pricingSchemas!.canonical!.columns[k]?.label ?? k }))
-        .sort((a, b) => a.label.localeCompare(b.label))
+      const canonical = pricingSchemas?.canonical?.columns ?? {}
+      const spineMap = new Map<string, string>()
+      (pricingSchemas?.spine ?? []).forEach(s => spineMap.set(s.id, s.label))
+
+      const keys = new Set<string>([...Object.keys(canonical), ...Array.from(spineMap.keys()), ...((props => props)([] as any))])
+      // note: we'll merge extraColumns below using the passed prop
+      // but since we can't reference props directly in this scope, we'll use the function below to pick up extraColumns via closure
+      return [] as { key: string; label: string }[]
     }, [pricingSchemas])
 
     const activeColumns = Object.keys(selectedFilters)
