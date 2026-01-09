@@ -1,4 +1,4 @@
-import { Button } from "@/components/ui/button"
+import { Button } from "/@/components/ui/button"
 import {
   MultiSelect,
   MultiSelectContent,
@@ -6,276 +6,218 @@ import {
   MultiSelectItem,
   MultiSelectTrigger,
   MultiSelectValue,
-} from "@/components/ui/multi-select"
-import { SectionLabel } from "@/components/ui/section-label"
+} from "/@/components/ui/multi-select"
+import { SectionLabel } from "/@/components/ui/section-label"
+import { useUniversalFilter } from "@/hooks/useUniversalFilter"
+import { useMemo, useState } from "react"
 
 interface PricingFiltersProps {
-  selectedCompetitors: string[]
-  setSelectedCompetitors: (values: string[]) => void
-  allCompetitors: string[]
-
-  selectedLocations: string[]
-  setSelectedLocations: (values: string[]) => void
-  allLocations: string[]
-
-  selectedDimensions: string[]
-  setSelectedDimensions: (values: string[]) => void
-  allDimensions: string[]
-
-  selectedUnitCategories: string[]
-  setSelectedUnitCategories: (values: string[]) => void
-  allUnitCategories: string[]
-
-  // NEW: flags and setters for All-mode
-  competitorsAll?: boolean
-  setCompetitorsAll?: (v: boolean) => void
-  // NEW: combinatoric flags
-  competitorsCombinatoric?: boolean
-  setCompetitorsCombinatoric?: (v: boolean) => void
-
-  locationsAll?: boolean
-  setLocationsAll?: (v: boolean) => void
-  locationsCombinatoric?: boolean
-  setLocationsCombinatoric?: (v: boolean) => void
-
-  dimensionsAll?: boolean
-  setDimensionsAll?: (v: boolean) => void
-  dimensionsCombinatoric?: boolean
-  setDimensionsCombinatoric?: (v: boolean) => void
-
-  unitCategoriesAll?: boolean
-  setUnitCategoriesAll?: (v: boolean) => void
-  unitCategoriesCombinatoric?: boolean
-  setUnitCategoriesCombinatoric?: (v: boolean) => void
+  rows: any[]
+  visibleColumns?: string[]
+  selectedFilters: Record<string, string[]>
+  setSelectedFilters: (next: Record<string, string[]>) => void
+  combinatoricFlags: Record<string, boolean>
+  setCombinatoricFlags: (next: Record<string, boolean>) => void
 }
 
-/**
- * Pricing filters
- *
- * Behavior:
- * - Empty selection [] means "no filtering" (include all)
- * - "All" mode is controlled by parent (competitorsAll, ...). The UI shows a toggle that flips that mode.
- * - When a filter is in All mode the multi-select is inactive (user cannot change values).
- */
 export function PricingFilters({
-  selectedCompetitors,
-  setSelectedCompetitors,
-  allCompetitors,
-
-  selectedLocations,
-  setSelectedLocations,
-  allLocations,
-
-  selectedDimensions,
-  setSelectedDimensions,
-  allDimensions,
-
-  selectedUnitCategories,
-  setSelectedUnitCategories,
-  allUnitCategories,
-
-  competitorsAll = false,
-  setCompetitorsAll,
-  competitorsCombinatoric = true,
-  setCompetitorsCombinatoric,
-  locationsAll = false,
-  setLocationsAll,
-  locationsCombinatoric = true,
-  setLocationsCombinatoric,
-  dimensionsAll = false,
-  setDimensionsAll,
-  dimensionsCombinatoric = true,
-  setDimensionsCombinatoric,
-  unitCategoriesAll = false,
-  setUnitCategoriesAll,
-  unitCategoriesCombinatoric = true,
-  setUnitCategoriesCombinatoric,
+  rows,
+  visibleColumns,
+  selectedFilters,
+  setSelectedFilters,
+  combinatoricFlags,
+  setCombinatoricFlags,
 }: PricingFiltersProps) {
+  const schemaCols = useMemo(() => {
+    // build column list from visibleColumns and rows keys
+    const keySet = new Set<string>()
+    ;(visibleColumns ?? []).forEach((c) => keySet.add(c))
+    for (const r of rows ?? []) {
+      if (typeof r === "object" && r !== null) {
+        Object.keys(r).forEach((k) => keySet.add(k))
+      }
+    }
+    const cols = Array.from(keySet).map((key) => ({ key, label: key }))
+    cols.sort((a, b) => a.label.localeCompare(b.label))
+    return cols
+  }, [visibleColumns, rows])
+
+  const activeColumns = Object.keys(selectedFilters)
+
+  const addFilterRow = () => {
+    const first = schemaCols[0]
+    const col = first ? first.key : ""
+    if (!col) return
+    setSelectedFilters({ ...selectedFilters, [col]: [] })
+    setCombinatoricFlags({ ...combinatoricFlags, [col]: true })
+  }
+
+  const removeFilterRow = (col: string) => {
+    const next = { ...selectedFilters }
+    delete next[col]
+    setSelectedFilters(next)
+    const cf = { ...combinatoricFlags }
+    delete cf[col]
+    setCombinatoricFlags(cf)
+  }
+
+  const changeColumnKey = (oldCol: string, newCol: string) => {
+    const next = { ...selectedFilters }
+    const vals = next[oldCol] ?? []
+    delete next[oldCol]
+    next[newCol] = vals
+    setSelectedFilters(next)
+    const cf = { ...combinatoricFlags }
+    cf[newCol] = cf[oldCol] ?? true
+    delete cf[oldCol]
+    setCombinatoricFlags(cf)
+  }
+
   return (
     <>
       <SectionLabel text="Filters" />
       <section className="rounded-lg border bg-background/50 p-3">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+        <div className="space-y-3">
+          {activeColumns.length === 0 && (
+            <div className="text-sm text-muted-foreground">No filters — add one to begin</div>
+          )}
 
-          <FilterBlock
-            label="Competitors"
-            selected={selectedCompetitors}
-            options={allCompetitors}
-            onClear={() => setSelectedCompetitors([])}
-            onChange={setSelectedCompetitors}
-            placeholder="Select competitors"
-            searchPlaceholder="Search competitors..."
-            allFlag={competitorsAll}
-            onToggleAll={(v) => setCompetitorsAll?.(v)}
-            combinatoricFlag={competitorsCombinatoric}
-            onToggleCombinatoric={(v) => setCompetitorsCombinatoric?.(v)}
-          />
+          {activeColumns.map((col) => (
+            <FilterRow
+              key={col}
+              columnKey={col}
+              rows={rows}
+              schemaCols={schemaCols}
+              values={selectedFilters[col] ?? []}
+              combinatoricFlag={Boolean(combinatoricFlags[col])}
+              onChange={(vals) => setSelectedFilters({ ...selectedFilters, [col]: vals })}
+              onRemove={() => removeFilterRow(col)}
+              onChangeColumn={(newCol) => changeColumnKey(col, newCol)}
+              onToggleCombinatoric={(v) => setCombinatoricFlags({ ...combinatoricFlags, [col]: v })}
+            />
+          ))}
 
-          <FilterBlock
-            label="modLocation"
-            selected={selectedLocations}
-            options={allLocations}
-            onClear={() => setSelectedLocations([])}
-            onChange={setSelectedLocations}
-            placeholder="Select locations"
-            searchPlaceholder="Search locations..."
-            allFlag={locationsAll}
-            onToggleAll={(v) => setLocationsAll?.(v)}
-            combinatoricFlag={locationsCombinatoric}
-            onToggleCombinatoric={(v) => setLocationsCombinatoric?.(v)}
-          />
-
-          <FilterBlock
-            label="Dimensions"
-            selected={selectedDimensions}
-            options={allDimensions}
-            onClear={() => setSelectedDimensions([])}
-            onChange={setSelectedDimensions}
-            placeholder="Select dimensions"
-            searchPlaceholder="Search dimensions..."
-            allFlag={dimensionsAll}
-            onToggleAll={(v) => setDimensionsAll?.(v)}
-            combinatoricFlag={dimensionsCombinatoric}
-            onToggleCombinatoric={(v) => setDimensionsCombinatoric?.(v)}
-          />
-
-          <FilterBlock
-            label="Unit Category"
-            selected={selectedUnitCategories}
-            options={allUnitCategories}
-            onClear={() => setSelectedUnitCategories([])}
-            onChange={setSelectedUnitCategories}
-            placeholder="Select unit categories"
-            searchPlaceholder="Search categories..."
-            allFlag={unitCategoriesAll}
-            onToggleAll={(v) => setUnitCategoriesAll?.(v)}
-            combinatoricFlag={unitCategoriesCombinatoric}
-            onToggleCombinatoric={(v) => setUnitCategoriesCombinatoric?.(v)}
-          />
-
+          <div>
+            <Button variant="secondary" size="sm" onClick={addFilterRow}>
+              Add filter
+            </Button>
+          </div>
         </div>
       </section>
     </>
   )
 }
 
-interface FilterBlockProps {
-  label: string
-  selected: string[]
-  options: string[]
-  onClear: () => void
-  onChange: (values: string[]) => void
-  placeholder: string
-  searchPlaceholder: string
-
-  // NEW:
-  allFlag?: boolean
-  onToggleAll?: (value: boolean) => void
-  combinatoricFlag?: boolean
-  onToggleCombinatoric?: (value: boolean) => void
+type FilterRowProps = {
+  columnKey: string
+  rows: any[]
+  schemaCols: { key: string; label: string }[]
+  values: string[]
+  combinatoricFlag: boolean
+  onChange: (vals: string[]) => void
+  onRemove: () => void
+  onChangeColumn: (newCol: string) => void
+  onToggleCombinatoric: (v: boolean) => void
 }
 
-/**
- * FilterBlock renders:
- * - label + Clear + small "All" toggle
- * - MultiSelect
- *
- * When allFlag === true, the multiselect is inert (onChange is a noop) and the UI indicates All mode.
- */
-function FilterBlock({
-  label,
-  selected,
-  options,
-  onClear,
-  onChange,
-  placeholder,
-  searchPlaceholder,
-  allFlag = false,
-  onToggleAll,
-  combinatoricFlag = true,
-  onToggleCombinatoric,
-}: FilterBlockProps) {
-  // If All is active, we show no selected values in the multiselect and prevent changes
-  const effectiveValues = allFlag ? [] : selected
-  const effectiveOnChange = allFlag ? () => {} : onChange
+function FilterRow({ columnKey, rows, schemaCols, values, combinatoricFlag, onChange, onRemove, onChangeColumn, onToggleCombinatoric }: FilterRowProps) {
+  const { allValues } = useUniversalFilter<any>(rows ?? [], columnKey ?? "")
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState("")
 
-  // handle All toggle: when turning ON, programmatically select all real options;
-  // when turning OFF, clear the selection. Then sync the parent's flag.
-  const handleAllClick = () => {
-    if (!allFlag) {
-      // Toggle ON: select all real options
-      onChange(options ?? [])
-    } else {
-      // Toggle OFF: clear selection
-      onChange([])
-    }
-    onToggleAll?.(!allFlag) // keep the external flag in sync
-  }
+  const selectedLabel = schemaCols.find((s) => s.key === columnKey)?.label ?? columnKey
+
+  const filteredCols = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    return schemaCols.filter((c) => !q || c.label.toLowerCase().includes(q) || c.key.toLowerCase().includes(q))
+  }, [schemaCols, query])
 
   return (
-    <div className="min-w-0">
-      <div className="mb-1 flex items-center justify-between gap-2">
-        <label className="block text-[12px] text-foreground/80">
-          {label}
-        </label>
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-start">
+      <div className="relative">
+        <label className="block text-[12px] text-foreground/80 mb-1">Column</label>
+        <input
+          className="w-full rounded-md border px-3 py-2 text-sm h-12"
+          value={open ? query : selectedLabel}
+          onFocus={() => {
+            setOpen(true)
+            setQuery("")
+          }}
+          onChange={(e) => {
+            setQuery(e.target.value)
+            setOpen(true)
+          }}
+          placeholder="Search columns..."
+          aria-label="Select column"
+        />
 
-        <div className="flex items-center gap-2">
-          {/* Clear button */}
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={onClear}
-            disabled={selected.length === 0}
-          >
+        {open && (
+          <div className="absolute z-40 mt-1 w-full rounded-md border bg-background shadow-lg max-h-60 overflow-auto">
+            <ul>
+              {filteredCols.length === 0 ? (
+                <li className="px-3 py-2 text-sm text-muted-foreground">No matches</li>
+              ) : (
+                filteredCols.map((c) => (
+                  <li
+                    key={c.key}
+                    className="cursor-pointer px-3 py-2 hover:bg-muted/50 text-sm"
+                    onMouseDown={(ev) => {
+                      ev.preventDefault()
+                      onChangeColumn(c.key)
+                      setOpen(false)
+                      setQuery("")
+                    }}
+                  >
+                    <div className="font-medium">{c.label}</div>
+                    <div className="text-xs text-muted-foreground">{c.key}</div>
+                  </li>
+                ))
+              )}
+            </ul>
+          </div>
+        )}
+      </div>
+
+      <div className="sm:col-span-1">
+        <label className="block text-[12px] text-foreground/80 mb-1">Values</label>
+        <div className="h-12">
+          <MultiSelect values={values} onValuesChange={onChange}>
+            <MultiSelectTrigger className="w-full justify-between data-[placeholder]:text-foreground/70 h-12">
+              <MultiSelectValue placeholder="Select values" />
+            </MultiSelectTrigger>
+
+            <MultiSelectContent search={{ placeholder: "Search values...", emptyMessage: "No values" }}>
+              <MultiSelectGroup>
+                {allValues.map((v) => (
+                  <MultiSelectItem key={v} value={v}>
+                    {v}
+                  </MultiSelectItem>
+                ))}
+              </MultiSelectGroup>
+            </MultiSelectContent>
+          </MultiSelect>
+        </div>
+
+        <div className="mt-2 flex gap-2">
+          <Button variant="secondary" size="sm" onClick={() => onChange(allValues)}>
+            All
+          </Button>
+          <Button variant="secondary" size="sm" onClick={() => onChange([])}>
             Clear
           </Button>
-
-          {/* All toggle */}
-          <button
-            type="button"
-            aria-pressed={allFlag}
-            onClick={handleAllClick}
-            className={`inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-semibold ${allFlag ? 'bg-primary/10 text-primary' : 'bg-muted/10 text-muted-foreground'}`}
-            title={allFlag ? `Showing all ${label}` : `Select specific ${label}`}
-          >
-            All
-          </button>
-
-          {/* Combinatoric toggle */}
-          <label className="inline-flex items-center gap-2 text-xs">
-            <input
-              type="checkbox"
-              checked={combinatoricFlag}
-              onChange={(e) => onToggleCombinatoric?.(e.target.checked)}
-            />
-            <span className="text-[11px]">Combinatoric</span>
-          </label>
         </div>
       </div>
 
-      <MultiSelect
-        values={effectiveValues}
-        onValuesChange={effectiveOnChange}
-      >
-        <MultiSelectTrigger className="w-full justify-between data-[placeholder]:text-foreground/70">
-          <MultiSelectValue placeholder={allFlag ? `All ${label}` : placeholder} />
-        </MultiSelectTrigger>
+      <div className="flex items-start gap-2">
+        <label className="inline-flex items-center gap-2 text-xs">
+          <input type="checkbox" checked={combinatoricFlag} onChange={(e) => onToggleCombinatoric(e.target.checked)} />
+          <span className="text-[11px]">Combinatoric</span>
+        </label>
 
-        <MultiSelectContent
-          search={{
-            placeholder: searchPlaceholder,
-            emptyMessage: "No results",
-          }}
-        >
-          <MultiSelectGroup>
-            {options.map((value) => (
-              <MultiSelectItem key={value} value={value}>
-                {value}
-              </MultiSelectItem>
-            ))}
-          </MultiSelectGroup>
-        </MultiSelectContent>
-      </MultiSelect>
+        <Button variant="secondary" size="sm" onClick={onRemove}>
+          Remove
+        </Button>
+      </div>
     </div>
   )
 }

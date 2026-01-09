@@ -25,7 +25,6 @@ import { useUnitCategoryFilter } from "@/hooks/useUnitCategoryFilter";
 import { SectionLabel } from "@/components/ui/section-label";
 import { PricingOverview } from "../pricing/components/pricing-overview";
 import { PricingFilters } from "../pipelines/components/pipeline-filters";
-import { UniversalPipelineFilters } from "./components/universal-pipeline-filters";
 import { PipelineSelector } from "@/components/pipelines/pipeline-selector";
 import { AdjustersList } from "@/components/pipelines/adjusters-list";
 import { CalculatedPrice } from "@/components/pipelines/calculated-price";
@@ -522,37 +521,6 @@ export default function PipelinesPage() {
       />
 
       <PricingFilters
-        selectedCompetitors={selectedCompetitors}
-        setSelectedCompetitors={handleSetSelectedCompetitors}
-        allCompetitors={allCompetitors}
-        selectedLocations={selectedLocations}
-        setSelectedLocations={handleSetSelectedLocations}
-        allLocations={allLocations}
-        selectedDimensions={selectedDimensions}
-        setSelectedDimensions={handleSetSelectedDimensions}
-        allDimensions={allDimensions}
-        selectedUnitCategories={selectedUnitCategories}
-        setSelectedUnitCategories={handleSetSelectedUnitCategories}
-        allUnitCategories={allUnitCategories}
-        competitorsAll={competitorsAll}
-        setCompetitorsAll={setCompetitorsAll}
-        competitorsCombinatoric={competitorsCombinatoric}
-        setCompetitorsCombinatoric={setCompetitorsCombinatoric}
-        locationsAll={locationsAll}
-        setLocationsAll={setLocationsAll}
-        locationsCombinatoric={locationsCombinatoric}
-        setLocationsCombinatoric={setLocationsCombinatoric}
-        dimensionsAll={dimensionsAll}
-        setDimensionsAll={setDimensionsAll}
-        dimensionsCombinatoric={dimensionsCombinatoric}
-        setDimensionsCombinatoric={setDimensionsCombinatoric}
-        unitCategoriesAll={unitCategoriesAll}
-        setUnitCategoriesAll={setUnitCategoriesAll}
-        unitCategoriesCombinatoric={unitCategoriesCombinatoric}
-        setUnitCategoriesCombinatoric={setUnitCategoriesCombinatoric}
-      />
-
-      <UniversalPipelineFilters
         rows={dataResponse?.data ?? []}
         visibleColumns={visibleColumns}
         selectedFilters={universalFilters}
