@@ -27,7 +27,9 @@ export function PricingFilters({ rows, pricingSchemas, selectedFilters, setSelec
 
     const keySet = new Set<string>()
     Object.keys(canonical).forEach(k => keySet.add(k))
-    spine.forEach(s => keySet.add(s.id))
+    for (const s of spine) {
+      keySet.add(s.id)
+    }
     (extraColumns ?? []).forEach(k => keySet.add(k))
 
     const cols = Array.from(keySet).map((key) => {
