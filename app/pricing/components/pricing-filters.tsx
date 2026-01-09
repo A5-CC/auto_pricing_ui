@@ -2,28 +2,24 @@ import { Button } from "@/components/ui/button"
 import {
   MultiSelect,
   MultiSelectContent,
-  import { Button } from "@/components/ui/button"
-  import {
-    MultiSelect,
-    MultiSelectContent,
-    MultiSelectGroup,
-    MultiSelectItem,
-    MultiSelectTrigger,
-    MultiSelectValue,
-  } from "@/components/ui/multi-select"
-  import { SectionLabel } from "@/components/ui/section-label"
-  import { useUniversalFilter } from "@/hooks/useUniversalFilter"
-  import { useMemo } from "react"
-  import type { PricingSchemas } from "@/lib/api/types"
+  MultiSelectGroup,
+  MultiSelectItem,
+  MultiSelectTrigger,
+  MultiSelectValue,
+} from "@/components/ui/multi-select"
+import { SectionLabel } from "@/components/ui/section-label"
+import { useUniversalFilter } from "@/hooks/useUniversalFilter"
+import { useMemo } from "react"
+import type { PricingSchemas } from "@/lib/api/types"
 
-  interface PricingFiltersProps {
-    rows: any[]
-    pricingSchemas: PricingSchemas | null
-    selectedFilters: Record<string, string[]>
-    setSelectedFilters: (next: Record<string, string[]>) => void
-  }
+interface PricingFiltersProps {
+  rows: any[]
+  pricingSchemas: PricingSchemas | null
+  selectedFilters: Record<string, string[]>
+  setSelectedFilters: (next: Record<string, string[]>) => void
+}
 
-  export function PricingFilters({ rows, pricingSchemas, selectedFilters, setSelectedFilters }: PricingFiltersProps) {
+export function PricingFilters({ rows, pricingSchemas, selectedFilters, setSelectedFilters }: PricingFiltersProps) {
     const schemaCols = useMemo(() => {
       if (!pricingSchemas?.canonical?.columns) return [] as string[]
       return Object.keys(pricingSchemas.canonical.columns).sort()
