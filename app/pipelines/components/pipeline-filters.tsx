@@ -1,4 +1,4 @@
-import { Button } from "/@/components/ui/button"
+import { Button } from "@/components/ui/button"
 import {
   MultiSelect,
   MultiSelectContent,
@@ -6,8 +6,8 @@ import {
   MultiSelectItem,
   MultiSelectTrigger,
   MultiSelectValue,
-} from "/@/components/ui/multi-select"
-import { SectionLabel } from "/@/components/ui/section-label"
+} from "@/components/ui/multi-select"
+import { SectionLabel } from "@/components/ui/section-label"
 import { useUniversalFilter } from "@/hooks/useUniversalFilter"
 import { useMemo, useState } from "react"
 
