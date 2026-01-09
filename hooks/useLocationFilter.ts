@@ -5,7 +5,7 @@ import { useMemo } from "react"
 export function useLocationFilter<T extends Record<string, unknown>>(
   rows: T[],
   selectedLocations: string[],
-  columnKey: string = "location_normalized"
+  columnKey: string = "modstorage_location"
 ) {
   const allLocations = useMemo(() => {
     const names = new Set<string>()
