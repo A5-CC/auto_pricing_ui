@@ -99,9 +99,7 @@ export function PricingFilters({ rows, pricingSchemas, selectedFilters, setSelec
 
     const filteredCols = useMemo(() => {
       const q = query.trim().toLowerCase()
-      return schemaCols
-        .filter(c => !q || c.label.toLowerCase().includes(q) || c.key.toLowerCase().includes(q))
-        .slice(0, 200)
+      return schemaCols.filter(c => !q || c.label.toLowerCase().includes(q) || c.key.toLowerCase().includes(q))
     }, [schemaCols, query])
 
     return (
