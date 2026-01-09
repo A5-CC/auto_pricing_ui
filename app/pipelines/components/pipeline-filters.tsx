@@ -8,7 +8,7 @@ import {
   MultiSelectValue,
 } from "@/components/ui/multi-select"
 import { SectionLabel } from "@/components/ui/section-label"
-import { useUniversalFilter } from "@/hooks/useUniversalFilter"
+// import { useUniversalFilter } from "@/hooks/useUniversalFilter"
 import { useMemo, useState } from "react"
 import { getCanonicalLabel } from "@/lib/pricing/column-labels"
 import type { PricingSchemas, E1DataRow } from "@/lib/api/types"
@@ -167,7 +167,7 @@ function FilterRow({ columnKey, rows, visibleColumns, schemaCols, values, combin
     return key
   }
 
-  const dataColumn = deriveDataColumn(columnKey)
+  // const dataColumn = deriveDataColumn(columnKey)
   // Use presentValues for value population (from filtered dataset)
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
