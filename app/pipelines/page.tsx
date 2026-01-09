@@ -369,22 +369,7 @@ export default function PipelinesPage() {
   ]);
 
   /* ---------------- Wrapped setters (clear All flag on manual selection) ---------------- */
-  const handleSetSelectedCompetitors = (vals: string[]) => {
-    if (vals.length > 0 && competitorsAll) setCompetitorsAll(false);
-    setSelectedCompetitors(vals);
-  };
-  const handleSetSelectedLocations = (vals: string[]) => {
-    if (vals.length > 0 && locationsAll) setLocationsAll(false);
-    setSelectedLocations(vals);
-  };
-  const handleSetSelectedDimensions = (vals: string[]) => {
-    if (vals.length > 0 && dimensionsAll) setDimensionsAll(false);
-    setSelectedDimensions(vals);
-  };
-  const handleSetSelectedUnitCategories = (vals: string[]) => {
-    if (vals.length > 0 && unitCategoriesAll) setUnitCategoriesAll(false);
-    setSelectedUnitCategories(vals);
-  };
+  /* wrapped setters removed — not used with universal filters */
 
   /* ---------------- Build calcFilters: IMPORTANT —
      When user selected "All" we expand it INTO an explicit subset containing
