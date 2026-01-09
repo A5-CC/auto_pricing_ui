@@ -10,9 +10,8 @@ import {
 import { SectionLabel } from "@/components/ui/section-label"
 import { useUniversalFilter } from "@/hooks/useUniversalFilter"
 import { useMemo, useState } from "react"
-import type { PricingSchemas, E1DataRow } from "@/lib/api/types"
 import { getCanonicalLabel } from "@/lib/pricing/column-labels"
-import type { E1DataRow } from "@/lib/api/types"
+import type { PricingSchemas, E1DataRow } from "@/lib/api/types"
 
 interface PricingFiltersProps {
   rows: E1DataRow[]
@@ -50,7 +49,7 @@ export function PricingFilters({
 
     cols.sort((a, b) => a.label.localeCompare(b.label))
     return cols
-  }, [pricingSchemas, visibleColumns, rows])
+  }, [visibleColumns, rows])
 
   const activeColumns = Object.keys(selectedFilters)
 
