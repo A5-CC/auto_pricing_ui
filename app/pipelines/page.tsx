@@ -24,7 +24,7 @@ import { useDimensionsFilter } from "@/hooks/useDimensionsFilter";
 import { useUnitCategoryFilter } from "@/hooks/useUnitCategoryFilter";
 import { SectionLabel } from "@/components/ui/section-label";
 import { PricingOverview } from "../pricing/components/pricing-overview";
-import { PricingFilters } from "../pipelines/components/pipeline-filters";
+import { UniversalPipelineFilters } from "../pipelines/components/universal-pipeline-filters";
 import { PipelineSelector } from "@/components/pipelines/pipeline-selector";
 import { AdjustersList } from "@/components/pipelines/adjusters-list";
 import { CalculatedPrice } from "@/components/pipelines/calculated-price";
@@ -470,7 +470,7 @@ export default function PipelinesPage() {
         return acc
       }, {} as Record<string, string[]>)
   }, [allFilters, allCombinatoricFlags])
-
+  
   // Apply subset filters to get the filtered dataset
   const subsetFilteredRows = useMemo(() => {
     let rows = (dataResponse?.data ?? []) as { [key: string]: unknown }[]
@@ -574,9 +574,8 @@ export default function PipelinesPage() {
         onSnapshotChange={setSelectedSnapshot}
       />
 
-      <PricingFilters
+      <UniversalPipelineFilters
         rows={dataResponse?.data ?? []}
-        pricingSchemas={pricingSchemas}
         visibleColumns={visibleColumns}
         selectedFilters={universalFilters}
         setSelectedFilters={setUniversalFilters}
