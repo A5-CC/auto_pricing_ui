@@ -311,28 +311,6 @@ export default function PipelinesPage() {
     setLocalAdjusters(nextAdjusters);
   };
 
-  /* ---------------- Current date + diagnostics ---------------- */
-  const currentDate = useMemo(() => new Date(), []);
-  const canAddAdjusters = useMemo(
-    () => hasValidCompetitorPrices(subsetFilteredRows),
-    [subsetFilteredRows]
-  );
-
-  const hasCompetitiveAdjuster = localAdjusters.some(
-    (adj: { type: string }) => adj.type === "competitive"
-  );
-  const firstAdjusterIsCompetitive =
-    localAdjusters.length === 0 || localAdjusters[0].type === "competitive";
-  const pipelineNeedsBase =
-    localAdjusters.length > 0 && !firstAdjusterIsCompetitive;
-  const canAddNonCompetitiveAdjusters =
-    canAddAdjusters && hasCompetitiveAdjuster && firstAdjusterIsCompetitive;
-
-  const priceDiagnostics = useMemo(
-    () => getPriceDiagnostics(subsetFilteredRows),
-    [subsetFilteredRows]
-  );
-
   /* ---------------- Available variables for function adjuster ---------------- */
   const availableVariables = useMemo(() => {
     // const allColumnsWithType = Object.entries(columnsStats).map(
@@ -513,6 +491,28 @@ export default function PipelinesPage() {
   const mergedCombinatoricFlags = useMemo<Record<string, boolean>>(() => {
     return Object.fromEntries(Object.keys(combinatoricFilters).map((k: string) => [k, true]))
   }, [combinatoricFilters])
+
+  /* ---------------- Current date + diagnostics ---------------- */
+  const currentDate = useMemo(() => new Date(), []);
+  const canAddAdjusters = useMemo(
+    () => hasValidCompetitorPrices(subsetFilteredRows),
+    [subsetFilteredRows]
+  );
+
+  const hasCompetitiveAdjuster = localAdjusters.some(
+    (adj: { type: string }) => adj.type === "competitive"
+  );
+  const firstAdjusterIsCompetitive =
+    localAdjusters.length === 0 || localAdjusters[0].type === "competitive";
+  const pipelineNeedsBase =
+    localAdjusters.length > 0 && !firstAdjusterIsCompetitive;
+  const canAddNonCompetitiveAdjusters =
+    canAddAdjusters && hasCompetitiveAdjuster && firstAdjusterIsCompetitive;
+
+  const priceDiagnostics = useMemo(
+    () => getPriceDiagnostics(subsetFilteredRows),
+    [subsetFilteredRows]
+  );
 
   /* ---------------- availableFilterValues (used if some other component needs "UI options") ---------------- */
   const availableFilterValues = useMemo<
