@@ -10,24 +10,41 @@ import {
 import { SectionLabel } from "@/components/ui/section-label"
 import { useUniversalFilter } from "@/hooks/useUniversalFilter"
 import { useMemo, useState } from "react"
-import type { E1DataRow } from "@/lib/api/types"
+import type { E1DataRow, PricingSchemas } from "@/lib/api/types"
+import { getCanonicalLabel } from "@/lib/pricing/column-labels"
 
 interface UniversalPipelineFiltersProps {
   rows: E1DataRow[]
-  visibleColumns: string[]
+  visibleColumns?: string[]
+  pricingSchemas?: PricingSchemas | null
   selectedFilters: Record<string, string[]>
   setSelectedFilters: (next: Record<string, string[]>) => void
   combinatoricFlags: Record<string, boolean>
   setCombinatoricFlags: (next: Record<string, boolean>) => void
 }
 
-export function UniversalPipelineFilters({ rows, visibleColumns, selectedFilters, setSelectedFilters, combinatoricFlags, setCombinatoricFlags }: UniversalPipelineFiltersProps) {
+export function UniversalPipelineFilters({ rows, visibleColumns, pricingSchemas, selectedFilters, setSelectedFilters, combinatoricFlags, setCombinatoricFlags }: UniversalPipelineFiltersProps) {
   const schemaCols = useMemo(() => {
-    // visibleColumns are table column IDs; label = column ID (no separate canonical here)
-    const cols = (visibleColumns ?? []).map((k) => ({ key: k, label: k }))
+    const canonical = pricingSchemas?.canonical?.columns ?? {}
+    const spine = pricingSchemas?.spine ?? []
+
+    const keySet = new Set<string>()
+    Object.keys(canonical).forEach((k) => keySet.add(k))
+    for (const s of spine) keySet.add(s.id)
+    ;(visibleColumns ?? []).forEach((c) => keySet.add(c))
+    for (const r of rows ?? []) {
+      if (typeof r === "object" && r !== null) {
+        Object.keys(r).forEach((k) => keySet.add(k))
+      }
+    }
+
+    const cols = Array.from(keySet).map((key) => ({
+      key,
+      label: getCanonicalLabel(key, pricingSchemas ?? null),
+    }))
     cols.sort((a, b) => a.label.localeCompare(b.label))
     return cols
-  }, [visibleColumns])
+  }, [pricingSchemas, visibleColumns, rows])
 
   const activeColumns = Object.keys(selectedFilters)
 
@@ -76,6 +93,7 @@ export function UniversalPipelineFilters({ rows, visibleColumns, selectedFilters
               key={col}
               columnKey={col}
               rows={rows}
+              visibleColumns={visibleColumns}
               schemaCols={schemaCols}
               values={selectedFilters[col] ?? []}
               combinatoric={Boolean(combinatoricFlags[col])}
@@ -95,9 +113,10 @@ export function UniversalPipelineFilters({ rows, visibleColumns, selectedFilters
   )
 }
 
-function FilterRow({ columnKey, rows, schemaCols, values, combinatoric, onChange, onRemove, onChangeColumn, onToggleCombinatoric }: {
+function FilterRow({ columnKey, rows, visibleColumns, schemaCols, values, combinatoric, onChange, onRemove, onChangeColumn, onToggleCombinatoric }: {
   columnKey: string
   rows: E1DataRow[]
+  visibleColumns?: string[]
   schemaCols: { key: string; label: string }[]
   values: string[]
   combinatoric: boolean
@@ -106,7 +125,34 @@ function FilterRow({ columnKey, rows, schemaCols, values, combinatoric, onChange
   onChangeColumn: (newCol: string) => void
   onToggleCombinatoric: (v: boolean) => void
 }) {
-  const { allValues } = useUniversalFilter<E1DataRow>(rows ?? [], columnKey ?? "")
+  const deriveDataColumn = (key: string) => {
+    const candidates = [
+      key,
+      `${key}_normalized`,
+      key.replace(/^modstorage_/, ""),
+    ]
+
+    const lower = key.toLowerCase()
+    if (lower.includes("location")) candidates.push("location_normalized")
+    if (lower.includes("dim") || lower.includes("dimension")) candidates.push("dimensions_normalized")
+    if (lower.includes("category")) candidates.push("unit_category")
+    if (lower.includes("competitor")) candidates.push("competitor_name")
+
+    // prefer visibleColumns if provided
+    for (const c of candidates) {
+      if (visibleColumns && visibleColumns.includes(c)) return c
+    }
+
+    // otherwise scan rows for a non-empty value
+    for (const c of candidates) {
+      if (rows.some((r) => r[c as keyof E1DataRow] !== undefined && r[c as keyof E1DataRow] !== null)) return c
+    }
+
+    return key
+  }
+
+  const dataColumn = deriveDataColumn(columnKey)
+  const { allValues } = useUniversalFilter<E1DataRow>(rows ?? [], dataColumn ?? "")
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
 

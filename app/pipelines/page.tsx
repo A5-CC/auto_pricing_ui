@@ -12,6 +12,7 @@ import type {
   E1Snapshot,
   E1DataResponse,
   ColumnStatistics,
+  PricingSchemas,
 } from "@/lib/api/types";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -36,6 +37,7 @@ import { PriceDataWarning } from "@/components/pipelines/price-data-warning";
 import type { PipelineFilters as PipelineFiltersType, Pipeline } from "@/lib/api/types";
 import type { Adjuster } from "@/lib/adjusters";
 import { hasValidCompetitorPrices, getPriceDiagnostics } from "@/lib/adjusters";
+import { getPricingSchemas } from "@/lib/api/client/pricing";
 import { TrendingDown, Calculator, Clock, Plus } from "lucide-react";
 
 /**
@@ -97,6 +99,7 @@ export default function PipelinesPage() {
   // Universal pipeline filters (column -> values)
   const [universalFilters, setUniversalFilters] = useState<Record<string, string[]>>({});
   const [universalCombinatoric, setUniversalCombinatoric] = useState<Record<string, boolean>>({});
+  const [pricingSchemas, setPricingSchemas] = useState<PricingSchemas | null>(null);
 
   // data
   const [dataResponse, setDataResponse] = useState<E1DataResponse | null>(
@@ -214,6 +217,14 @@ export default function PipelinesPage() {
   useEffect(() => {
     loadSnapshots();
     loadData(); // initial load
+    (async () => {
+      try {
+        const schemas = await getPricingSchemas();
+        setPricingSchemas(schemas);
+      } catch {
+        // ignore
+      }
+    })();
   }, [loadData]);
 
   useEffect(() => {
@@ -566,6 +577,7 @@ export default function PipelinesPage() {
       <UniversalPipelineFilters
         rows={dataResponse?.data ?? []}
         visibleColumns={visibleColumns}
+        pricingSchemas={pricingSchemas}
         selectedFilters={universalFilters}
         setSelectedFilters={setUniversalFilters}
         combinatoricFlags={universalCombinatoric}
