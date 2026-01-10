@@ -34,8 +34,6 @@ import { AddTemporalAdjusterDialog } from "@/components/pipelines/adjusters/add-
 import { useAdjusterDialog } from "@/components/pipelines/adjusters/use-adjuster-dialog";
 import { PriceDataWarning } from "@/components/pipelines/price-data-warning";
 import type { PipelineFilters as PipelineFiltersType, Pipeline } from "@/lib/api/types";
-import type { PricingSchemas } from "@/lib/api/types";
-import { getPricingSchemas } from "@/lib/api/client/pricing";
 import type { Adjuster } from "@/lib/adjusters";
 import { hasValidCompetitorPrices, getPriceDiagnostics } from "@/lib/adjusters";
 import { TrendingDown, Calculator, Clock, Plus } from "lucide-react";
@@ -99,7 +97,6 @@ export default function PipelinesPage() {
   // Universal pipeline filters (column -> values)
   const [universalFilters, setUniversalFilters] = useState<Record<string, string[]>>({});
   const [universalCombinatoric, setUniversalCombinatoric] = useState<Record<string, boolean>>({});
-  const [pricingSchemas, setPricingSchemas] = useState<PricingSchemas | null>(null);
 
   // data
   const [dataResponse, setDataResponse] = useState<E1DataResponse | null>(
@@ -217,14 +214,6 @@ export default function PipelinesPage() {
   useEffect(() => {
     loadSnapshots();
     loadData(); // initial load
-    (async () => {
-      try {
-        const schemas = await getPricingSchemas();
-        setPricingSchemas(schemas);
-      } catch {
-        // ignore
-      }
-    })();
   }, [loadData]);
 
   useEffect(() => {
@@ -558,7 +547,7 @@ export default function PipelinesPage() {
           </div>
         </div>
       </header>
-
+      
       {error && (
         <Alert variant="destructive">
           <AlertTitle>Error</AlertTitle>
