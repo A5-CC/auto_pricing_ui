@@ -113,7 +113,7 @@ export function UniversalPipelineFilters({ rows, visibleColumns, pricingSchemas,
   )
 }
 
-function FilterRow({ columnKey, rows, visibleColumns, schemaCols, values, combinatoric, onChange, onRemove, onChangeColumn, onToggleCombinatoric }: {
+type FilterRowProps = {
   columnKey: string
   rows: E1DataRow[]
   visibleColumns?: string[]
@@ -124,7 +124,9 @@ function FilterRow({ columnKey, rows, visibleColumns, schemaCols, values, combin
   onRemove: () => void
   onChangeColumn: (newCol: string) => void
   onToggleCombinatoric: (v: boolean) => void
-}) {
+}
+
+function FilterRow({ columnKey, rows, visibleColumns, schemaCols, values, combinatoric, onChange, onRemove, onChangeColumn, onToggleCombinatoric }: FilterRowProps) {
   const deriveDataColumn = (key: string) => {
     const candidates = [
       key,
@@ -171,7 +173,7 @@ function FilterRow({ columnKey, rows, visibleColumns, schemaCols, values, combin
           className="w-full rounded-md border px-3 py-2 text-sm h-12"
           value={open ? query : selectedLabel}
           onFocus={() => { setOpen(true); setQuery("") }}
-          onChange={(e) => { setQuery(e.target.value); setOpen(true) }}
+          onChange={(e) => { setQuery((e as React.ChangeEvent<HTMLInputElement>).target.value); setOpen(true) }}
           placeholder="Search columns..."
           aria-label="Select column"
         />
@@ -182,7 +184,7 @@ function FilterRow({ columnKey, rows, visibleColumns, schemaCols, values, combin
               {filteredCols.length === 0 ? (
                 <li className="px-3 py-2 text-sm text-muted-foreground">No matches</li>
               ) : (
-                filteredCols.map((c) => (
+                filteredCols.map((c: { key: string; label: string }) => (
                   <li
                     key={c.key}
                     className="cursor-pointer px-3 py-2 hover:bg-muted/50 text-sm"
