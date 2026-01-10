@@ -314,8 +314,8 @@ export default function PipelinesPage() {
   /* ---------------- Current date + diagnostics ---------------- */
   const currentDate = useMemo(() => new Date(), []);
   const canAddAdjusters = useMemo(
-    () => hasValidCompetitorPrices(fullyFilteredRows),
-    [fullyFilteredRows]
+    () => hasValidCompetitorPrices(subsetFilteredRows),
+    [subsetFilteredRows]
   );
 
   const hasCompetitiveAdjuster = localAdjusters.some(
@@ -329,8 +329,8 @@ export default function PipelinesPage() {
     canAddAdjusters && hasCompetitiveAdjuster && firstAdjusterIsCompetitive;
 
   const priceDiagnostics = useMemo(
-    () => getPriceDiagnostics(fullyFilteredRows),
-    [fullyFilteredRows]
+    () => getPriceDiagnostics(subsetFilteredRows),
+    [subsetFilteredRows]
   );
 
   /* ---------------- Available variables for function adjuster ---------------- */
@@ -471,15 +471,15 @@ export default function PipelinesPage() {
       }, {} as Record<string, string[]>)
   }, [allFilters, allCombinatoricFlags])
   
-  // Apply subset filters to get the filtered dataset
+  // Apply universal subset filters on top of the classic filtered dataset
   const subsetFilteredRows = useMemo(() => {
-    let rows = (dataResponse?.data ?? []) as { [key: string]: unknown }[]
+    let rows = (fullyFilteredRows ?? []) as { [key: string]: unknown }[]
     for (const [col, vals] of Object.entries(subsetFilters)) {
       if (!Array.isArray(vals) || vals.length === 0) continue
       rows = rows.filter((r) => vals.includes(String(r[col])))
     }
-    return rows
-  }, [dataResponse, subsetFilters])
+    return rows as unknown as E1DataResponse["data"]
+  }, [fullyFilteredRows, subsetFilters])
 
   // Combinatoric filters: only those with values in the filtered dataset
   const combinatoricFilters = useMemo<Record<string, { mode: 'subset'; values: string[] }>>(() => {
@@ -597,7 +597,7 @@ export default function PipelinesPage() {
         />
 
         {!loading && !canAddAdjusters && (
-          <PriceDataWarning competitorData={fullyFilteredRows} />
+          <PriceDataWarning competitorData={subsetFilteredRows} />
         )}
 
         {pipelineNeedsBase && (
@@ -661,7 +661,7 @@ export default function PipelinesPage() {
         <div className="min-h-0 flex-1">
 
           <CalculatedPrice
-            competitorData={fullyFilteredRows}
+            competitorData={subsetFilteredRows}
             clientAvailableUnits={clientDataResponse?.data.length || 0}
             adjusters={localAdjusters}
             currentDate={currentDate}
