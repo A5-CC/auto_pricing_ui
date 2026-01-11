@@ -89,7 +89,9 @@ export function CalculatedPrice({
     // Build arrays and metadata from combinatoric filters
     for (const c of combinatoric) {
       arrays.push(c.values)
-      humanKeys.push(c.key)
+      // Display headers as the actual data columns.
+      // For built-in keys (competitors/locations/...), this avoids showing the human alias.
+      humanKeys.push(c.column)
       columnNames.push(c.column)
     }
 

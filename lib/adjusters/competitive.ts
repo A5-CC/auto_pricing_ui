@@ -31,10 +31,12 @@ import { CompetitivePriceAdjuster, E1DataRow } from './types'
  * See: canonical-wide-schema.json v30+ for the clean schema.
  */
 export const DEFAULT_PRICE_FALLBACK_CHAIN = [
+  // Pricing-data spine (A2 normalized)
+  'monthly_rate_starting',
+  'monthly_rate_instore',
   // Current canonical columns
   'monthly_rate_online',
   'monthly_rate_regular',
-  'monthly_rate_instore',
   'monthly_rate_promo',
   // Legacy columns (backwards compat - see TECH DEBT above)
   'monthly_rate_web',
@@ -55,8 +57,15 @@ function extractPriceWithFallback(
 ): number | null {
   for (const column of priceColumns) {
     const value = row[column]
-    if (typeof value === 'number' && isFinite(value) && value > 0) {
-      return value
+
+    if (typeof value === 'number' && isFinite(value) && value > 0) return value
+
+    // Pricing endpoints sometimes serialize numeric fields as strings.
+    if (typeof value === 'string') {
+      const cleaned = value.trim().replace(/[$,]/g, '')
+      if (!cleaned) continue
+      const n = Number.parseFloat(cleaned)
+      if (Number.isFinite(n) && n > 0) return n
     }
   }
   return null
@@ -144,30 +153,46 @@ export function applyCompetitiveAdjuster(
       return null
     }
 
-    // Use default fallback chain if none provided or empty
-    const priceColumns =
-      adjuster.price_columns && adjuster.price_columns.length > 0
-        ? adjuster.price_columns
-        : DEFAULT_PRICE_FALLBACK_CHAIN
+    const requestedColumns = adjuster.price_columns ?? []
+    const hasRequested = Array.isArray(requestedColumns) && requestedColumns.length > 0
+    const primaryColumns = hasRequested ? requestedColumns : DEFAULT_PRICE_FALLBACK_CHAIN
 
-    console.log(`[competitive] Using price columns: ${priceColumns.join(' → ')}`)
+    console.log(`[competitive] Using price columns: ${primaryColumns.join(' → ')}`)
+
+    const extractAll = (cols: string[]) => {
+      const out: number[] = []
+      for (const row of competitors) {
+        const price = extractPriceWithFallback(row, cols)
+        if (price !== null) out.push(price)
+      }
+      return out
+    }
 
     // Extract prices using fallback chain
-    const prices: number[] = []
-    for (const row of competitors) {
-      const price = extractPriceWithFallback(row, priceColumns)
-      if (price !== null) {
-        prices.push(price)
-      }
+    let prices: number[] = extractAll(primaryColumns)
+
+    // If a pipeline provided explicit columns but they don't exist in pricing-data,
+    // fall back to the default chain so we can still compute a base price.
+    if (prices.length === 0 && hasRequested) {
+      console.warn(
+        `[competitive] No prices found using configured columns. Falling back to DEFAULT_PRICE_FALLBACK_CHAIN.`
+      )
+      prices = extractAll(DEFAULT_PRICE_FALLBACK_CHAIN)
     }
 
     // Check if we found any prices
     if (prices.length === 0) {
       console.error(
-        `[competitive] FAIL: No valid prices found in ${competitors.length} competitor units using columns: ${priceColumns.join(', ')}`
+        `[competitive] FAIL: No valid prices found in ${competitors.length} competitor units.`
       )
       console.error('[competitive] Sample competitor unit columns:', Object.keys(competitors[0] || {}))
-      console.error('[competitive] Sample competitor unit price values:', priceColumns.map(col => `${col}=${competitors[0]?.[col]}`).join(', '))
+      console.error(
+        '[competitive] Sample competitor unit price values:',
+        (hasRequested ? primaryColumns : DEFAULT_PRICE_FALLBACK_CHAIN)
+          .slice(0, 10)
+          .map(col => `${col}=${competitors[0]?.[col]}`)
+          .join(', ')
+      )
       return null
     }
 

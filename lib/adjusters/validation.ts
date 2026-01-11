@@ -33,11 +33,22 @@ export function hasValidCompetitorPrices(
     return false
   }
 
+  const coercePositiveNumber = (value: unknown): number | null => {
+    if (typeof value === 'number' && isFinite(value) && value > 0) return value
+    if (typeof value === 'string') {
+      const cleaned = value.trim().replace(/[$,]/g, '')
+      if (!cleaned) return null
+      const n = Number.parseFloat(cleaned)
+      if (Number.isFinite(n) && n > 0) return n
+    }
+    return null
+  }
+
   // Check if ANY competitor has ANY valid price in fallback chain
   for (const row of competitors) {
     for (const column of priceColumns) {
       const value = row[column]
-      if (typeof value === 'number' && isFinite(value) && value > 0) {
+      if (coercePositiveNumber(value) !== null) {
         return true // Found at least one valid price
       }
     }
@@ -63,11 +74,22 @@ export function getPriceDiagnostics(
     row => row.competitor_name !== 'modSTORAGE'
   )
 
+  const coercePositiveNumber = (value: unknown): number | null => {
+    if (typeof value === 'number' && isFinite(value) && value > 0) return value
+    if (typeof value === 'string') {
+      const cleaned = value.trim().replace(/[$,]/g, '')
+      if (!cleaned) return null
+      const n = Number.parseFloat(cleaned)
+      if (Number.isFinite(n) && n > 0) return n
+    }
+    return null
+  }
+
   let pricesFound = 0
   for (const row of competitors) {
     for (const column of priceColumns) {
       const value = row[column]
-      if (typeof value === 'number' && isFinite(value) && value > 0) {
+      if (coercePositiveNumber(value) !== null) {
         pricesFound++
         break // Count each competitor only once
       }
