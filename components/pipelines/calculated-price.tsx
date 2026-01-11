@@ -35,6 +35,12 @@ export function CalculatedPrice({
   filters = {},
   combinatoricFlags = {}
 }: CalculatedPriceProps) {
+  // If no competitor data at all, show a clear message and avoid running engine
+  if (!competitorData || competitorData.length === 0) {
+    return (
+      <p className="text-muted-foreground">No data selected — adjust your filters to include competitor units.</p>
+    )
+  }
 
   const rows = useMemo(() => {
     if (!adjusters || adjusters.length === 0) return []

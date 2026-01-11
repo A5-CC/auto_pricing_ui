@@ -77,6 +77,12 @@ export function calculatePrice(input: CalculatePriceInput): CalculatePriceResult
     let currentPrice: number | null = null
     const warnings: string[] = []
 
+    // If no competitor data provided, bail early (informational)
+    if (!input.competitorData || input.competitorData.length === 0) {
+      console.info('[engine] No competitor data provided — skipping price calculation')
+      return null
+    }
+
     // Apply adjusters sequentially
     for (let i = 0; i < input.adjusters.length; i++) {
       const adjuster = input.adjusters[i]
@@ -96,7 +102,7 @@ export function calculatePrice(input: CalculatePriceInput): CalculatePriceResult
         )
 
         if (competitivePrice === null) {
-          console.error(`[engine] ❌ CALCULATION FAILED: Competitive adjuster ${i + 1} returned null`)
+          console.warn(`[engine] CALCULATION FAILED: Competitive adjuster ${i + 1} returned null`)
           return null
         }
 
@@ -106,7 +112,7 @@ export function calculatePrice(input: CalculatePriceInput): CalculatePriceResult
       } else if (adjuster.type === 'function') {
         // Function adjuster applies multiplier to current price
         if (currentPrice === null) {
-          console.error(
+          console.warn(
             `[engine] Function adjuster ${i + 1} requires existing price. Ensure a competitive adjuster runs first.`
           )
           return null
@@ -147,7 +153,7 @@ export function calculatePrice(input: CalculatePriceInput): CalculatePriceResult
       } else if (adjuster.type === 'temporal') {
         // Temporal adjuster applies multiplier to current price
         if (currentPrice === null) {
-          console.error(
+          console.warn(
             `[engine] Temporal adjuster ${i + 1} requires existing price. Ensure a competitive adjuster runs first.`
           )
           return null
@@ -170,12 +176,12 @@ export function calculatePrice(input: CalculatePriceInput): CalculatePriceResult
 
     // Final validation
     if (currentPrice === null) {
-      console.error('[engine] Price calculation completed but no price was established')
+      console.warn('[engine] Price calculation completed but no price was established')
       return null
     }
 
     if (!isFinite(currentPrice) || currentPrice <= 0) {
-      console.error(
+      console.warn(
         `[engine] Invalid final price: ${currentPrice}. Must be positive and finite.`
       )
       return null
