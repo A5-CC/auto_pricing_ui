@@ -512,11 +512,21 @@ export default function PipelinesPage() {
   // Apply universal subset filters on top of the classic filtered dataset
   const subsetFilteredRows = useMemo(() => {
     let rows = (fullyFilteredRows ?? []) as { [key: string]: unknown }[]
+
+    const FILTER_KEY_TO_COLUMN: Record<string, string> = {
+      competitors: 'competitor_name',
+      locations: 'modstorage_location',
+      dimensions: 'unit_dimensions',
+      unit_categories: 'unit_category',
+    }
+
     for (const [col, vals] of Object.entries(subsetFilters)) {
       if (!Array.isArray(vals) || vals.length === 0) continue
-      rows = rows.filter((r) => vals.includes(String(r[col])))
+
+      const resolvedColumn = FILTER_KEY_TO_COLUMN[col] ?? col
+      rows = rows.filter((r) => vals.includes(String(r[resolvedColumn])))
     }
-    return rows as unknown as E1DataResponse["data"]
+    return rows as unknown as PricingDataResponse["data"]
   }, [fullyFilteredRows, subsetFilters])
 
   // Combinatoric filters: only those with values in the filtered dataset
@@ -528,8 +538,23 @@ export default function PipelinesPage() {
       })
       .reduce((acc, [k]) => {
         const filter = allFilters[k] as { mode: 'subset'; values: string[] }
+
+        const FILTER_KEY_TO_COLUMN: Record<string, string> = {
+          competitors: 'competitor_name',
+          locations: 'modstorage_location',
+          dimensions: 'unit_dimensions',
+          unit_categories: 'unit_category',
+        }
+
+        const resolvedColumn = FILTER_KEY_TO_COLUMN[k] ?? k
         // Only keep values that exist in the filtered dataset
-        const present = Array.from(new Set(subsetFilteredRows.map((r: { [key: string]: unknown }) => r[k]))).filter((x) => filter.values.includes(String(x)))
+        const present = Array.from(
+          new Set(
+            subsetFilteredRows.map(
+              (r: { [key: string]: unknown }) => r[resolvedColumn]
+            )
+          )
+        ).filter((x) => filter.values.includes(String(x)))
         if (present.length > 0) {
           acc[k] = { mode: 'subset', values: present.map(String) }
         }
