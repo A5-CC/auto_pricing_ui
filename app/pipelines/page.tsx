@@ -33,16 +33,8 @@ import { hasValidCompetitorPrices, getPriceDiagnostics } from "@/lib/adjusters";
 import { TrendingDown, Calculator, Clock, Plus } from "lucide-react";
 
 /**
- * Filter shape we will pass to CalculatedPrice.
- * This mirrors the types used by CalculatedPrice (mode: 'all' | subset).
+ * Minimal row shape used for column-based filtering.
  */
-type CalcFilter = { mode: "all" } | { mode: "subset"; values: string[] };
-type CalcFiltersShape = {
-  competitors: CalcFilter;
-  locations: CalcFilter;
-  dimensions: CalcFilter;
-  unit_categories: CalcFilter;
-};
 type PricingRow = {
   competitor_name?: string
   [key: string]: string | number | null | undefined
@@ -75,18 +67,6 @@ export default function PipelinesPage() {
   const [selectedUnitCategories, setSelectedUnitCategories] = useState<
     string[]
   >([]);
-
-  // "All" flags (user intent). We'll expand these into explicit subsets
-  // based on actual competitor values when building calcFilters.
-  const [competitorsAll] = useState<boolean>(false);
-  const [locationsAll] = useState<boolean>(false);
-  const [dimensionsAll] = useState<boolean>(false);
-  const [unitCategoriesAll] = useState<boolean>(false);
-  // combinatoric flags (default true -> behave as before)
-  const [competitorsCombinatoric] = useState<boolean>(true);
-  const [locationsCombinatoric] = useState<boolean>(true);
-  const [dimensionsCombinatoric] = useState<boolean>(true);
-  const [unitCategoriesCombinatoric] = useState<boolean>(true);
 
   // Universal pipeline filters (column -> values)
   const [universalFilters, setUniversalFilters] = useState<Record<string, string[]>>({});
@@ -170,46 +150,6 @@ export default function PipelinesPage() {
     loadData();
   }, [selectedSnapshot, loadData]);
 
-
-  /* ---------------- Helpers: derive actual competitor values ---------------- */
-
-  // derive unique, non-empty string values from the competitor dataset (exclude client rows)
-  const deriveCompetitorValues = useCallback((columnName: string) => {
-    const rows = (dataResponse?.data ?? []) as PricingRow[]
-    const set = new Set<string>()
-
-    for (const r of rows) {
-      // skip client rows
-      if (r.competitor_name === "modSTORAGE") continue
-
-      const v = r[columnName]
-      if (v === null || v === undefined) continue
-
-      const s = String(v).trim()
-      if (s.length === 0) continue
-
-      set.add(s)
-    }
-
-    return Array.from(set).sort()
-  }, [dataResponse])
-
-
-  const deriveValuesForKey = useCallback((key: keyof CalcFiltersShape) => {
-    switch (key) {
-      case "competitors":
-        return deriveCompetitorValues("competitor_name");
-      case "locations":
-        return deriveCompetitorValues("modstorage_location");
-      case "dimensions":
-        return deriveCompetitorValues("unit_dimensions");
-      case "unit_categories":
-        return deriveCompetitorValues("unit_category");
-      default:
-        return [] as string[];
-    }
-  }, [deriveCompetitorValues]);
-
   /* ---------------- Pipeline load/save handlers ---------------- */
   const handleLoadPipeline = (filters: PipelineFiltersType) => {
     // Start-over behavior: treat pipeline filters as universal (pricing-style) column filters.
@@ -291,54 +231,7 @@ export default function PipelinesPage() {
      for calculation/adjusters.
   ---------------- */
 
-  /* ---------------- Build calcFilters: IMPORTANT —
-     When user selected "All" we expand it INTO an explicit subset containing
-     only values that actually appear in the competitor dataset. This prevents
-     generating combinations for UI-only values. --------------------------- */
-  const calcFilters = useMemo<CalcFiltersShape>(() => {
-    const competitorsVals = competitorsAll
-      ? deriveValuesForKey("competitors")
-      : selectedCompetitors;
-    const locationsVals = locationsAll
-      ? deriveValuesForKey("locations")
-      : selectedLocations;
-    const dimensionsVals = dimensionsAll
-      ? deriveValuesForKey("dimensions")
-      : selectedDimensions;
-    const unitCatsVals = unitCategoriesAll
-      ? deriveValuesForKey("unit_categories")
-      : selectedUnitCategories;
-
-    return {
-      competitors:
-        competitorsAll || competitorsVals.length === 0
-          ? { mode: "subset", values: competitorsVals }
-          : { mode: "subset", values: competitorsVals },
-      locations:
-        locationsAll || locationsVals.length === 0
-          ? { mode: "subset", values: locationsVals }
-          : { mode: "subset", values: locationsVals },
-      dimensions:
-        dimensionsAll || dimensionsVals.length === 0
-          ? { mode: "subset", values: dimensionsVals }
-          : { mode: "subset", values: dimensionsVals },
-      unit_categories:
-        unitCategoriesAll || unitCatsVals.length === 0
-          ? { mode: "subset", values: unitCatsVals }
-          : { mode: "subset", values: unitCatsVals },
-    };
-  }, [
-    competitorsAll,
-    locationsAll,
-    dimensionsAll,
-    unitCategoriesAll,
-    selectedCompetitors,
-    selectedLocations,
-    selectedDimensions,
-    selectedUnitCategories,
-    // deriveValuesForKey covers its closure deps
-    deriveValuesForKey,
-  ]);
+  // Legacy calcFilters/combinatoric state removed in favor of universal (pricing-style) filters.
 
 
   // Universal filters behave like /pricing: the stored key is the column key.
