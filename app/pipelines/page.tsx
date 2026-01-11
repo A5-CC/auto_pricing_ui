@@ -32,15 +32,6 @@ import type { Adjuster } from "@/lib/adjusters";
 import { hasValidCompetitorPrices, getPriceDiagnostics } from "@/lib/adjusters";
 import { TrendingDown, Calculator, Clock, Plus } from "lucide-react";
 
-/**
- * Minimal row shape used for column-based filtering.
- */
-type PricingRow = {
-  competitor_name?: string
-  [key: string]: string | number | null | undefined
-};
-
-
 export default function PipelinesPage() {
   /* ---------------- State ---------------- */
   const [snapshots, setSnapshots] = useState<PricingSnapshot[]>([]);
