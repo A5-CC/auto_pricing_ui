@@ -212,10 +212,28 @@ export default function PipelinesPage() {
 
   /* ---------------- Pipeline load/save handlers ---------------- */
   const handleLoadPipeline = (filters: PipelineFiltersType) => {
-    setSelectedCompetitors(filters.competitors);
-    setSelectedLocations(filters.locations);
-    setSelectedDimensions(filters.dimensions);
-    setSelectedUnitCategories(filters.unit_categories);
+    // Start-over behavior: treat pipeline filters as universal (pricing-style) column filters.
+    // This keeps filtering aligned with the pricing dataset columns.
+    const nextUniversal: Record<string, string[]> = { ...universalFilters }
+    if (Array.isArray(filters.competitors) && filters.competitors.length > 0) {
+      nextUniversal['competitor_name'] = filters.competitors
+    }
+    if (Array.isArray(filters.locations) && filters.locations.length > 0) {
+      nextUniversal['modstorage_location'] = filters.locations
+    }
+    if (Array.isArray(filters.dimensions) && filters.dimensions.length > 0) {
+      nextUniversal['unit_dimensions'] = filters.dimensions
+    }
+    if (Array.isArray(filters.unit_categories) && filters.unit_categories.length > 0) {
+      nextUniversal['unit_category'] = filters.unit_categories
+    }
+    setUniversalFilters(nextUniversal)
+
+    // Clear legacy filter state so it cannot create accidental combinatoric combinations.
+    setSelectedCompetitors([])
+    setSelectedLocations([])
+    setSelectedDimensions([])
+    setSelectedUnitCategories([])
   };
 
   const handlePipelineChange = (pipeline: Pipeline | null) => {
@@ -329,28 +347,17 @@ export default function PipelinesPage() {
   // --- Universal filter logic: split filters into subset and combinatoric ---
   type FilterMode = { mode: 'all' } | { mode: 'subset'; values: string[] }
   const allFilters = useMemo<Record<string, FilterMode>>(() => {
-    const base: Record<string, FilterMode> = {
-      competitors: calcFilters.competitors,
-      locations: calcFilters.locations,
-      dimensions: calcFilters.dimensions,
-      unit_categories: calcFilters.unit_categories,
-    };
+    const base: Record<string, FilterMode> = {}
     for (const [k, vals] of Object.entries(universalFilters)) {
       if (!Array.isArray(vals) || vals.length === 0) continue
       base[k] = { mode: 'subset', values: vals }
     }
     return base
-  }, [calcFilters, universalFilters])
+  }, [universalFilters])
 
   const allCombinatoricFlags = useMemo<Record<string, boolean>>(() => {
-    return {
-      competitors: competitorsCombinatoric,
-      locations: locationsCombinatoric,
-      dimensions: dimensionsCombinatoric,
-      unit_categories: unitCategoriesCombinatoric,
-      ...universalCombinatoric,
-    }
-  }, [competitorsCombinatoric, locationsCombinatoric, dimensionsCombinatoric, unitCategoriesCombinatoric, universalCombinatoric])
+    return { ...universalCombinatoric }
+  }, [universalCombinatoric])
 
   // Split filters into subset and combinatoric
   const subsetFilters = useMemo<Record<string, string[]>>(() => {
@@ -380,7 +387,13 @@ export default function PipelinesPage() {
       if (!Array.isArray(vals) || vals.length === 0) continue
 
       const resolvedColumn = FILTER_KEY_TO_COLUMN[col] ?? col
-      rows = rows.filter((r) => vals.includes(String(r[resolvedColumn])))
+      const sel = new Set(vals.map((v) => String(v)))
+      rows = rows.filter((r) => {
+        const v = r[resolvedColumn]
+        if (v === null || v === undefined) return false
+        if (Array.isArray(v)) return (v as unknown[]).some((x) => sel.has(String(x)))
+        return sel.has(String(v))
+      })
     }
     return rows as unknown as PricingDataResponse["data"]
   }, [baseRows, subsetFilters])

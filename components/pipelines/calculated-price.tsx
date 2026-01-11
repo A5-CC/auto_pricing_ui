@@ -1,9 +1,14 @@
-import React, { useMemo } from 'react'
+import { useMemo } from 'react'
 import { calculatePrice } from '@/lib/adjusters'
 import type { Adjuster } from '@/lib/adjusters'
 import type { E1DataRow } from '@/lib/api/types'
 
 type FilterValue = string | number | boolean
+
+type ResultRow = {
+  comboMap: Record<string, FilterValue>
+  price: number | null
+}
 
 function cartesianProduct<T>(arrays: T[][]): T[][] {
   return arrays.reduce<T[][]>(
@@ -37,7 +42,7 @@ export function CalculatedPrice({
 }: CalculatedPriceProps) {
   const noCompetitorData = !competitorData || competitorData.length === 0
 
-  const rows = useMemo(() => {
+  const rows = useMemo<ResultRow[]>(() => {
     if (noCompetitorData) return []
     if (!adjusters || adjusters.length === 0) return []
 
@@ -85,7 +90,7 @@ export function CalculatedPrice({
       }
       return pool
     }
-
+    
     // Build arrays and metadata from combinatoric filters
     for (const c of combinatoric) {
       arrays.push(c.values)
@@ -116,18 +121,14 @@ export function CalculatedPrice({
 
       if (price === null) return []
 
-      return [
-        {
-          comboMap: {}, // no dimension columns when nothing is combinatoric
-          price,
-        },
-      ]
+      return [{ comboMap: {}, price }]
     }
 
     // Case 2: at least one combinatoric filter → Cartesian combinations
     const combinations = cartesianProduct<FilterValue>(arrays)
 
-    return combinations.map((combo) => {
+    return combinations
+      .map((combo): ResultRow => {
       // Apply pre-filters (non-combinatoric) first to the competitor data
       let pool = competitorData
       pool = applyPreFilters(pool)
@@ -135,6 +136,13 @@ export function CalculatedPrice({
       const subset = pool.filter((row) =>
         columnNames.every((col, i) => String((row as Record<string, unknown>)[col]) === String(combo[i]))
       )
+
+      const comboMap = humanKeys.reduce<Record<string, FilterValue>>((acc, k, i) => {
+        acc[k] = combo[i]
+        return acc
+      }, {})
+
+      if (subset.length === 0) return { comboMap, price: null }
 
       let price: number | null = null
       try {
@@ -151,14 +159,9 @@ export function CalculatedPrice({
         console.error('[CalculatedPrice] Error for combo:', combo, e)
       }
 
-      return {
-        comboMap: humanKeys.reduce<Record<string, FilterValue>>((acc, k, i) => {
-          acc[k] = combo[i]
-          return acc
-        }, {}),
-        price
-      }
-    }).filter(r => r.price !== null) // skip invalid rows
+      return { comboMap, price }
+    })
+      .filter((r) => r.price !== null) // skip invalid rows
   }, [noCompetitorData, competitorData, clientAvailableUnits, adjusters, currentDate, filters, combinatoricFlags])
 
   if (!adjusters || adjusters.length === 0) {
@@ -172,10 +175,15 @@ export function CalculatedPrice({
   }
 
   if (rows.length === 0) {
-    return <p className="text-muted-foreground">No filter combinations selected or all prices invalid.</p>
+    return (
+      <p className="text-muted-foreground">
+        No matching combinations (or no valid prices). Try turning off
+        combinatoric for one filter, or select values that coexist.
+      </p>
+    )
   }
 
-  const headers = [...new Set(rows.flatMap(r => Object.keys(r.comboMap))), 'Price']
+  const headers = [...new Set(rows.flatMap((r) => Object.keys(r.comboMap))), 'Price']
 
   return (
     <div className="overflow-x-auto overflow-y-auto max-h-[70vh]">
@@ -183,10 +191,7 @@ export function CalculatedPrice({
         <thead className="bg-gray-100 sticky top-0 z-10">
           <tr>
             {headers.map((h) => (
-              <th
-                key={h}
-                className="border px-3 py-2 text-left text-sm font-semibold"
-              >
+              <th key={h} className="border px-3 py-2 text-left text-sm font-semibold">
                 {h}
               </th>
             ))}
@@ -196,13 +201,13 @@ export function CalculatedPrice({
           {rows.map((r, i) => (
             <tr key={i} className="even:bg-gray-50">
               {headers.map((h) =>
-                h === "Price" ? (
+                h === 'Price' ? (
                   <td key={h} className="border px-3 py-2 font-bold">
                     {`$${r.price!.toFixed(2)}`}
                   </td>
                 ) : (
                   <td key={h} className="border px-3 py-2">
-                    {r.comboMap[h] ?? "-"}
+                    {String(r.comboMap[h] ?? '-')}
                   </td>
                 )
               )}
