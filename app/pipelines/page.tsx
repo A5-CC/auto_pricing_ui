@@ -514,6 +514,20 @@ export default function PipelinesPage() {
     [subsetFilteredRows]
   );
 
+  // Small dev debug: counts and sample rows to help diagnose missing competitor data
+  const devDebug = useMemo(() => {
+    try {
+      const total = (dataResponse?.data ?? []).length
+      const competitorRows = (dataResponse?.data ?? []).filter(r => String(r.competitor_name) !== 'modSTORAGE')
+      const competitorCount = competitorRows.length
+      const clientCount = (clientDataResponse?.data ?? []).length
+      const sample = (dataResponse?.data ?? []).slice(0, 3)
+      return { total, competitorCount, clientCount, sample }
+    } catch {
+      return null
+    }
+  }, [dataResponse, clientDataResponse])
+
   /* ---------------- availableFilterValues (used if some other component needs "UI options") ---------------- */
   const availableFilterValues = useMemo<
     Record<keyof CalcFiltersShape, string[]>
@@ -595,6 +609,22 @@ export default function PipelinesPage() {
             </div>
           }
         />
+
+        {process.env.NODE_ENV === 'development' && devDebug && (
+          <div className="text-xs text-muted-foreground">
+            <details className="mb-2">
+              <summary className="cursor-pointer">Dev dataset debug</summary>
+              <div className="mt-2">
+                <div>Total rows from competitors endpoint: {devDebug.total}</div>
+                <div>Competitor rows (excluding modSTORAGE): {devDebug.competitorCount}</div>
+                <div>Client rows from client endpoint: {devDebug.clientCount}</div>
+                <div className="mt-2">Sample rows (first 3):
+                  <pre className="text-[11px] p-2 bg-slate-50 rounded border mt-1 overflow-auto">{JSON.stringify(devDebug.sample, null, 2)}</pre>
+                </div>
+              </div>
+            </details>
+          </div>
+        )}
 
         {!loading && !canAddAdjusters && (
           <PriceDataWarning competitorData={subsetFilteredRows} />
