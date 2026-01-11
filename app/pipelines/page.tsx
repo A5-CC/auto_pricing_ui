@@ -532,7 +532,7 @@ export default function PipelinesPage() {
   const devDebug = useMemo(() => {
     try {
       const total = (dataResponse?.data ?? []).length
-      const competitorRows = (dataResponse?.data ?? []).filter((r: PricingRow) => String(r.competitor_name) !== 'modSTORAGE')
+      const competitorRows = (dataResponse?.data ?? []).filter((r) => String((r as { competitor_name?: unknown }).competitor_name) !== 'modSTORAGE')
       const competitorCount = competitorRows.length
       const clientCount = (clientDataResponse?.data ?? []).length
       const sample = (dataResponse?.data ?? []).slice(0, 3)
