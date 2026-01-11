@@ -110,12 +110,15 @@ export function AddFunctionAdjusterDialog({
 
   // Evaluate function at sample points for preview
   const evaluateFunction = (xValue: number): number | null => {
+    if (!open) return null
     const result = evaluateSafeFunction(committedFunction, xValue)
     return result.success ? result.value : null
   }
 
   // Generate graph data points
   const graphData = useMemo(() => {
+    if (!open) return []
+
     const min = parseFloat(domainMin) || 0
     const max = parseFloat(domainMax) || 100
     const numPoints = 50 // Smooth curve with 50 points

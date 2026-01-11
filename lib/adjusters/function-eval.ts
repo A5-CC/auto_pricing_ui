@@ -20,6 +20,9 @@ import { create, all, MathJsInstance } from 'mathjs'
  */
 const math: MathJsInstance = create(all)
 
+// Track which function strings have already emitted a negative-result warning
+const warnedNegativeFunctions = new Set<string>()
+
 /**
  * Evaluation result
  */
@@ -63,14 +66,18 @@ export function evaluateSafeFunction(
       }
     }
 
-    // Warn if result is negative (multipliers should be positive)
-    if (result < 0) {
-      console.warn(
-        `[function-eval] Negative multiplier: ${result} for f="${functionString}", x=${xValue}. Using absolute value.`
-      )
+    // Warn if result is negative (multipliers should be non-negative).
+    // Clamp negatives to 0.0 to avoid sign flips; warn only once per function string
+    if (typeof result === 'number' && result < 0) {
+      if (!warnedNegativeFunctions.has(functionString)) {
+        console.warn(
+          `[function-eval] Negative multiplier: ${result} for f="${functionString}", x=${xValue}. Clamping to 0.0.`
+        )
+        warnedNegativeFunctions.add(functionString)
+      }
       return {
         success: true,
-        value: Math.abs(result),
+        value: 0.0,
       }
     }
 
