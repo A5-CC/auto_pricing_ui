@@ -31,8 +31,19 @@ export function PriceDataWarning({ competitorData }: PriceDataWarningProps) {
         <AlertTriangle className="h-4 w-4" />
         <AlertTitle>No competitor data</AlertTitle>
         <AlertDescription>
-          The current dataset has no competitor rows (all {diagnostics.totalRows} rows are client data).
-          Adjust your filters to include competitor data before adding price adjusters.
+          {diagnostics.totalRows === 0 ? (
+            <>
+              No rows were loaded from the competitor dataset for the current snapshot.
+              This usually means the backend returned no competitor rows (or the API URL is misconfigured).
+            </>
+          ) : (
+            <>
+              The current dataset has no competitor rows (all {diagnostics.totalRows} rows are client data).
+            </>
+          )}
+          <span className="block mt-1">
+            Adjust your filters (or snapshot) to include competitor data before adding price adjusters.
+          </span>
         </AlertDescription>
       </Alert>
     )

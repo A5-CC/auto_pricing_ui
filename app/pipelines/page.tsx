@@ -518,11 +518,21 @@ export default function PipelinesPage() {
     [subsetFilteredRows]
   );
 
+  const hasActiveFilterSelections = useMemo(() => {
+    // Only consider filters “active” when they have selected values.
+    return Object.values(universalFilters).some((vals) => Array.isArray(vals) && vals.length > 0)
+  }, [universalFilters])
+
+  const isDev = useMemo(() => {
+    const g = globalThis as unknown as { process?: { env?: Record<string, string | undefined> } }
+    return g.process?.env?.NODE_ENV === 'development'
+  }, [])
+
   // Small dev debug: counts and sample rows to help diagnose missing competitor data
   const devDebug = useMemo(() => {
     try {
       const total = (dataResponse?.data ?? []).length
-      const competitorRows = (dataResponse?.data ?? []).filter(r => String(r.competitor_name) !== 'modSTORAGE')
+      const competitorRows = (dataResponse?.data ?? []).filter((r: PricingRow) => String(r.competitor_name) !== 'modSTORAGE')
       const competitorCount = competitorRows.length
       const clientCount = (clientDataResponse?.data ?? []).length
       const sample = (dataResponse?.data ?? []).slice(0, 3)
@@ -614,7 +624,7 @@ export default function PipelinesPage() {
           }
         />
 
-        {process.env.NODE_ENV === 'development' && devDebug && (
+        {isDev && devDebug && (
           <div className="text-xs text-muted-foreground">
             <details className="mb-2">
               <summary className="cursor-pointer">Dev dataset debug</summary>
@@ -630,7 +640,7 @@ export default function PipelinesPage() {
           </div>
         )}
 
-        {!loading && !canAddAdjusters && (
+        {!loading && hasActiveFilterSelections && !canAddAdjusters && (
           <PriceDataWarning competitorData={subsetFilteredRows} />
         )}
 
