@@ -1,3 +1,5 @@
+"use client"
+
 import { Button } from "@/components/ui/button"
 import {
   MultiSelect,
@@ -9,7 +11,7 @@ import {
 } from "@/components/ui/multi-select"
 import { SectionLabel } from "@/components/ui/section-label"
 import { useUniversalFilter } from "@/hooks/useUniversalFilter"
-import { useMemo, useState } from "react"
+import { useMemo, useState, type ChangeEvent, type MouseEvent } from "react"
 import type { E1DataRow, PricingSchemas } from "@/lib/api/types"
 import { getCanonicalLabel } from "@/lib/pricing/column-labels"
 
@@ -144,7 +146,7 @@ function FilterRow({ columnKey, rows, schemaCols, values, combinatoric, onChange
           className="w-full rounded-md border px-3 py-2 text-sm h-12"
           value={open ? query : selectedLabel}
           onFocus={() => { setOpen(true); setQuery("") }}
-          onChange={(e) => { setQuery((e as React.ChangeEvent<HTMLInputElement>).target.value); setOpen(true) }}
+          onChange={(e: ChangeEvent<HTMLInputElement>) => { setQuery(e.target.value); setOpen(true) }}
           placeholder="Search columns..."
           aria-label="Select column"
         />
@@ -159,7 +161,7 @@ function FilterRow({ columnKey, rows, schemaCols, values, combinatoric, onChange
                   <li
                     key={c.key}
                     className="cursor-pointer px-3 py-2 hover:bg-muted/50 text-sm"
-                    onMouseDown={(ev) => { ev.preventDefault(); onChangeColumn(c.key); setOpen(false); setQuery("") }}
+                    onMouseDown={(ev: MouseEvent) => { ev.preventDefault(); onChangeColumn(c.key); setOpen(false); setQuery("") }}
                   >
                     <div className="font-medium">{c.label}</div>
                     <div className="text-xs text-muted-foreground">{c.key}</div>
@@ -198,7 +200,11 @@ function FilterRow({ columnKey, rows, schemaCols, values, combinatoric, onChange
 
         <div className="mt-2">
           <label className="inline-flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={combinatoric} onChange={(e) => onToggleCombinatoric(e.target.checked)} />
+            <input
+              type="checkbox"
+              checked={combinatoric}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => onToggleCombinatoric(e.target.checked)}
+            />
             <span className="text-[13px]">Combinatoric</span>
           </label>
         </div>
