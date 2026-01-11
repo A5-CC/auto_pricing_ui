@@ -3,16 +3,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
-  getE1Snapshots,
-  getE1Competitors,
   getE1Client,
-  getE1CompetitorsStatistics,
 } from "@/lib/api/client/pipelines";
+import { getPricingSnapshots, getPricingData, getColumnStatistics, getPricingSchemas } from "@/lib/api/client/pricing";
 import type {
-  E1Snapshot,
-  E1DataResponse,
   ColumnStatistics,
   PricingSchemas,
+  PricingSnapshot,
+  PricingDataResponse,
 } from "@/lib/api/types";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -37,7 +35,6 @@ import { PriceDataWarning } from "@/components/pipelines/price-data-warning";
 import type { PipelineFilters as PipelineFiltersType, Pipeline } from "@/lib/api/types";
 import type { Adjuster } from "@/lib/adjusters";
 import { hasValidCompetitorPrices, getPriceDiagnostics } from "@/lib/adjusters";
-import { getPricingSchemas } from "@/lib/api/client/pricing";
 import { TrendingDown, Calculator, Clock, Plus } from "lucide-react";
 
 /**
@@ -59,7 +56,7 @@ type PricingRow = {
 
 export default function PipelinesPage() {
   /* ---------------- State ---------------- */
-  const [snapshots, setSnapshots] = useState<E1Snapshot[]>([]);
+  const [snapshots, setSnapshots] = useState<PricingSnapshot[]>([]);
   const [selectedSnapshot, setSelectedSnapshot] = useState<string>("latest");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -102,11 +99,11 @@ export default function PipelinesPage() {
   const [pricingSchemas, setPricingSchemas] = useState<PricingSchemas | null>(null);
 
   // data
-  const [dataResponse, setDataResponse] = useState<E1DataResponse | null>(
+  const [dataResponse, setDataResponse] = useState<PricingDataResponse | null>(
     null
   );
   const [clientDataResponse, setClientDataResponse] =
-    useState<E1DataResponse | null>(null);
+    useState<PricingDataResponse | null>(null);
 
   // column statistics & visible columns
   const [columnsStats, setColumnsStats] = useState<
@@ -123,7 +120,7 @@ export default function PipelinesPage() {
     "modstorage_location"
   );
   const { filteredRows: locationAndDimFilteredRows, allDimensions } =
-    useDimensionsFilter(filteredRows, selectedDimensions);
+    useDimensionsFilter(filteredRows, selectedDimensions, "unit_dimensions");
   const { filteredRows: fullyFilteredRows, allUnitCategories } =
     useUnitCategoryFilter(locationAndDimFilteredRows, selectedUnitCategories);
 
@@ -170,7 +167,7 @@ export default function PipelinesPage() {
   /* ---------------- Data loading ---------------- */
   const loadSnapshots = async () => {
     try {
-      const s = await getE1Snapshots();
+      const s = await getPricingSnapshots();
       setSnapshots(s);
     } catch {
       /* ignore */
@@ -181,26 +178,30 @@ export default function PipelinesPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await getE1Competitors(selectedSnapshot, { limit: 10000 });
+      // Mirror /pricing: fetch pricing-data snapshot and do all filtering client-side.
+      const res = await getPricingData(selectedSnapshot, { limit: 10000 });
       setDataResponse(res);
 
-      const clientRes = await getE1Client(selectedSnapshot, { limit: 10000 });
-      setClientDataResponse(clientRes);
+      // Best-effort: client (modSTORAGE) data lives under the E1 client endpoint.
+      // If it fails for a given snapshot, continue without it.
+      try {
+        const clientRes = await getE1Client(selectedSnapshot, { limit: 10000 });
+        setClientDataResponse(clientRes as unknown as PricingDataResponse);
+      } catch {
+        setClientDataResponse(null);
+      }
 
       if (res.columns?.length) {
-        const stats = await getE1CompetitorsStatistics(
-          selectedSnapshot,
-          res.columns
-        );
+        const stats = await getColumnStatistics(selectedSnapshot, res.columns);
         const byName = Object.fromEntries(stats.map((s) => [s.column, s]));
         setColumnsStats(byName);
 
         const fixedColumns = [
           "competitor_name",
           "competitor_address",
-          "location_normalized",
+          "modstorage_location",
           "snapshot_date",
-          "dimensions_normalized",
+          "unit_dimensions",
         ];
         const filteredColumns = res.columns.filter(
           (col) => !fixedColumns.includes(col)
@@ -265,9 +266,9 @@ export default function PipelinesPage() {
       case "competitors":
         return deriveCompetitorValues("competitor_name");
       case "locations":
-        return deriveCompetitorValues("location_normalized");
+        return deriveCompetitorValues("modstorage_location");
       case "dimensions":
-        return deriveCompetitorValues("dimensions_normalized");
+        return deriveCompetitorValues("unit_dimensions");
       case "unit_categories":
         // prefer hook-provided values if they exist (they come from competitor rows),
         // otherwise try to derive from a reasonable column name fallback
