@@ -69,21 +69,10 @@ export function CalculatedPrice({
       }
     }
 
-
-    // Build arrays and metadata from combinatoric filters
-    for (const c of combinatoric) {
-      arrays.push(c.values)
-      humanKeys.push(c.key)
-      columnNames.push(c.column)
-    }
-
-    if (arrays.length === 0) return []
-
-    const combinations = cartesianProduct<FilterValue>(arrays)
-
-    return combinations.map((combo) => {
-      // Apply pre-filters (non-combinatoric) first to the competitor data
-      let pool = competitorData
+    // Helper to apply non-combinatoric subset filters to a dataset
+    const applyPreFilters = (inputRows: E1DataRow[]): E1DataRow[] => {
+      if (preFilters.length === 0) return inputRows
+      let pool = inputRows
       for (const pf of preFilters) {
         const set = new Set(pf.values.map(String))
         pool = pool.filter((row) => {
@@ -92,6 +81,52 @@ export function CalculatedPrice({
           return set.has(String(val))
         })
       }
+      return pool
+    }
+
+    // Build arrays and metadata from combinatoric filters
+    for (const c of combinatoric) {
+      arrays.push(c.values)
+      humanKeys.push(c.key)
+      columnNames.push(c.column)
+    }
+
+    // Case 1: no combinatoric filters selected → single aggregate row
+    if (arrays.length === 0) {
+      const pool = applyPreFilters(competitorData)
+
+      let price: number | null = null
+      try {
+        const result = calculatePrice({
+          competitorData: pool,
+          clientUnit: { available_units: clientAvailableUnits },
+          adjusters,
+          currentDate
+        })
+        if (result && typeof result.price === 'number' && !Number.isNaN(result.price)) {
+          price = result.price
+        }
+      } catch (e) {
+        console.error('[CalculatedPrice] Error for aggregate dataset (no combinatoric filters):', e)
+      }
+
+      if (price === null) return []
+
+      return [
+        {
+          comboMap: {}, // no dimension columns when nothing is combinatoric
+          price,
+        },
+      ]
+    }
+
+    // Case 2: at least one combinatoric filter → Cartesian combinations
+    const combinations = cartesianProduct<FilterValue>(arrays)
+
+    return combinations.map((combo) => {
+      // Apply pre-filters (non-combinatoric) first to the competitor data
+      let pool = competitorData
+      pool = applyPreFilters(pool)
 
       const subset = pool.filter((row) =>
         columnNames.every((col, i) => String((row as Record<string, unknown>)[col]) === String(combo[i]))
