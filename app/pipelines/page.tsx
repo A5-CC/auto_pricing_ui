@@ -207,8 +207,12 @@ export default function PipelinesPage() {
         );
         setVisibleColumns((prev: string[]) => (prev.length ? prev : filteredColumns));
       }
-    } catch {
-      setError("Failed to load E1 data");
+    } catch (e) {
+      const message =
+        e instanceof Error
+          ? e.message
+          : "Failed to load E1 data";
+      setError(message);
     } finally {
       setLoading(false);
     }
