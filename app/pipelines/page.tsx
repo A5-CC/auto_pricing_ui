@@ -414,6 +414,61 @@ export default function PipelinesPage() {
   ]);
 
 
+  // Resolve a Universal Filter "column key" to the actual column present in the dataset.
+  // This must match the logic used in `UniversalPipelineFilters` (otherwise selecting values
+  // from `location_normalized` but filtering on `modstorage_location` will zero the dataset).
+  const resolveUniversalDataColumn = useCallback(
+    (key: string) => {
+      const candidates = [
+        key,
+        `${key}_normalized`,
+        key.replace(/^modstorage_/, ""),
+      ]
+
+      const lower = key.toLowerCase()
+      if (lower.includes("location")) candidates.push("location_normalized")
+      if (lower.includes("dim") || lower.includes("dimension")) candidates.push("dimensions_normalized")
+      if (lower.includes("category")) candidates.push("unit_category")
+      if (lower.includes("competitor")) candidates.push("competitor_name")
+
+      for (const c of candidates) {
+        if (visibleColumns && visibleColumns.includes(c)) return c
+      }
+
+      const rows = dataResponse?.data ?? []
+      for (const c of candidates) {
+        if (rows.some((r) => {
+          const v = (r as Record<string, unknown>)[c]
+          return v !== undefined && v !== null
+        })) return c
+      }
+
+      return key
+    },
+    [dataResponse, visibleColumns]
+  )
+
+  // Normalize universal filters (columnKey -> resolved data column)
+  const normalizedUniversalFilters = useMemo<Record<string, string[]>>(() => {
+    const next: Record<string, string[]> = {}
+    for (const [k, vals] of Object.entries(universalFilters)) {
+      if (!Array.isArray(vals) || vals.length === 0) continue
+      const resolved = resolveUniversalDataColumn(k)
+      next[resolved] = vals
+    }
+    return next
+  }, [universalFilters, resolveUniversalDataColumn])
+
+  const normalizedUniversalCombinatoric = useMemo<Record<string, boolean>>(() => {
+    const next: Record<string, boolean> = {}
+    for (const [k, v] of Object.entries(universalCombinatoric)) {
+      const resolved = resolveUniversalDataColumn(k)
+      next[resolved] = Boolean(v)
+    }
+    return next
+  }, [universalCombinatoric, resolveUniversalDataColumn])
+
+
   // --- Universal filter logic: split filters into subset and combinatoric ---
   type FilterMode = { mode: 'all' } | { mode: 'subset'; values: string[] }
   const allFilters = useMemo<Record<string, FilterMode>>(() => {
@@ -423,12 +478,12 @@ export default function PipelinesPage() {
       dimensions: calcFilters.dimensions,
       unit_categories: calcFilters.unit_categories,
     };
-    for (const [k, vals] of Object.entries(universalFilters)) {
+    for (const [k, vals] of Object.entries(normalizedUniversalFilters)) {
       if (!Array.isArray(vals) || vals.length === 0) continue
       base[k] = { mode: 'subset', values: vals }
     }
     return base
-  }, [calcFilters, universalFilters])
+  }, [calcFilters, normalizedUniversalFilters])
 
   const allCombinatoricFlags = useMemo<Record<string, boolean>>(() => {
     return {
@@ -436,9 +491,9 @@ export default function PipelinesPage() {
       locations: locationsCombinatoric,
       dimensions: dimensionsCombinatoric,
       unit_categories: unitCategoriesCombinatoric,
-      ...universalCombinatoric,
+      ...normalizedUniversalCombinatoric,
     }
-  }, [competitorsCombinatoric, locationsCombinatoric, dimensionsCombinatoric, unitCategoriesCombinatoric, universalCombinatoric])
+  }, [competitorsCombinatoric, locationsCombinatoric, dimensionsCombinatoric, unitCategoriesCombinatoric, normalizedUniversalCombinatoric])
 
   // Split filters into subset and combinatoric
   const subsetFilters = useMemo<Record<string, string[]>>(() => {
