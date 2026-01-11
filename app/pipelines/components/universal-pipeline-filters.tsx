@@ -53,7 +53,9 @@ export function UniversalPipelineFilters({ rows, pricingSchemas, selectedFilters
     const col = first ? first.key : ""
     if (!col) return
     setSelectedFilters({ ...selectedFilters, [col]: [] })
-    setCombinatoricFlags({ ...combinatoricFlags, [col]: true })
+    // Mirror /pricing expectations: filters restrict data by default.
+    // Users can opt into combinatoric behavior per filter.
+    setCombinatoricFlags({ ...combinatoricFlags, [col]: false })
   }
 
   const removeFilterRow = (col: string) => {
