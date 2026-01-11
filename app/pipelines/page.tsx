@@ -179,13 +179,13 @@ export default function PipelinesPage() {
     setError(null);
     try {
       // Mirror /pricing: fetch pricing-data snapshot and do all filtering client-side.
-      const res = await getPricingData(selectedSnapshot, { limit: 10000 });
+      const res = await getPricingData(selectedSnapshot, { limit: 1000 });
       setDataResponse(res);
 
       // Best-effort: client (modSTORAGE) data lives under the E1 client endpoint.
       // If it fails for a given snapshot, continue without it.
       try {
-        const clientRes = await getE1Client(selectedSnapshot, { limit: 10000 });
+        const clientRes = await getE1Client(selectedSnapshot, { limit: 1000 });
         setClientDataResponse(clientRes as unknown as PricingDataResponse);
       } catch {
         setClientDataResponse(null);
