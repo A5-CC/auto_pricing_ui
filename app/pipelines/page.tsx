@@ -16,11 +16,6 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ContextChips } from "@/components/context-chips";
 import { useContextChips } from "@/hooks/useContextChips";
-import { useSortableRows } from "@/hooks/useSortableRows";
-import { useCompetitorFilter } from "@/hooks/useCompetitorFilter";
-import { useLocationFilter } from "@/hooks/useLocationFilter";
-import { useDimensionsFilter } from "@/hooks/useDimensionsFilter";
-import { useUnitCategoryFilter } from "@/hooks/useUnitCategoryFilter";
 import { SectionLabel } from "@/components/ui/section-label";
 import { PricingOverview } from "../pricing/components/pricing-overview";
 import { UniversalPipelineFilters } from "../pipelines/components/universal-pipeline-filters";
@@ -109,60 +104,11 @@ export default function PipelinesPage() {
   const [columnsStats, setColumnsStats] = useState<
     Record<string, ColumnStatistics>
   >({});
-  const [visibleColumns, setVisibleColumns] = useState<string[]>([]);
 
-  /* ---------------- Derived filters from hooks ---------------- */
-  const { filteredRows: competitorFilteredRows, allCompetitors } =
-    useCompetitorFilter(dataResponse?.data ?? [], selectedCompetitors);
-  const { filteredRows, allLocations } = useLocationFilter(
-    competitorFilteredRows,
-    selectedLocations,
-    "modstorage_location"
-  );
-  const { filteredRows: locationAndDimFilteredRows, allDimensions } =
-    useDimensionsFilter(filteredRows, selectedDimensions, "unit_dimensions");
-  const { filteredRows: fullyFilteredRows, allUnitCategories } =
-    useUnitCategoryFilter(locationAndDimFilteredRows, selectedUnitCategories);
+  // Mirror /pricing: keep an unfiltered snapshot in memory and filter client-side.
+  const baseRows = useMemo(() => dataResponse?.data ?? [], [dataResponse]);
 
-  /* ---------------- Sorting / pagination / grouping ---------------- */
-  const {
-    sortedRows: displayedRows,
-    sortBy,
-    sortDir,
-    setSortBy,
-    setSortDir,
-  } = useSortableRows(fullyFilteredRows, columnsStats, null, "asc");
-
-  // we only need setter here for resets; don't need the value in the UI itself
-  const [, setCurrentPage] = useState(1);
-
-  const [groupBy] = useState<string | null>(null);
-  const [, setExpandedGroups] = useState<Set<string>>(new Set());
   const { createChips } = useContextChips();
-
-  const grouped = useMemo(() => {
-    if (!groupBy) return null;
-    const map = new Map<string, typeof displayedRows>();
-    for (const row of displayedRows) {
-      const raw = row[groupBy as keyof typeof row];
-      const key =
-        raw === null || raw === undefined || raw === "" ? "—" : String(raw);
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(row);
-    }
-    const keys = Array.from(map.keys()).sort((a, b) =>
-      a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" })
-    );
-    return { keys, map };
-  }, [displayedRows, groupBy]);
-
-  useEffect(() => {
-    if (!groupBy) {
-      setExpandedGroups(new Set());
-      return;
-    }
-    if (grouped) setExpandedGroups(new Set(grouped.keys));
-  }, [groupBy, grouped]);
 
   /* ---------------- Data loading ---------------- */
   const loadSnapshots = async () => {
@@ -195,24 +141,12 @@ export default function PipelinesPage() {
         const stats = await getColumnStatistics(selectedSnapshot, res.columns);
         const byName = Object.fromEntries(stats.map((s) => [s.column, s]));
         setColumnsStats(byName);
-
-        const fixedColumns = [
-          "competitor_name",
-          "competitor_address",
-          "modstorage_location",
-          "snapshot_date",
-          "unit_dimensions",
-        ];
-        const filteredColumns = res.columns.filter(
-          (col) => !fixedColumns.includes(col)
-        );
-        setVisibleColumns((prev: string[]) => (prev.length ? prev : filteredColumns));
       }
     } catch (e) {
       const message =
         e instanceof Error
           ? e.message
-          : "Failed to load E1 data";
+          : "Failed to load pricing data";
       setError(message);
     } finally {
       setLoading(false);
@@ -270,14 +204,11 @@ export default function PipelinesPage() {
       case "dimensions":
         return deriveCompetitorValues("unit_dimensions");
       case "unit_categories":
-        // prefer hook-provided values if they exist (they come from competitor rows),
-        // otherwise try to derive from a reasonable column name fallback
-        if (allUnitCategories && allUnitCategories.length > 0) return allUnitCategories;
-        return deriveCompetitorValues("unit_category") // fallback guess
+        return deriveCompetitorValues("unit_category");
       default:
         return [] as string[];
     }
-  }, [allUnitCategories, deriveCompetitorValues]);
+  }, [deriveCompetitorValues]);
 
   /* ---------------- Pipeline load/save handlers ---------------- */
   const handleLoadPipeline = (filters: PipelineFiltersType) => {
@@ -336,34 +267,11 @@ export default function PipelinesPage() {
     return numericCols;
   }, [columnsStats]);
 
-  /* ---------------- Reset sort/pagination when inputs change ---------------- */
-  useEffect(() => {
-    setSortBy(null);
-    setSortDir("asc");
-  }, [
-    selectedSnapshot,
-    selectedCompetitors,
-    selectedLocations,
-    selectedDimensions,
-    selectedUnitCategories,
-    setSortBy,
-    setSortDir,
-  ]);
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [
-    selectedSnapshot,
-    selectedCompetitors,
-    selectedLocations,
-    selectedDimensions,
-    selectedUnitCategories,
-    sortBy,
-    sortDir,
-  ]);
-
-  /* ---------------- Wrapped setters (clear All flag on manual selection) ---------------- */
-  /* wrapped setters removed — not used with universal filters */
+  /* ---------------- Note ----------------
+     Unlike the legacy pipelines page, we do not maintain a separate sortable/grid view.
+     We keep the full dataset in memory (like /pricing) and apply filters only where needed
+     for calculation/adjusters.
+  ---------------- */
 
   /* ---------------- Build calcFilters: IMPORTANT —
      When user selected "All" we expand it INTO an explicit subset containing
@@ -415,59 +323,7 @@ export default function PipelinesPage() {
   ]);
 
 
-  // Resolve a Universal Filter "column key" to the actual column present in the dataset.
-  // This must match the logic used in `UniversalPipelineFilters` (otherwise selecting values
-  // from `location_normalized` but filtering on `modstorage_location` will zero the dataset).
-  const resolveUniversalDataColumn = useCallback(
-    (key: string) => {
-      const candidates = [
-        key,
-        `${key}_normalized`,
-        key.replace(/^modstorage_/, ""),
-      ]
-
-      const lower = key.toLowerCase()
-      if (lower.includes("location")) candidates.push("location_normalized")
-      if (lower.includes("dim") || lower.includes("dimension")) candidates.push("dimensions_normalized")
-      if (lower.includes("category")) candidates.push("unit_category")
-      if (lower.includes("competitor")) candidates.push("competitor_name")
-
-      for (const c of candidates) {
-        if (visibleColumns && visibleColumns.includes(c)) return c
-      }
-
-      const rows = dataResponse?.data ?? []
-      for (const c of candidates) {
-        if (rows.some((r) => {
-          const v = (r as Record<string, unknown>)[c]
-          return v !== undefined && v !== null
-        })) return c
-      }
-
-      return key
-    },
-    [dataResponse, visibleColumns]
-  )
-
-  // Normalize universal filters (columnKey -> resolved data column)
-  const normalizedUniversalFilters = useMemo<Record<string, string[]>>(() => {
-    const next: Record<string, string[]> = {}
-    for (const [k, vals] of Object.entries(universalFilters)) {
-      if (!Array.isArray(vals) || vals.length === 0) continue
-      const resolved = resolveUniversalDataColumn(k)
-      next[resolved] = vals
-    }
-    return next
-  }, [universalFilters, resolveUniversalDataColumn])
-
-  const normalizedUniversalCombinatoric = useMemo<Record<string, boolean>>(() => {
-    const next: Record<string, boolean> = {}
-    for (const [k, v] of Object.entries(universalCombinatoric)) {
-      const resolved = resolveUniversalDataColumn(k)
-      next[resolved] = Boolean(v)
-    }
-    return next
-  }, [universalCombinatoric, resolveUniversalDataColumn])
+  // Universal filters behave like /pricing: the stored key is the column key.
 
 
   // --- Universal filter logic: split filters into subset and combinatoric ---
@@ -479,12 +335,12 @@ export default function PipelinesPage() {
       dimensions: calcFilters.dimensions,
       unit_categories: calcFilters.unit_categories,
     };
-    for (const [k, vals] of Object.entries(normalizedUniversalFilters)) {
+    for (const [k, vals] of Object.entries(universalFilters)) {
       if (!Array.isArray(vals) || vals.length === 0) continue
       base[k] = { mode: 'subset', values: vals }
     }
     return base
-  }, [calcFilters, normalizedUniversalFilters])
+  }, [calcFilters, universalFilters])
 
   const allCombinatoricFlags = useMemo<Record<string, boolean>>(() => {
     return {
@@ -492,9 +348,9 @@ export default function PipelinesPage() {
       locations: locationsCombinatoric,
       dimensions: dimensionsCombinatoric,
       unit_categories: unitCategoriesCombinatoric,
-      ...normalizedUniversalCombinatoric,
+      ...universalCombinatoric,
     }
-  }, [competitorsCombinatoric, locationsCombinatoric, dimensionsCombinatoric, unitCategoriesCombinatoric, normalizedUniversalCombinatoric])
+  }, [competitorsCombinatoric, locationsCombinatoric, dimensionsCombinatoric, unitCategoriesCombinatoric, universalCombinatoric])
 
   // Split filters into subset and combinatoric
   const subsetFilters = useMemo<Record<string, string[]>>(() => {
@@ -511,7 +367,7 @@ export default function PipelinesPage() {
   
   // Apply universal subset filters on top of the classic filtered dataset
   const subsetFilteredRows = useMemo(() => {
-    let rows = (fullyFilteredRows ?? []) as { [key: string]: unknown }[]
+    let rows = (baseRows ?? []) as { [key: string]: unknown }[]
 
     const FILTER_KEY_TO_COLUMN: Record<string, string> = {
       competitors: 'competitor_name',
@@ -527,7 +383,7 @@ export default function PipelinesPage() {
       rows = rows.filter((r) => vals.includes(String(r[resolvedColumn])))
     }
     return rows as unknown as PricingDataResponse["data"]
-  }, [fullyFilteredRows, subsetFilters])
+  }, [baseRows, subsetFilters])
 
   // Combinatoric filters: only those with values in the filtered dataset
   const combinatoricFilters = useMemo<Record<string, { mode: 'subset'; values: string[] }>>(() => {
@@ -623,18 +479,6 @@ export default function PipelinesPage() {
     }
   }, [dataResponse, clientDataResponse])
 
-  /* ---------------- availableFilterValues (used if some other component needs "UI options") ---------------- */
-  const availableFilterValues = useMemo<
-    Record<keyof CalcFiltersShape, string[]>
-  >(() => {
-    return {
-      competitors: allCompetitors ?? [],
-      locations: allLocations ?? [],
-      dimensions: allDimensions ?? [],
-      unit_categories: allUnitCategories ?? [],
-    };
-  }, [allCompetitors, allLocations, allDimensions, allUnitCategories]);
-
   /* ---------------- Render ---------------- */
   return (
     <main className="mx-auto max-w-7xl p-6 space-y-5">
@@ -685,7 +529,6 @@ export default function PipelinesPage() {
 
       <UniversalPipelineFilters
         rows={dataResponse?.data ?? []}
-        visibleColumns={visibleColumns}
         pricingSchemas={pricingSchemas}
         selectedFilters={universalFilters}
         setSelectedFilters={setUniversalFilters}
@@ -791,7 +634,6 @@ export default function PipelinesPage() {
             adjusters={localAdjusters}
             currentDate={currentDate}
             filters={mergedFilters}
-            availableFilterValues={availableFilterValues}
             combinatoricFlags={mergedCombinatoricFlags}
           />
         </div>
@@ -806,7 +648,7 @@ export default function PipelinesPage() {
           onOpenChange={functionDialog.setOpen}
           onAdd={handleAddAdjuster}
           availableVariables={availableVariables}
-          competitorData={fullyFilteredRows}
+          competitorData={subsetFilteredRows}
           clientAvailableUnits={clientDataResponse?.data.length || 0}
         />
         <AddTemporalAdjusterDialog

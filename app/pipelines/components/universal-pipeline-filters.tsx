@@ -15,7 +15,6 @@ import { getCanonicalLabel } from "@/lib/pricing/column-labels"
 
 interface UniversalPipelineFiltersProps {
   rows: E1DataRow[]
-  visibleColumns?: string[]
   pricingSchemas?: PricingSchemas | null
   selectedFilters: Record<string, string[]>
   setSelectedFilters: (next: Record<string, string[]>) => void
@@ -23,7 +22,7 @@ interface UniversalPipelineFiltersProps {
   setCombinatoricFlags: (next: Record<string, boolean>) => void
 }
 
-export function UniversalPipelineFilters({ rows, visibleColumns, pricingSchemas, selectedFilters, setSelectedFilters, combinatoricFlags, setCombinatoricFlags }: UniversalPipelineFiltersProps) {
+export function UniversalPipelineFilters({ rows, pricingSchemas, selectedFilters, setSelectedFilters, combinatoricFlags, setCombinatoricFlags }: UniversalPipelineFiltersProps) {
   const schemaCols = useMemo(() => {
     const canonical = pricingSchemas?.canonical?.columns ?? {}
     const spine = pricingSchemas?.spine ?? []
@@ -31,7 +30,6 @@ export function UniversalPipelineFilters({ rows, visibleColumns, pricingSchemas,
     const keySet = new Set<string>()
     Object.keys(canonical).forEach((k) => keySet.add(k))
     for (const s of spine) keySet.add(s.id)
-    ;(visibleColumns ?? []).forEach((c) => keySet.add(c))
     for (const r of rows ?? []) {
       if (typeof r === "object" && r !== null) {
         Object.keys(r).forEach((k) => keySet.add(k))
@@ -44,7 +42,7 @@ export function UniversalPipelineFilters({ rows, visibleColumns, pricingSchemas,
     }))
     cols.sort((a, b) => a.label.localeCompare(b.label))
     return cols
-  }, [pricingSchemas, visibleColumns, rows])
+  }, [pricingSchemas, rows])
 
   const activeColumns = Object.keys(selectedFilters)
 
@@ -93,7 +91,6 @@ export function UniversalPipelineFilters({ rows, visibleColumns, pricingSchemas,
               key={col}
               columnKey={col}
               rows={rows}
-              visibleColumns={visibleColumns}
               schemaCols={schemaCols}
               values={selectedFilters[col] ?? []}
               combinatoric={Boolean(combinatoricFlags[col])}
@@ -116,7 +113,6 @@ export function UniversalPipelineFilters({ rows, visibleColumns, pricingSchemas,
 type FilterRowProps = {
   columnKey: string
   rows: E1DataRow[]
-  visibleColumns?: string[]
   schemaCols: { key: string; label: string }[]
   values: string[]
   combinatoric: boolean
@@ -126,35 +122,10 @@ type FilterRowProps = {
   onToggleCombinatoric: (v: boolean) => void
 }
 
-function FilterRow({ columnKey, rows, visibleColumns, schemaCols, values, combinatoric, onChange, onRemove, onChangeColumn, onToggleCombinatoric }: FilterRowProps) {
-  const deriveDataColumn = (key: string) => {
-    const candidates = [
-      key,
-      `${key}_normalized`,
-      key.replace(/^modstorage_/, ""),
-    ]
-
-    const lower = key.toLowerCase()
-    if (lower.includes("location")) candidates.push("location_normalized")
-    if (lower.includes("dim") || lower.includes("dimension")) candidates.push("dimensions_normalized")
-    if (lower.includes("category")) candidates.push("unit_category")
-    if (lower.includes("competitor")) candidates.push("competitor_name")
-
-    // prefer visibleColumns if provided
-    for (const c of candidates) {
-      if (visibleColumns && visibleColumns.includes(c)) return c
-    }
-
-    // otherwise scan rows for a non-empty value
-    for (const c of candidates) {
-      if (rows.some((r) => r[c as keyof E1DataRow] !== undefined && r[c as keyof E1DataRow] !== null)) return c
-    }
-
-    return key
-  }
-
-  const dataColumn = deriveDataColumn(columnKey)
-  const { allValues } = useUniversalFilter<E1DataRow>(rows ?? [], dataColumn ?? "")
+function FilterRow({ columnKey, rows, schemaCols, values, combinatoric, onChange, onRemove, onChangeColumn, onToggleCombinatoric }: FilterRowProps) {
+  // Mirror /pricing behavior: the selected column key is the data column.
+  // This keeps the stored filter key and the values list aligned.
+  const { allValues } = useUniversalFilter<E1DataRow>(rows ?? [], columnKey ?? "")
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
 
