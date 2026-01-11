@@ -35,14 +35,10 @@ export function CalculatedPrice({
   filters = {},
   combinatoricFlags = {}
 }: CalculatedPriceProps) {
-  // If no competitor data at all, show a clear message and avoid running engine
-  if (!competitorData || competitorData.length === 0) {
-    return (
-      <p className="text-muted-foreground">No data selected — adjust your filters to include competitor units.</p>
-    )
-  }
+  const noCompetitorData = !competitorData || competitorData.length === 0
 
   const rows = useMemo(() => {
+    if (noCompetitorData) return []
     if (!adjusters || adjusters.length === 0) return []
 
     const arrays: FilterValue[][] = []
@@ -165,6 +161,12 @@ export function CalculatedPrice({
 
   if (!adjusters || adjusters.length === 0) {
     return <p className="text-muted-foreground">Add adjusters to calculate prices</p>
+  }
+
+  if (noCompetitorData) {
+    return (
+      <p className="text-muted-foreground">No data selected — adjust your filters to include competitor units.</p>
+    )
   }
 
   if (rows.length === 0) {

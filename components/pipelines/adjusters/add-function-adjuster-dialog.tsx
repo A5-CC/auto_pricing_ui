@@ -136,7 +136,7 @@ export function AddFunctionAdjusterDialog({
     }
 
     return points
-  }, [committedFunction, domainMin, domainMax])
+  }, [committedFunction, domainMin, domainMax, open])
 
   // Check if function is valid (all points succeeded)
   const isFunctionValid = useMemo(() => {
