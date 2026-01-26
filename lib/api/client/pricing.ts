@@ -85,3 +85,48 @@ export async function getColumnStatistics(
   const response = await fetchWithError(url)
   return response.json()
 }
+
+export async function processClientCSV(
+  file: File,
+  snapshotId: string,
+  filters: any,
+  adjusters?: any,
+  combinatoric?: any
+): Promise<void> {
+  const formData = new FormData()
+  formData.append("file", file)
+  formData.append("snapshot_id", snapshotId)
+  formData.append("filters", JSON.stringify(filters))
+  if (adjusters) {
+    formData.append("adjusters", JSON.stringify(adjusters))
+  }
+  if (combinatoric) {
+    formData.append("combinatoric", JSON.stringify(combinatoric))
+  }
+
+  const response = await fetch(`${API_BASE_URL}/client-data/process-csv`, {
+    method: "POST",
+    body: formData,
+  })
+
+  if (!response.ok) {
+    let errorMessage = "Failed to process CSV"
+    try {
+      const errorData = await response.json()
+      errorMessage = errorData.detail || errorMessage
+    } catch {
+      errorMessage = await response.text() || errorMessage
+    }
+    throw new Error(errorMessage)
+  }
+
+  const blob = await response.blob()
+  const url = window.URL.createObjectURL(blob)
+  const a = document.createElement("a")
+  a.href = url
+  a.download = `processed_${file.name}`
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  window.URL.revokeObjectURL(url)
+}
