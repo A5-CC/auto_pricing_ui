@@ -27,6 +27,7 @@ import { AddFunctionAdjusterDialog } from "@/components/pipelines/adjusters/add-
 import { AddTemporalAdjusterDialog } from "@/components/pipelines/adjusters/add-temporal-adjuster-dialog";
 import { useAdjusterDialog } from "@/components/pipelines/adjusters/use-adjuster-dialog";
 import { PriceDataWarning } from "@/components/pipelines/price-data-warning";
+import { ProcessCsvButton } from "@/components/pricing/process-csv-button";
 import type { PipelineFilters as PipelineFiltersType, Pipeline } from "@/lib/api/types";
 import type { Adjuster } from "@/lib/adjusters";
 import { hasValidCompetitorPrices, getPriceDiagnostics } from "@/lib/adjusters";
@@ -394,6 +395,20 @@ export default function PipelinesPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <ProcessCsvButton
+              snapshotId={selectedSnapshot}
+              filters={{
+                // Legacy explicit
+                competitors: selectedCompetitors,
+                locations: selectedLocations,
+                unit_dimensions: selectedDimensions,
+                unitCategories: selectedUnitCategories,
+                // Include universal filters (dynamic keys like 'facility_location_city')
+                ...universalFilters
+              }}
+              adjusters={localAdjusters}
+              combinatoric={universalCombinatoric}
+            />
             <PipelineSelector
               currentFilters={{
                 competitors: selectedCompetitors,
