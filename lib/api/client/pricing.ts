@@ -11,17 +11,17 @@ import type { Adjuster } from '@/lib/adjusters'
 
 export async function getPricingSchemas(): Promise<PricingSchemas> {
   const response = await fetchWithError(`${API_BASE_URL}/competitors/pricing-schemas`)
-  return response.json<PricingSchemas>()
+  return (await response.json()) as PricingSchemas
 }
 
 export async function getSchemaStats(): Promise<SchemaStats> {
   const response = await fetchWithError(`${API_BASE_URL}/competitors/pricing-schemas/columns/stats`)
-  return response.json<SchemaStats>()
+  return (await response.json()) as SchemaStats
 }
 
 export async function getPricingSnapshots(): Promise<PricingSnapshot[]> {
   const response = await fetchWithError(`${API_BASE_URL}/competitors/pricing-data/snapshots`)
-  return response.json<PricingSnapshot[]>()
+  return (await response.json()) as PricingSnapshot[]
 }
 
 export async function getPricingData(
@@ -44,7 +44,7 @@ export async function getPricingData(
   }
   const url = `${API_BASE_URL}/competitors/pricing-data/${encodeURIComponent(snapshot)}${queryParams.toString() ? `?${queryParams}` : ""}`
   const response = await fetchWithError(url)
-  return response.json<PricingDataResponse>()
+  return (await response.json()) as PricingDataResponse
 }
 
 export async function getFacilityPricing(
@@ -55,7 +55,7 @@ export async function getFacilityPricing(
   const queryParams = competitor ? `?competitor_name=${encodeURIComponent(competitor)}` : ''
   const url = `${API_BASE_URL}/competitors/pricing-data/${encodeURIComponent(snapshot)}/facility/${encodeURIComponent(location)}${queryParams}`
   const response = await fetchWithError(url)
-  return response.json<FacilityPricingData>()
+  return (await response.json()) as FacilityPricingData
 }
 
 export async function exportPricingCSV(
@@ -84,7 +84,7 @@ export async function getColumnStatistics(
   const queryParams = columns && columns.length ? `?columns=${columns.join(',')}` : ''
   const url = `${API_BASE_URL}/competitors/pricing-data/${encodeURIComponent(snapshot)}/statistics${queryParams}`
   const response = await fetchWithError(url)
-  return response.json<ColumnStatistics[]>()
+  return (await response.json()) as ColumnStatistics[]
 }
 
 export async function processClientCSV(
