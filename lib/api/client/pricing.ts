@@ -10,17 +10,17 @@ import { API_BASE_URL, fetchWithError } from './shared'
 
 export async function getPricingSchemas(): Promise<PricingSchemas> {
   const response = await fetchWithError(`${API_BASE_URL}/competitors/pricing-schemas`)
-  return response.json()
+  return response.json<PricingSchemas>()
 }
 
 export async function getSchemaStats(): Promise<SchemaStats> {
   const response = await fetchWithError(`${API_BASE_URL}/competitors/pricing-schemas/columns/stats`)
-  return response.json()
+  return response.json<SchemaStats>()
 }
 
 export async function getPricingSnapshots(): Promise<PricingSnapshot[]> {
   const response = await fetchWithError(`${API_BASE_URL}/competitors/pricing-data/snapshots`)
-  return response.json()
+  return response.json<PricingSnapshot[]>()
 }
 
 export async function getPricingData(
@@ -43,7 +43,7 @@ export async function getPricingData(
   }
   const url = `${API_BASE_URL}/competitors/pricing-data/${encodeURIComponent(snapshot)}${queryParams.toString() ? `?${queryParams}` : ""}`
   const response = await fetchWithError(url)
-  return response.json()
+  return response.json<PricingDataResponse>()
 }
 
 export async function getFacilityPricing(
@@ -54,7 +54,7 @@ export async function getFacilityPricing(
   const queryParams = competitor ? `?competitor_name=${encodeURIComponent(competitor)}` : ''
   const url = `${API_BASE_URL}/competitors/pricing-data/${encodeURIComponent(snapshot)}/facility/${encodeURIComponent(location)}${queryParams}`
   const response = await fetchWithError(url)
-  return response.json()
+  return response.json<FacilityPricingData>()
 }
 
 export async function exportPricingCSV(
@@ -83,7 +83,7 @@ export async function getColumnStatistics(
   const queryParams = columns && columns.length ? `?columns=${columns.join(',')}` : ''
   const url = `${API_BASE_URL}/competitors/pricing-data/${encodeURIComponent(snapshot)}/statistics${queryParams}`
   const response = await fetchWithError(url)
-  return response.json()
+  return response.json<ColumnStatistics[]>()
 }
 
 export async function processClientCSV(
