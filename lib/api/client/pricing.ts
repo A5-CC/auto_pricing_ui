@@ -7,6 +7,7 @@ import {
   ColumnStatistics
 } from '@/lib/api/types'
 import { API_BASE_URL, fetchWithError } from './shared'
+import type { Adjuster } from '@/lib/adjusters'
 
 export async function getPricingSchemas(): Promise<PricingSchemas> {
   const response = await fetchWithError(`${API_BASE_URL}/competitors/pricing-schemas`)
@@ -89,9 +90,9 @@ export async function getColumnStatistics(
 export async function processClientCSV(
   file: File,
   snapshotId: string,
-  filters: any,
-  adjusters?: any,
-  combinatoric?: any
+  filters: Record<string, string[]>,
+  adjusters?: Adjuster[],
+  combinatoric?: Record<string, boolean>
 ): Promise<void> {
   const formData = new FormData()
   formData.append("file", file)

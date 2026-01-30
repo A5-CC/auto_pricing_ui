@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Loader2, FileSpreadsheet } from "lucide-react"
 import { processClientCSV } from "@/lib/api/client/pricing"
+import type { Adjuster } from '@/lib/adjusters'
 import { toast } from "sonner"
 
 interface ProcessCsvButtonProps {
@@ -29,7 +30,7 @@ interface ProcessCsvButtonProps {
     // Catch-all for other universal filters (e.g. facility_location_city)
     [key: string]: string[] 
   }
-  adjusters?: any[]
+    adjusters?: Adjuster[]
   combinatoric?: Record<string, boolean>
 }
 
@@ -101,7 +102,7 @@ export function ProcessCsvButton({ snapshotId, filters, adjusters, combinatoric 
             <span className="text-xs text-muted-foreground mt-2 block">
               Supported filters: Location, Dimensions.
               <br />
-              Ensure columns: 'Facility Name', 'Size', 'New Web Rate'.
+              Ensure columns: &apos;Facility Name&apos;, &apos;Size&apos;, &apos;New Web Rate&apos;.
             </span>
           </DialogDescription>
         </DialogHeader>
