@@ -10,6 +10,7 @@ import { CalculatedPrice } from "@/components/pipelines/calculated-price";
 import { PipelineBuilderChatbot } from "@/components/pipelines/pipeline-builder-chatbot";
 import { PipelineSelector } from "@/components/pipelines/pipeline-selector";
 import { PriceDataWarning } from "@/components/pipelines/price-data-warning";
+import { ProcessCsvButton } from "@/components/pricing/process-csv-button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { SectionLabel } from "@/components/ui/section-label";
@@ -397,6 +398,20 @@ export default function PipelinesPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <ProcessCsvButton
+              snapshotId={selectedSnapshot}
+              filters={{
+                // Legacy explicit
+                competitors: selectedCompetitors,
+                locations: selectedLocations,
+                unit_dimensions: selectedDimensions,
+                unitCategories: selectedUnitCategories,
+                // Include universal filters (dynamic keys like 'facility_location_city')
+                ...universalFilters
+              }}
+              adjusters={localAdjusters}
+              combinatoric={universalCombinatoric}
+            />
             <PipelineSelector
               currentFilters={{
                 competitors: selectedCompetitors,
