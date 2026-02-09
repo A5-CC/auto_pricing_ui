@@ -1,24 +1,39 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { toast } from "sonner";
+import { ContextChips } from "@/components/context-chips";
+import { AdjustersList } from "@/components/pipelines/adjusters-list";
+import { AddCompetitiveAdjusterDialog } from "@/components/pipelines/adjusters/add-competitive-adjuster-dialog";
+import { AddFunctionAdjusterDialog } from "@/components/pipelines/adjusters/add-function-adjuster-dialog";
+import { AddTemporalAdjusterDialog } from "@/components/pipelines/adjusters/add-temporal-adjuster-dialog";
+import { useAdjusterDialog } from "@/components/pipelines/adjusters/use-adjuster-dialog";
+import { CalculatedPrice } from "@/components/pipelines/calculated-price";
+import { PipelineBuilderChatbot } from "@/components/pipelines/pipeline-builder-chatbot";
+import { PipelineSelector } from "@/components/pipelines/pipeline-selector";
+import { PriceDataWarning } from "@/components/pipelines/price-data-warning";
+import { ProcessCsvButton } from "@/components/pricing/process-csv-button";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { SectionLabel } from "@/components/ui/section-label";
+import { useContextChips } from "@/hooks/useContextChips";
+import type { Adjuster } from "@/lib/adjusters";
+import { getPriceDiagnostics, hasValidCompetitorPrices } from "@/lib/adjusters";
 import {
   getE1Client,
 } from "@/lib/api/client/pipelines";
-import { getPricingSnapshots, getPricingData, getColumnStatistics, getPricingSchemas } from "@/lib/api/client/pricing";
+import { getColumnStatistics, getPricingData, getPricingSchemas, getPricingSnapshots } from "@/lib/api/client/pricing";
 import type {
   ColumnStatistics,
+  Pipeline,
+  PipelineFilters as PipelineFiltersType,
+  PricingDataResponse,
   PricingSchemas,
   PricingSnapshot,
-  PricingDataResponse,
 } from "@/lib/api/types";
-import { Button } from "@/components/ui/button";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ContextChips } from "@/components/context-chips";
-import { useContextChips } from "@/hooks/useContextChips";
-import { SectionLabel } from "@/components/ui/section-label";
-import { PricingOverview } from "../pricing/components/pricing-overview";
+import { Calculator, Clock, Plus, TrendingDown } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import { UniversalPipelineFilters } from "../pipelines/components/universal-pipeline-filters";
+import { PricingOverview } from "../pricing/components/pricing-overview";
 import { PipelineSelector } from "@/components/pipelines/pipeline-selector";
 import { AdjustersList } from "@/components/pipelines/adjusters-list";
 import { CalculatedPrice } from "@/components/pipelines/calculated-price";
@@ -358,9 +373,10 @@ export default function PipelinesPage() {
     return Object.values(universalFilters).some((vals) => Array.isArray(vals) && vals.length > 0)
   }, [universalFilters])
 
-  const isDev = useMemo(() => {
-    const g = globalThis as unknown as { process?: { env?: Record<string, string | undefined> } }
-    return g.process?.env?.NODE_ENV === 'development'
+  // Check isDev only on client-side to avoid hydration mismatch
+  const [isDev, setIsDev] = useState(false)
+  useEffect(() => {
+    setIsDev(process.env.NODE_ENV === 'development')
   }, [])
 
   // Small dev debug: counts and sample rows to help diagnose missing competitor data
@@ -439,17 +455,20 @@ export default function PipelinesPage() {
         onSnapshotChange={setSelectedSnapshot}
       />
 
-      <UniversalPipelineFilters
-        rows={dataResponse?.data ?? []}
-        pricingSchemas={pricingSchemas}
-        selectedFilters={universalFilters}
-        setSelectedFilters={setUniversalFilters}
-        combinatoricFlags={universalCombinatoric}
-        setCombinatoricFlags={setUniversalCombinatoric}
-      />
+      {/* Universal Filters Section - marked for chatbot navigation */}
+      <div data-section="universal-filters">
+        <UniversalPipelineFilters
+          rows={dataResponse?.data ?? []}
+          pricingSchemas={pricingSchemas}
+          selectedFilters={universalFilters}
+          setSelectedFilters={setUniversalFilters}
+          combinatoricFlags={universalCombinatoric}
+          setCombinatoricFlags={setUniversalCombinatoric}
+        />
+      </div>
 
-      {/* Price Calculation Section */}
-      <div className="space-y-4">
+      {/* Price Calculation Section - marked for chatbot navigation */}
+      <div className="space-y-4" data-section="price-calculation">
         <SectionLabel
           text="Price Calculation"
           right={
@@ -569,6 +588,11 @@ export default function PipelinesPage() {
           onAdd={handleAddAdjuster}
         />
       </div>
+
+      {/* AI Pipeline Builder Chatbot */}
+      <PipelineBuilderChatbot
+        availableColumns={Object.keys(columnsStats)}
+      />
     </main>
   );
 }
