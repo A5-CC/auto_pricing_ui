@@ -34,19 +34,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { UniversalPipelineFilters } from "../pipelines/components/universal-pipeline-filters";
 import { PricingOverview } from "../pricing/components/pricing-overview";
-import { PipelineSelector } from "@/components/pipelines/pipeline-selector";
-import { AdjustersList } from "@/components/pipelines/adjusters-list";
-import { CalculatedPrice } from "@/components/pipelines/calculated-price";
-import { AddCompetitiveAdjusterDialog } from "@/components/pipelines/adjusters/add-competitive-adjuster-dialog";
-import { AddFunctionAdjusterDialog } from "@/components/pipelines/adjusters/add-function-adjuster-dialog";
-import { AddTemporalAdjusterDialog } from "@/components/pipelines/adjusters/add-temporal-adjuster-dialog";
-import { useAdjusterDialog } from "@/components/pipelines/adjusters/use-adjuster-dialog";
-import { PriceDataWarning } from "@/components/pipelines/price-data-warning";
-import { ProcessCsvButton } from "@/components/pricing/process-csv-button";
-import type { PipelineFilters as PipelineFiltersType, Pipeline } from "@/lib/api/types";
-import type { Adjuster } from "@/lib/adjusters";
-import { hasValidCompetitorPrices, getPriceDiagnostics } from "@/lib/adjusters";
-import { TrendingDown, Calculator, Clock, Plus } from "lucide-react";
 
 export default function PipelinesPage() {
   /* ---------------- State ---------------- */

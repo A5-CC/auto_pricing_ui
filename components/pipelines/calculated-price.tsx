@@ -1,7 +1,7 @@
-import { useMemo } from 'react'
-import { calculatePrice } from '@/lib/adjusters'
 import type { Adjuster } from '@/lib/adjusters'
+import { calculatePrice } from '@/lib/adjusters'
 import type { E1DataRow } from '@/lib/api/types'
+import { useMemo } from 'react'
 
 type FilterValue = string | number | boolean
 
@@ -103,7 +103,7 @@ export function CalculatedPrice({
     // Case 1: no combinatoric filters selected → single aggregate row
     if (arrays.length === 0) {
       const pool = applyPreFilters(competitorData)
-
+      
       let price: number | null = null
       try {
         const result = calculatePrice({
