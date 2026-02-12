@@ -5,46 +5,45 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
 } from "@/components/ui/select";
 import {
-  sendAgentMessage,
-  saveAgentPipeline,
-  listPipelines,
-  loadPipelineIntoSession,
-  getE1DataSummary,
-  type AgentChatResponse,
-  type ConversationPhase,
-  type PipelineState,
-  type PipelineAction,
-  type E1DataSummary,
+    getE1DataSummary,
+    listPipelines,
+    loadPipelineIntoSession,
+    saveAgentPipeline,
+    sendAgentMessage,
+    type AgentChatResponse,
+    type ConversationPhase,
+    type E1DataSummary,
+    type PipelineAction,
+    type PipelineState,
 } from "@/lib/api/client/pipelines";
 import type { Pipeline } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 import {
-  ArrowRight,
-  Bot,
-  Check,
-  CheckCircle2,
-  ChevronDown,
-  ChevronUp,
-  Database,
-  Filter,
-  FolderOpen,
-  Loader2,
-  MessageCircle,
-  Pencil,
-  RefreshCw,
-  Save,
-  Send,
-  Settings2,
-  Sparkles,
-  X,
-  Zap,
+    Bot,
+    Check,
+    CheckCircle2,
+    ChevronDown,
+    ChevronUp,
+    Database,
+    Filter,
+    FolderOpen,
+    Loader2,
+    MessageCircle,
+    Pencil,
+    RefreshCw,
+    Save,
+    Send,
+    Settings2,
+    Sparkles,
+    X,
+    Zap,
 } from "lucide-react";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -164,15 +163,6 @@ export function PipelineBuilderChatbot({
     }
   }, [e1DataSummary]);
 
-  // Initialize conversation when opened
-  useEffect(() => {
-    if (isOpen && messages.length === 0) {
-      loadE1DataSummary(); // Load E1 data for interactive suggestions
-      initializeConversation();
-      refreshSavedPipelines();
-    }
-  }, [isOpen, loadE1DataSummary]);
-
   // Notify parent of pipeline changes
   useEffect(() => {
     if (pipelineState && onPipelineUpdate) {
@@ -185,36 +175,7 @@ export function PipelineBuilderChatbot({
   // API Interactions
   // =============================================================================
 
-  const initializeConversation = async () => {
-    setIsTyping(true);
-    try {
-      const response = await sendAgentMessage(
-        "Hello, I want to create a new pricing pipeline",
-        undefined,
-        { availableColumns }
-      );
-      
-      handleAgentResponse(response);
-    } catch (error) {
-      console.error("Error initializing conversation:", error);
-      // Add a fallback welcome message
-      setMessages([{
-        id: `${componentId}-welcome`,
-        role: "assistant",
-        content: "👋 Hello! I'm your pricing pipeline assistant. I can help you configure your pricing strategy step by step.\n\nWould you like to start creating a new pipeline?",
-        timestamp: new Date(),
-        suggestions: [
-          "Yes, let's create a pipeline",
-          "What options do I have?",
-          "Explain the process"
-        ]
-      }]);
-    } finally {
-      setIsTyping(false);
-    }
-  };
-
-  const handleAgentResponse = (response: AgentChatResponse) => {
+  const handleAgentResponse = useCallback((response: AgentChatResponse) => {
     // Update session
     setSessionId(response.session_id);
     setCurrentPhase(response.phase);
@@ -243,7 +204,36 @@ export function PipelineBuilderChatbot({
         }
       });
     }
-  };
+  }, [onActionExecute]);
+
+  const initializeConversation = useCallback(async () => {
+    setIsTyping(true);
+    try {
+      const response = await sendAgentMessage(
+        "Hello, I want to create a new pricing pipeline",
+        undefined,
+        { availableColumns }
+      );
+      
+      handleAgentResponse(response);
+    } catch (error) {
+      console.error("Error initializing conversation:", error);
+      // Add a fallback welcome message
+      setMessages([{
+        id: `${componentId}-welcome`,
+        role: "assistant",
+        content: "👋 Hello! I'm your pricing pipeline assistant. I can help you configure your pricing strategy step by step.\n\nWould you like to start creating a new pipeline?",
+        timestamp: new Date(),
+        suggestions: [
+          "Yes, let's create a pipeline",
+          "What options do I have?",
+          "Explain the process"
+        ]
+      }]);
+    } finally {
+      setIsTyping(false);
+    }
+  }, [availableColumns, componentId, handleAgentResponse]);
 
   const sendMessage = async (messageText: string) => {
     if (!messageText.trim()) return;
@@ -327,7 +317,7 @@ export function PipelineBuilderChatbot({
   };
 
   // Load saved pipelines list
-  const refreshSavedPipelines = async () => {
+  const refreshSavedPipelines = useCallback(async () => {
     setIsLoadingPipelines(true);
     try {
       const pipelines = await listPipelines();
@@ -337,7 +327,16 @@ export function PipelineBuilderChatbot({
     } finally {
       setIsLoadingPipelines(false);
     }
-  };
+  }, []);
+
+  // Initialize conversation when opened
+  useEffect(() => {
+    if (isOpen && messages.length === 0) {
+      loadE1DataSummary(); // Load E1 data for interactive suggestions
+      initializeConversation();
+      refreshSavedPipelines();
+    }
+  }, [isOpen, loadE1DataSummary, initializeConversation, refreshSavedPipelines, messages.length]);
 
   // Load a specific pipeline into the session
   const handleLoadPipeline = async (pipelineId: string) => {
