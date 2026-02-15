@@ -13,6 +13,8 @@ import { PriceDataWarning } from "@/components/pipelines/price-data-warning";
 import { ProcessCsvButton } from "@/components/pricing/process-csv-button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { SectionLabel } from "@/components/ui/section-label";
 import { useContextChips } from "@/hooks/useContextChips";
 import type { Adjuster } from "@/lib/adjusters";
@@ -42,6 +44,8 @@ export default function PipelinesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [localAdjusters, setLocalAdjusters] = useState<Adjuster[]>([]);
+  const [roundingEnabled, setRoundingEnabled] = useState(false);
+  const [roundingOffset, setRoundingOffset] = useState(0);
   
   // dialogs
   const competitiveDialog = useAdjusterDialog();
@@ -380,6 +384,15 @@ export default function PipelinesPage() {
     }
   }, [dataResponse, clientDataResponse])
 
+  const handleRoundingOffsetChange = (value: string) => {
+    const next = Number(value)
+    if (Number.isNaN(next)) {
+      setRoundingOffset(0)
+      return
+    }
+    setRoundingOffset(next)
+  }
+
   /* ---------------- Render ---------------- */
   return (
     <main className="mx-auto max-w-7xl p-6 space-y-5">
@@ -465,6 +478,39 @@ export default function PipelinesPage() {
             </div>
           }
         />
+
+        <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-muted/30 p-3">
+          <Button type="button" variant="outline" size="sm">
+            Rounding
+          </Button>
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="rounding-enabled"
+              checked={roundingEnabled}
+              onCheckedChange={(checked) => setRoundingEnabled(Boolean(checked))}
+            />
+            <label htmlFor="rounding-enabled" className="text-sm">
+              Enable
+            </label>
+          </div>
+          <div className="flex items-center gap-2">
+            <label htmlFor="rounding-offset" className="text-xs text-muted-foreground">
+              Round to
+            </label>
+            <Input
+              id="rounding-offset"
+              type="number"
+              inputMode="decimal"
+              min={-0.5}
+              max={1}
+              step={0.01}
+              value={roundingOffset}
+              onChange={(e) => handleRoundingOffsetChange(e.target.value)}
+              className="h-8 w-[120px]"
+            />
+            <span className="text-xs text-muted-foreground">(-0.5 to 1.0)</span>
+          </div>
+        </div>
 
         {isDev && devDebug && (
           <div className="text-xs text-muted-foreground">
@@ -553,6 +599,8 @@ export default function PipelinesPage() {
             currentDate={currentDate}
             filters={mergedFilters}
             combinatoricFlags={mergedCombinatoricFlags}
+            roundingEnabled={roundingEnabled}
+            roundingOffset={roundingOffset}
           />
         </div>
 

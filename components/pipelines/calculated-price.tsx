@@ -30,6 +30,8 @@ interface CalculatedPriceProps {
   availableFilterValues?: Record<string, FilterValue[]> 
   maxCombinations?: number
   combinatoricFlags?: Record<string, boolean>
+  roundingEnabled?: boolean
+  roundingOffset?: number
 }
 
 export function CalculatedPrice({
@@ -38,9 +40,31 @@ export function CalculatedPrice({
   adjusters,
   currentDate,
   filters = {},
-  combinatoricFlags = {}
+  combinatoricFlags = {},
+  roundingEnabled = false,
+  roundingOffset = 0
 }: CalculatedPriceProps) {
   const noCompetitorData = !competitorData || competitorData.length === 0
+
+  const normalizeRoundingOffset = (value: number) => {
+    if (!Number.isFinite(value)) return 0
+    const clamped = Math.min(1, Math.max(-0.5, value))
+    return clamped > 0.5 ? 1 : clamped
+  }
+
+  const applyRounding = (value: number) => {
+    if (!roundingEnabled || !Number.isFinite(value)) return value
+    const base = Math.floor(value)
+    const offset = normalizeRoundingOffset(roundingOffset)
+    const next = base + offset
+    return Object.is(next, -0) ? 0 : next
+  }
+
+  const formatNumeric = (value: number, forceFixed = false) => {
+    const next = roundingEnabled ? applyRounding(value) : value
+    if (forceFixed || roundingEnabled) return next.toFixed(2)
+    return String(value)
+  }
 
   const rows = useMemo<ResultRow[]>(() => {
     if (noCompetitorData) return []
@@ -203,11 +227,13 @@ export function CalculatedPrice({
               {headers.map((h) =>
                 h === 'Price' ? (
                   <td key={h} className="border px-3 py-2 font-bold">
-                    {`$${r.price!.toFixed(2)}`}
+                    {`$${formatNumeric(r.price!, true)}`}
                   </td>
                 ) : (
                   <td key={h} className="border px-3 py-2">
-                    {String(r.comboMap[h] ?? '-')}
+                    {typeof r.comboMap[h] === 'number'
+                      ? formatNumeric(r.comboMap[h] as number)
+                      : String(r.comboMap[h] ?? '-')}
                   </td>
                 )
               )}
