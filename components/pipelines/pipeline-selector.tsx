@@ -72,9 +72,13 @@ export function PipelineSelector({
 
   const handleSavePipeline = async (name: string) => {
     try {
+      const mergedFilters = {
+        ...currentFilters,
+        ...(currentSettings?.universal_filters ?? {}),
+      };
       const newPipeline = await createPipeline({
         name,
-        filters: currentFilters,
+        filters: mergedFilters,
         adjusters: currentAdjusters,
         settings: currentSettings,
       });
