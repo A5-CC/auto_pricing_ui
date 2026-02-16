@@ -1,20 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
 } from "@/components/ui/select";
-import { SavePipelineDialog } from "./save-pipeline-dialog";
-import { DeletePipelineDialog } from "./delete-pipeline-dialog";
-import { listPipelines, createPipeline, deletePipeline } from "@/lib/api/client/pipelines";
-import type { Pipeline, PipelineFilters, PipelineSettings } from "@/lib/api/types";
 import type { Adjuster } from "@/lib/adjusters";
+import { createPipeline, deletePipeline, listPipelines } from "@/lib/api/client/pipelines";
+import type { Pipeline, PipelineFilters, PipelineSettings } from "@/lib/api/types";
 import { Save, Trash2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { DeletePipelineDialog } from "./delete-pipeline-dialog";
+import { SavePipelineDialog } from "./save-pipeline-dialog";
 
 interface PipelineSelectorProps {
   currentFilters: PipelineFilters;
