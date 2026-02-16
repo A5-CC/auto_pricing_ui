@@ -136,6 +136,16 @@ export interface PipelineFilters {
   locations: string[]
   dimensions: string[]
   unit_categories: string[]
+  [key: string]: string[]
+}
+
+export interface PipelineRoundingSettings {
+  enabled: boolean
+  offset: number
+}
+
+export interface PipelineSettings {
+  rounding?: PipelineRoundingSettings
 }
 
 /**
@@ -149,6 +159,7 @@ export interface Pipeline {
   updated_at: string
   filters: PipelineFilters
   adjusters: Adjuster[]  // E2 price adjusters (sequential pipeline)
+  settings?: PipelineSettings
 }
 
 /**
@@ -158,6 +169,7 @@ export interface CreatePipelineRequest {
   name: string
   filters: PipelineFilters
   adjusters?: Adjuster[]  // Optional, can be added later
+  settings?: PipelineSettings
 }
 
 /**
@@ -167,4 +179,5 @@ export interface UpdatePipelineRequest {
   name: string
   filters: PipelineFilters
   adjusters?: Adjuster[]  // Optional, can be updated independently
+  settings?: PipelineSettings
 }

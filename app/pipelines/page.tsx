@@ -152,20 +152,20 @@ export default function PipelinesPage() {
   /* ---------------- Pipeline load/save handlers ---------------- */
   const handleLoadPipeline = (filters: PipelineFiltersType) => {
     // Start-over behavior: treat pipeline filters as universal (pricing-style) column filters.
-    // This keeps filtering aligned with the pricing dataset columns.
-    const nextUniversal: Record<string, string[]> = { ...universalFilters }
-    if (Array.isArray(filters.competitors) && filters.competitors.length > 0) {
-      nextUniversal['competitor_name'] = filters.competitors
+    const nextUniversal: Record<string, string[]> = {}
+    const legacyToColumn: Record<string, string> = {
+      competitors: 'competitor_name',
+      locations: 'modstorage_location',
+      dimensions: 'unit_dimensions',
+      unit_categories: 'unit_category',
     }
-    if (Array.isArray(filters.locations) && filters.locations.length > 0) {
-      nextUniversal['modstorage_location'] = filters.locations
+
+    for (const [key, vals] of Object.entries(filters || {})) {
+      if (!Array.isArray(vals) || vals.length === 0) continue
+      const resolvedKey = legacyToColumn[key] ?? key
+      nextUniversal[resolvedKey] = vals
     }
-    if (Array.isArray(filters.dimensions) && filters.dimensions.length > 0) {
-      nextUniversal['unit_dimensions'] = filters.dimensions
-    }
-    if (Array.isArray(filters.unit_categories) && filters.unit_categories.length > 0) {
-      nextUniversal['unit_category'] = filters.unit_categories
-    }
+
     setUniversalFilters(nextUniversal)
 
     // Clear legacy filter state so it cannot create accidental combinatoric combinations.
@@ -177,6 +177,10 @@ export default function PipelinesPage() {
 
   const handlePipelineChange = (pipeline: Pipeline | null) => {
     setLocalAdjusters(pipeline?.adjusters || []);
+    if (pipeline?.settings?.rounding) {
+      setRoundingEnabled(Boolean(pipeline.settings.rounding.enabled))
+      setRoundingOffset(Number(pipeline.settings.rounding.offset ?? 0))
+    }
   };
 
   /* ---------------- Adjuster actions ---------------- */
@@ -400,6 +404,32 @@ export default function PipelinesPage() {
     setRoundingOffset(next)
   }
 
+  const saveFilters = useMemo<PipelineFiltersType>(() => {
+    const legacyFromUniversal: Record<string, string[]> = {}
+    const columnToLegacy: Record<string, string> = {
+      competitor_name: 'competitors',
+      modstorage_location: 'locations',
+      unit_dimensions: 'dimensions',
+      unit_category: 'unit_categories',
+    }
+
+    for (const [key, vals] of Object.entries(universalFilters)) {
+      if (!Array.isArray(vals) || vals.length === 0) continue
+      const legacyKey = columnToLegacy[key]
+      if (legacyKey) {
+        legacyFromUniversal[legacyKey] = vals
+      }
+    }
+
+    return {
+      competitors: legacyFromUniversal.competitors || [],
+      locations: legacyFromUniversal.locations || [],
+      dimensions: legacyFromUniversal.dimensions || [],
+      unit_categories: legacyFromUniversal.unit_categories || [],
+      ...universalFilters,
+    }
+  }, [universalFilters])
+
   /* ---------------- Render ---------------- */
   return (
     <main className="mx-auto max-w-7xl p-6 space-y-5">
@@ -434,12 +464,15 @@ export default function PipelinesPage() {
             />
             <PipelineSelector
               currentFilters={{
-                competitors: selectedCompetitors,
-                locations: selectedLocations,
-                dimensions: selectedDimensions,
-                unit_categories: selectedUnitCategories,
+                ...saveFilters,
               }}
               currentAdjusters={localAdjusters}
+              currentSettings={{
+                rounding: {
+                  enabled: roundingEnabled,
+                  offset: roundingOffset,
+                },
+              }}
               onLoadPipeline={handleLoadPipeline}
               onPipelineChange={handlePipelineChange}
             />
