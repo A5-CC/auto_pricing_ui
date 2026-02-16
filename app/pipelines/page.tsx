@@ -517,7 +517,7 @@ export default function PipelinesPage() {
                 className="h-8 w-[120px] pl-5"
               />
             </div>
-            <span className="text-xs text-muted-foreground">(-$0.50 to $1.00)</span>
+            <span className="text-xs text-muted-foreground">(-$1.00 to $1.00)</span>
           </div>
         </div>
 

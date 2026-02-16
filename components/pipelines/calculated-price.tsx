@@ -48,8 +48,8 @@ export function CalculatedPrice({
 
   const normalizeRoundingOffset = (value: number) => {
     if (!Number.isFinite(value)) return 0
-    const clamped = Math.min(1, Math.max(-0.5, value))
-    return clamped > 0.5 ? 1 : clamped
+    const clamped = Math.min(1, Math.max(-1, value))
+    return clamped
   }
 
   const applyRounding = (value: number) => {
