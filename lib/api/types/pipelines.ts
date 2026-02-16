@@ -146,6 +146,8 @@ export interface PipelineRoundingSettings {
 
 export interface PipelineSettings {
   rounding?: PipelineRoundingSettings
+  universal_filters?: Record<string, string[]>
+  combinatoric_flags?: Record<string, boolean>
 }
 
 /**

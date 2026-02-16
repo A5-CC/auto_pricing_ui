@@ -177,6 +177,12 @@ export default function PipelinesPage() {
 
   const handlePipelineChange = (pipeline: Pipeline | null) => {
     setLocalAdjusters(pipeline?.adjusters || []);
+    if (pipeline?.settings?.universal_filters) {
+      setUniversalFilters(pipeline.settings.universal_filters)
+    }
+    if (pipeline?.settings?.combinatoric_flags) {
+      setUniversalCombinatoric(pipeline.settings.combinatoric_flags)
+    }
     if (pipeline?.settings?.rounding) {
       setRoundingEnabled(Boolean(pipeline.settings.rounding.enabled))
       setRoundingOffset(Number(pipeline.settings.rounding.offset ?? 0))
@@ -472,6 +478,8 @@ export default function PipelinesPage() {
                   enabled: roundingEnabled,
                   offset: roundingOffset,
                 },
+                universal_filters: universalFilters,
+                combinatoric_flags: universalCombinatoric,
               }}
               onLoadPipeline={handleLoadPipeline}
               onPipelineChange={handlePipelineChange}
