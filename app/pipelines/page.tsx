@@ -46,6 +46,7 @@ export default function PipelinesPage() {
   const [localAdjusters, setLocalAdjusters] = useState<Adjuster[]>([]);
   const [roundingEnabled, setRoundingEnabled] = useState(false);
   const [roundingOffset, setRoundingOffset] = useState(0);
+  const [roundingOffsetInput, setRoundingOffsetInput] = useState("0");
   
   // dialogs
   const competitiveDialog = useAdjusterDialog();
@@ -370,6 +371,10 @@ export default function PipelinesPage() {
     setIsDev(process.env.NODE_ENV === 'development')
   }, [])
 
+  useEffect(() => {
+    setRoundingOffsetInput(String(roundingOffset))
+  }, [roundingOffset])
+
   // Small dev debug: counts and sample rows to help diagnose missing competitor data
   const devDebug = useMemo(() => {
     try {
@@ -385,11 +390,13 @@ export default function PipelinesPage() {
   }, [dataResponse, clientDataResponse])
 
   const handleRoundingOffsetChange = (value: string) => {
-    const next = Number(value)
-    if (Number.isNaN(next)) {
-      setRoundingOffset(0)
+    setRoundingOffsetInput(value)
+    const sanitized = value.replace(/[^0-9.-]/g, "")
+    if (sanitized === "" || sanitized === "-" || sanitized === "." || sanitized === "-.") {
       return
     }
+    const next = Number(sanitized)
+    if (Number.isNaN(next)) return
     setRoundingOffset(next)
   }
 
@@ -497,18 +504,20 @@ export default function PipelinesPage() {
             <label htmlFor="rounding-offset" className="text-xs text-muted-foreground">
               Round to
             </label>
-            <Input
-              id="rounding-offset"
-              type="number"
-              inputMode="decimal"
-              min={-0.5}
-              max={1}
-              step={0.01}
-              value={roundingOffset}
-              onChange={(e) => handleRoundingOffsetChange(e.target.value)}
-              className="h-8 w-[120px]"
-            />
-            <span className="text-xs text-muted-foreground">(-0.5 to 1.0)</span>
+            <div className="relative">
+              <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                $
+              </span>
+              <Input
+                id="rounding-offset"
+                type="text"
+                inputMode="decimal"
+                value={roundingOffsetInput}
+                onChange={(e) => handleRoundingOffsetChange(e.target.value)}
+                className="h-8 w-[120px] pl-5"
+              />
+            </div>
+            <span className="text-xs text-muted-foreground">(-$0.50 to $1.00)</span>
           </div>
         </div>
 
