@@ -15,7 +15,7 @@ interface LocationEntry {
   city: string
   state: string
   zip: string
-  radiusMiles: number | null
+  radiusMeters: number | null
   radiusInput: string
 }
 
@@ -46,8 +46,8 @@ export default function LocationsPage() {
           city: loc.city ?? "",
           state: loc.state ?? "",
           zip: loc.zip ?? "",
-          radiusMiles: loc.radius_miles ?? null,
-          radiusInput: loc.radius_miles ? String(loc.radius_miles) : "",
+          radiusMeters: loc.radius_meters ?? null,
+          radiusInput: loc.radius_meters ? String(loc.radius_meters) : "",
         }))
         setLocations(next)
       } catch {
@@ -83,7 +83,7 @@ export default function LocationsPage() {
       city,
       state,
       zip,
-      radiusMiles: null,
+      radiusMeters: null,
       radiusInput: "",
     }
     setLocations((prev) => [entry, ...prev])
@@ -111,9 +111,9 @@ export default function LocationsPage() {
         const sanitized = loc.radiusInput.replace(/[^0-9.]/g, "")
         const next = Number(sanitized)
         if (!sanitized || Number.isNaN(next) || next <= 0) {
-          return { ...loc, radiusMiles: null }
+          return { ...loc, radiusMeters: null }
         }
-        return { ...loc, radiusMiles: next }
+        return { ...loc, radiusMeters: next }
       })
     )
   }
@@ -130,7 +130,7 @@ export default function LocationsPage() {
           city: loc.city,
           state: loc.state,
           zip: loc.zip,
-          radius_miles: loc.radiusMiles,
+          radius_meters: loc.radiusMeters,
         }))
       )
       setSaveMessage("Saved to backend.")
@@ -243,7 +243,7 @@ export default function LocationsPage() {
               <tr>
                 <th className="px-4 py-2">Name</th>
                 <th className="px-4 py-2">Address</th>
-                <th className="px-4 py-2">Radius (miles)</th>
+                <th className="px-4 py-2">Radius (meters)</th>
                 <th className="px-4 py-2">Actions</th>
               </tr>
             </thead>
@@ -261,7 +261,7 @@ export default function LocationsPage() {
                           {loc.city}, {loc.state} {loc.zip}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          {loc.radiusMiles ? `${loc.radiusMiles} mi radius set` : "Radius not set"}
+                          {loc.radiusMeters ? `${loc.radiusMeters} m radius set` : "Radius not set"}
                         </div>
                       </td>
                       <td className="px-4 py-3">

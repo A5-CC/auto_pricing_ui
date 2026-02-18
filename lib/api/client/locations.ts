@@ -6,7 +6,7 @@ export interface LocationPayload {
   city: string
   state: string
   zip: string
-  radius_miles: number | null
+  radius_meters: number | null
 }
 
 export async function saveLocations(locations: LocationPayload[]): Promise<{ success: boolean }> {
