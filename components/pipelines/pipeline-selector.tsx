@@ -103,10 +103,13 @@ export function PipelineSelector({
 
   const handleSavePipeline = async (name: string) => {
     try {
-      const mergedFilters = {
+      const rawFilters = {
         ...currentFilters,
         ...(currentSettings?.universal_filters ?? {}),
       };
+      const mergedFilters = Object.fromEntries(
+        Object.entries(rawFilters).filter(([, value]) => Array.isArray(value) && value.length > 0)
+      ) as Record<string, string[]>;
       const newPipeline = await createPipeline({
         name,
         filters: mergedFilters,
