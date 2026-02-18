@@ -6,32 +6,60 @@ import { Input } from "@/components/ui/input"
 import { useContextChips } from "@/hooks/useContextChips"
 import { ExternalLink, MapPin, Plus, Trash2 } from "lucide-react"
 import { useMemo, useState } from "react"
+import { saveLocations } from "@/lib/api/client/locations"
 
 interface LocationEntry {
   id: string
+  name: string
   address: string
+  city: string
+  state: string
+  zip: string
   radiusMiles: number | null
   radiusInput: string
 }
 
 export default function LocationsPage() {
   const { createChips } = useContextChips()
+  const [nameInput, setNameInput] = useState("")
   const [addressInput, setAddressInput] = useState("")
+  const [cityInput, setCityInput] = useState("")
+  const [stateInput, setStateInput] = useState("")
+  const [zipInput, setZipInput] = useState("")
   const [locations, setLocations] = useState<LocationEntry[]>([])
+  const [saving, setSaving] = useState(false)
+  const [saveMessage, setSaveMessage] = useState<string | null>(null)
 
-  const canAdd = addressInput.trim().length > 0
+  const canAdd =
+    nameInput.trim().length > 0 &&
+    addressInput.trim().length > 0 &&
+    cityInput.trim().length > 0 &&
+    stateInput.trim().length > 0 &&
+    zipInput.trim().length > 0
 
   const addLocation = () => {
+    const name = nameInput.trim()
     const address = addressInput.trim()
-    if (!address) return
+    const city = cityInput.trim()
+    const state = stateInput.trim()
+    const zip = zipInput.trim()
+    if (!name || !address || !city || !state || !zip) return
     const entry: LocationEntry = {
       id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      name,
       address,
+      city,
+      state,
+      zip,
       radiusMiles: null,
       radiusInput: "",
     }
     setLocations((prev) => [entry, ...prev])
+    setNameInput("")
     setAddressInput("")
+    setCityInput("")
+    setStateInput("")
+    setZipInput("")
   }
 
   const removeLocation = (id: string) => {
@@ -58,6 +86,29 @@ export default function LocationsPage() {
     )
   }
 
+  const handleSave = async () => {
+    if (!locations.length) return
+    try {
+      setSaving(true)
+      setSaveMessage(null)
+      await saveLocations(
+        locations.map((loc) => ({
+          name: loc.name,
+          address: loc.address,
+          city: loc.city,
+          state: loc.state,
+          zip: loc.zip,
+          radius_miles: loc.radiusMiles,
+        }))
+      )
+      setSaveMessage("Saved to backend.")
+    } catch {
+      setSaveMessage("Failed to save locations.")
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const locationRows = useMemo(() => locations, [locations])
 
   return (
@@ -77,6 +128,14 @@ export default function LocationsPage() {
 
       <section className="rounded-lg border p-4 space-y-4">
         <div className="flex flex-wrap items-end gap-3">
+          <div className="min-w-[220px]">
+            <label className="text-xs text-muted-foreground">Location name</label>
+            <Input
+              placeholder="modSTORAGE Airport Way"
+              value={nameInput}
+              onChange={(e) => setNameInput(e.target.value)}
+            />
+          </div>
           <div className="min-w-[260px] flex-1">
             <label className="text-xs text-muted-foreground">Location address</label>
             <Input
@@ -91,6 +150,30 @@ export default function LocationsPage() {
               }}
             />
           </div>
+          <div className="min-w-[160px]">
+            <label className="text-xs text-muted-foreground">City</label>
+            <Input
+              placeholder="Monterey"
+              value={cityInput}
+              onChange={(e) => setCityInput(e.target.value)}
+            />
+          </div>
+          <div className="min-w-[120px]">
+            <label className="text-xs text-muted-foreground">State</label>
+            <Input
+              placeholder="CA"
+              value={stateInput}
+              onChange={(e) => setStateInput(e.target.value)}
+            />
+          </div>
+          <div className="min-w-[140px]">
+            <label className="text-xs text-muted-foreground">ZIP</label>
+            <Input
+              placeholder="93940"
+              value={zipInput}
+              onChange={(e) => setZipInput(e.target.value)}
+            />
+          </div>
           <Button onClick={addLocation} disabled={!canAdd} className="gap-1.5">
             <Plus className="h-4 w-4" aria-hidden />
             Add location
@@ -100,7 +183,13 @@ export default function LocationsPage() {
               Clear all
             </Button>
           )}
+          <Button variant="default" onClick={handleSave} disabled={!locations.length || saving}>
+            {saving ? "Saving..." : "Save locations"}
+          </Button>
         </div>
+        {saveMessage && (
+          <div className="text-xs text-muted-foreground">{saveMessage}</div>
+        )}
         <div className="text-xs text-muted-foreground">
           Tip: paste a full address for the best Google Maps match.
         </div>
@@ -116,6 +205,7 @@ export default function LocationsPage() {
           <table className="w-full text-sm">
             <thead className="bg-muted/40 text-left">
               <tr>
+                <th className="px-4 py-2">Name</th>
                 <th className="px-4 py-2">Address</th>
                 <th className="px-4 py-2">Maps lookup</th>
                 <th className="px-4 py-2">Radius (miles)</th>
@@ -128,6 +218,12 @@ export default function LocationsPage() {
                   const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc.address)}`
                   return (
                     <tr key={loc.id} className="border-t">
+                      <td className="px-4 py-3">
+                        <div className="font-medium">{loc.name}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {loc.city}, {loc.state} {loc.zip}
+                        </div>
+                      </td>
                       <td className="px-4 py-3">
                         <div className="font-medium">{loc.address}</div>
                         <div className="text-xs text-muted-foreground">
@@ -171,7 +267,7 @@ export default function LocationsPage() {
                 })
               ) : (
                 <tr>
-                  <td className="px-4 py-6 text-center text-muted-foreground" colSpan={4}>
+                  <td className="px-4 py-6 text-center text-muted-foreground" colSpan={5}>
                     Add a location to start mapping.
                   </td>
                 </tr>
