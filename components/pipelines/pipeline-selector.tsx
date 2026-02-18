@@ -12,7 +12,7 @@ import type { Adjuster } from "@/lib/adjusters";
 import { createPipeline, deletePipeline, listPipelines } from "@/lib/api/client/pipelines";
 import type { Pipeline, PipelineFilters, PipelineSettings } from "@/lib/api/types";
 import { Save, Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { DeletePipelineDialog } from "./delete-pipeline-dialog";
 import { SavePipelineDialog } from "./save-pipeline-dialog";
 
@@ -37,7 +37,7 @@ export function PipelineSelector({
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
-  const readLocalExtras = () => {
+  const readLocalExtras = useCallback(() => {
     if (typeof window === "undefined") return {} as Record<string, { filters: Record<string, string[]>; settings?: PipelineSettings }>;
     try {
       const raw = window.localStorage.getItem(LOCAL_STORAGE_KEY);
@@ -46,18 +46,18 @@ export function PipelineSelector({
     } catch {
       return {} as Record<string, { filters: Record<string, string[]>; settings?: PipelineSettings }>;
     }
-  };
+  }, []);
 
-  const writeLocalExtras = (extras: Record<string, { filters: Record<string, string[]>; settings?: PipelineSettings }>) => {
+  const writeLocalExtras = useCallback((extras: Record<string, { filters: Record<string, string[]>; settings?: PipelineSettings }>) => {
     if (typeof window === "undefined") return;
     try {
       window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(extras));
     } catch {
       // ignore
     }
-  };
+  }, []);
 
-  const loadPipelines = async () => {
+  const loadPipelines = useCallback(async () => {
     try {
       const data = await listPipelines();
       const extras = readLocalExtras();
@@ -74,11 +74,11 @@ export function PipelineSelector({
     } catch (error) {
       console.error("Failed to load pipelines:", error);
     }
-  };
+  }, [readLocalExtras]);
 
   useEffect(() => {
     loadPipelines();
-  }, []);
+  }, [loadPipelines]);
 
   const handleSelectPipeline = (pipelineId: string) => {
     if (pipelineId === "none") {
@@ -109,7 +109,7 @@ export function PipelineSelector({
       };
       const mergedFilters = Object.fromEntries(
         Object.entries(rawFilters).filter(([, value]) => Array.isArray(value) && value.length > 0)
-      ) as Record<string, string[]>;
+      ) as PipelineFilters;
       const newPipeline = await createPipeline({
         name,
         filters: mergedFilters,
