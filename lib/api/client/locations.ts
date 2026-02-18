@@ -17,3 +17,8 @@ export async function saveLocations(locations: LocationPayload[]): Promise<{ suc
   })
   return response.json()
 }
+
+export async function getLocations(): Promise<{ locations: LocationPayload[] } | LocationPayload[]> {
+  const response = await fetchWithError(`${API_BASE_URL}/get-locations`)
+  return response.json()
+}

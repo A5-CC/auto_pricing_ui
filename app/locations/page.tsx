@@ -4,9 +4,9 @@ import { ContextChips } from "@/components/context-chips"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useContextChips } from "@/hooks/useContextChips"
-import { saveLocations } from "@/lib/api/client/locations"
+import { getLocations, saveLocations } from "@/lib/api/client/locations"
 import { ExternalLink, MapPin, Plus, Trash2 } from "lucide-react"
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 
 interface LocationEntry {
   id: string
@@ -29,6 +29,38 @@ export default function LocationsPage() {
   const [locations, setLocations] = useState<LocationEntry[]>([])
   const [saving, setSaving] = useState(false)
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let active = true
+    const load = async () => {
+      try {
+        setLoading(true)
+        const data = await getLocations()
+        if (!active) return
+        const items = Array.isArray(data) ? data : data.locations
+        const next = (items || []).map((loc) => ({
+          id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+          name: loc.name ?? "",
+          address: loc.address ?? "",
+          city: loc.city ?? "",
+          state: loc.state ?? "",
+          zip: loc.zip ?? "",
+          radiusMiles: loc.radius_miles ?? null,
+          radiusInput: loc.radius_miles ? String(loc.radius_miles) : "",
+        }))
+        setLocations(next)
+      } catch {
+        setSaveMessage("Failed to load locations.")
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+    load()
+    return () => {
+      active = false
+    }
+  }, [])
 
   const canAdd =
     nameInput.trim().length > 0 &&
@@ -198,7 +230,11 @@ export default function LocationsPage() {
       <section className="space-y-3">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <MapPin className="h-4 w-4" aria-hidden />
-          {locationRows.length ? `${locationRows.length} saved location${locationRows.length === 1 ? "" : "s"}` : "No locations yet"}
+          {loading
+            ? "Loading locations..."
+            : locationRows.length
+              ? `${locationRows.length} saved location${locationRows.length === 1 ? "" : "s"}`
+              : "No locations yet"}
         </div>
 
         <div className="overflow-x-auto rounded-lg border">
