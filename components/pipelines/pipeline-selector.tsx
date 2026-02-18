@@ -31,15 +31,46 @@ export function PipelineSelector({
   onLoadPipeline,
   onPipelineChange,
 }: PipelineSelectorProps) {
+  const LOCAL_STORAGE_KEY = "auto_pricing_pipeline_extras";
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [selectedPipelineId, setSelectedPipelineId] = useState<string | null>(null);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
+  const readLocalExtras = () => {
+    if (typeof window === "undefined") return {} as Record<string, { filters: Record<string, string[]>; settings?: PipelineSettings }>;
+    try {
+      const raw = window.localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (!raw) return {};
+      return JSON.parse(raw) as Record<string, { filters: Record<string, string[]>; settings?: PipelineSettings }>;
+    } catch {
+      return {} as Record<string, { filters: Record<string, string[]>; settings?: PipelineSettings }>;
+    }
+  };
+
+  const writeLocalExtras = (extras: Record<string, { filters: Record<string, string[]>; settings?: PipelineSettings }>) => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(extras));
+    } catch {
+      // ignore
+    }
+  };
+
   const loadPipelines = async () => {
     try {
       const data = await listPipelines();
-      setPipelines(data);
+      const extras = readLocalExtras();
+      const merged = data.map((pipeline) => {
+        const extra = extras[pipeline.id];
+        if (!extra) return pipeline;
+        return {
+          ...pipeline,
+          filters: { ...pipeline.filters, ...extra.filters },
+          settings: { ...pipeline.settings, ...extra.settings },
+        } as Pipeline;
+      });
+      setPipelines(merged);
     } catch (error) {
       console.error("Failed to load pipelines:", error);
     }
@@ -82,6 +113,9 @@ export function PipelineSelector({
         adjusters: currentAdjusters,
         settings: currentSettings,
       });
+      const extras = readLocalExtras();
+      extras[newPipeline.id] = { filters: mergedFilters, settings: currentSettings };
+      writeLocalExtras(extras);
       setPipelines((prev) => [newPipeline, ...prev]);
       setSelectedPipelineId(newPipeline.id);
     } catch (error) {
@@ -93,6 +127,11 @@ export function PipelineSelector({
   const handleDeletePipeline = async () => {
     if (!selectedPipelineId) return;
     await deletePipeline(selectedPipelineId);
+    const extras = readLocalExtras();
+    if (extras[selectedPipelineId]) {
+      delete extras[selectedPipelineId];
+      writeLocalExtras(extras);
+    }
     setPipelines((prev) => prev.filter((p) => p.id !== selectedPipelineId));
     setSelectedPipelineId(null);
     onLoadPipeline({
