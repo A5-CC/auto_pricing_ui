@@ -133,7 +133,10 @@ export default function LocationsPage() {
           radius_meters: loc.radiusMeters,
         }))
       )
-      setSaveMessage("Saved to backend.")
+      setSaveMessage("Saved")
+      window.setTimeout(() => {
+        setSaveMessage(null)
+      }, 2000)
     } catch {
       setSaveMessage("Failed to save locations.")
     } finally {
@@ -222,9 +225,6 @@ export default function LocationsPage() {
         {saveMessage && (
           <div className="text-xs text-muted-foreground">{saveMessage}</div>
         )}
-        <div className="text-xs text-muted-foreground">
-          Tip: paste a full address for the best Google Maps match.
-        </div>
       </section>
 
       <section className="space-y-3">
