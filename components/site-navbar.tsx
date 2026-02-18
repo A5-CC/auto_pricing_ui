@@ -1,10 +1,10 @@
 "use client";
 
-import Link from "next/link";
-import { BarChart3, Table, SlidersHorizontal } from "lucide-react";
-import { usePathname } from "next/navigation";
-import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/AuthContext"; // ✅ import your auth hook
+import { Button } from "@/components/ui/button";
+import { BarChart3, SlidersHorizontal, Table } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 
 export function SiteNavbar() {

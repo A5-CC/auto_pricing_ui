@@ -1,11 +1,11 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { ContextChips } from "@/components/context-chips"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { ContextChips } from "@/components/context-chips"
 import { useContextChips } from "@/hooks/useContextChips"
 import { ExternalLink, MapPin, Plus, Trash2 } from "lucide-react"
+import { useMemo, useState } from "react"
 
 interface LocationEntry {
   id: string
