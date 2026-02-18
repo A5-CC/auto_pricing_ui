@@ -4,9 +4,9 @@ import { ContextChips } from "@/components/context-chips"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useContextChips } from "@/hooks/useContextChips"
+import { saveLocations } from "@/lib/api/client/locations"
 import { ExternalLink, MapPin, Plus, Trash2 } from "lucide-react"
 import { useMemo, useState } from "react"
-import { saveLocations } from "@/lib/api/client/locations"
 
 interface LocationEntry {
   id: string
