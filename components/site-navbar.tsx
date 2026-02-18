@@ -52,6 +52,10 @@ export function SiteNavbar() {
           </Button>
 
           {/* Other nav links */}
+          <Link href="/locations" className={linkCls("/locations")}>
+            Locations
+          </Link>
+
           <Link href="/url-dumps" className={linkCls("/url-dumps")}>
             URL Discovery
           </Link>
