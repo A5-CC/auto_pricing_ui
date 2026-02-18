@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useContextChips } from "@/hooks/useContextChips"
 import { getLocations, saveLocations } from "@/lib/api/client/locations"
-import { ExternalLink, MapPin, Plus, Trash2 } from "lucide-react"
+import { MapPin, Plus, Trash2 } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 
 interface LocationEntry {
@@ -243,7 +243,6 @@ export default function LocationsPage() {
               <tr>
                 <th className="px-4 py-2">Name</th>
                 <th className="px-4 py-2">Address</th>
-                <th className="px-4 py-2">Maps lookup</th>
                 <th className="px-4 py-2">Radius (miles)</th>
                 <th className="px-4 py-2">Actions</th>
               </tr>
@@ -251,28 +250,19 @@ export default function LocationsPage() {
             <tbody>
               {locationRows.length ? (
                 locationRows.map((loc) => {
-                  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc.address)}`
                   return (
                     <tr key={loc.id} className="border-t">
                       <td className="px-4 py-3">
                         <div className="font-medium">{loc.name}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {loc.city}, {loc.state} {loc.zip}
-                        </div>
                       </td>
                       <td className="px-4 py-3">
                         <div className="font-medium">{loc.address}</div>
                         <div className="text-xs text-muted-foreground">
+                          {loc.city}, {loc.state} {loc.zip}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
                           {loc.radiusMiles ? `${loc.radiusMiles} mi radius set` : "Radius not set"}
                         </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <Button asChild variant="outline" size="sm" className="gap-1.5">
-                          <a href={mapsUrl} target="_blank" rel="noreferrer">
-                            <ExternalLink className="h-4 w-4" aria-hidden />
-                            Open maps
-                          </a>
-                        </Button>
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
@@ -303,7 +293,7 @@ export default function LocationsPage() {
                 })
               ) : (
                 <tr>
-                  <td className="px-4 py-6 text-center text-muted-foreground" colSpan={5}>
+                  <td className="px-4 py-6 text-center text-muted-foreground" colSpan={4}>
                     Add a location to start mapping.
                   </td>
                 </tr>
