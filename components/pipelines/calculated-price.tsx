@@ -48,14 +48,14 @@ export function CalculatedPrice({
 
   const normalizeRoundingOffset = (value: number) => {
     if (!Number.isFinite(value)) return 0
-    const clamped = Math.min(1, Math.max(-1, value))
+    const clamped = Math.min(1, Math.max(0, value))
     return clamped
   }
 
   const applyRounding = (value: number) => {
     if (!roundingEnabled || !Number.isFinite(value)) return value
-    const base = Math.floor(value)
     const offset = normalizeRoundingOffset(roundingOffset)
+    const base = Math.round(value - offset)
     const next = base + offset
     return Object.is(next, -0) ? 0 : next
   }

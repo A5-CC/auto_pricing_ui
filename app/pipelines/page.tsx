@@ -401,13 +401,14 @@ export default function PipelinesPage() {
 
   const handleRoundingOffsetChange = (value: string) => {
     setRoundingOffsetInput(value)
-    const sanitized = value.replace(/[^0-9.-]/g, "")
-    if (sanitized === "" || sanitized === "-" || sanitized === "." || sanitized === "-.") {
+    const sanitized = value.replace(/[^0-9.]/g, "")
+    if (sanitized === "" || sanitized === ".") {
       return
     }
     const next = Number(sanitized)
     if (Number.isNaN(next)) return
-    setRoundingOffset(next)
+    const clamped = Math.min(1, Math.max(0, next))
+    setRoundingOffset(clamped)
   }
 
   const saveFilters = useMemo<PipelineFiltersType>(() => {
@@ -558,7 +559,7 @@ export default function PipelinesPage() {
                 className="h-8 w-[120px] pl-5"
               />
             </div>
-            <span className="text-xs text-muted-foreground">(-$1.00 to $1.00)</span>
+            <span className="text-xs text-muted-foreground">($0.00 to $1.00)</span>
           </div>
         </div>
 
