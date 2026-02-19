@@ -12,9 +12,10 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Loader2, FileSpreadsheet } from "lucide-react"
+import { Loader2, FileSpreadsheet, Info } from "lucide-react"
 import { processClientCSV } from "@/lib/api/client/pricing"
 import type { Adjuster } from '@/lib/adjusters'
 import { toast } from "sonner"
@@ -42,15 +43,15 @@ export function ProcessCsvButton({ snapshotId, filters, adjusters, combinatoric 
   // Validate allowed filters
   // Strictly Allowed:
   // - unit_dimensions: "Unit Dimensions"
-  // - facility_location_city: "Facility Location City"
+  // - modstorage_location: "Facility Location"
   // - competitor_name: "Competitor Name"
   // All other filters must be empty.
   
-  const allowedKeys = new Set(["unit_dimensions", "facility_location_city", "competitor_name"]);
+  const allowedKeys = new Set(["unit_dimensions", "modstorage_location", "competitor_name"]);
   
   // NOTE: 'competitors', 'locations', 'unitCategories' are standard legacy keys.
   // 'locations' is legacy modstorage_location.
-  // 'facility_location_city' is expected to be passed if used.
+  // 'modstorage_location' is expected to be passed if used.
   
   const hasInvalidFilters = Object.entries(filters).some(([key, values]) => {
       // If values is empty, it's fine (filter not active)
@@ -81,26 +82,27 @@ export function ProcessCsvButton({ snapshotId, filters, adjusters, combinatoric 
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button 
-          variant="outline" 
-          size="sm"
-          disabled={hasInvalidFilters}
-          title={hasInvalidFilters ? "Only Location and Dimension filters are supported for CSV processing" : "Process Client CSV"}
-        >
-          <FileSpreadsheet className="mr-2 h-4 w-4" />
-          Process CSV
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
+    <div className="flex items-center gap-2">
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogTrigger asChild>
+          <Button 
+            variant="outline" 
+            size="sm"
+            disabled={hasInvalidFilters}
+            title={hasInvalidFilters ? "Only Location and Dimension filters are supported for CSV processing" : "Process Client CSV"}
+          >
+            <FileSpreadsheet className="mr-2 h-4 w-4" />
+            Process CSV
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Process Client CSV</DialogTitle>
           <DialogDescription>
             Upload a client CSV file to update pricing based on current filters.
             <br />
             <span className="text-xs text-muted-foreground mt-2 block">
-              Supported filters: Location, Dimensions.
+              Supported filters: modstorage_location, unit_dimensions.
               <br />
               Ensure columns: &apos;Facility Name&apos;, &apos;Size&apos;, &apos;New Web Rate&apos;.
             </span>
@@ -123,7 +125,26 @@ export function ProcessCsvButton({ snapshotId, filters, adjusters, combinatoric 
             {isProcessing ? "Processing..." : "Process & Download"}
           </Button>
         </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            className="inline-flex items-center justify-center text-muted-foreground hover:text-foreground"
+            aria-label="Process CSV info"
+          >
+            <Info className="h-4 w-4" aria-hidden />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="max-w-xs">
+          <div className="text-xs">
+            Use this for storEDGE client CSVs. Requires combinatoric filters on
+            <strong> modstorage_location</strong> and <strong>unit_dimensions</strong>.
+            Competitors are non-combinatoric. You can include more filters, but they must be non-combinatoric.
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    </div>
   )
 }
