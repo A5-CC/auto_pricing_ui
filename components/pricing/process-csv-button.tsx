@@ -3,13 +3,13 @@
 
 import { Button } from "@/components/ui/button"
 import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -139,9 +139,9 @@ export function ProcessCsvButton({ snapshotId, filters, adjusters, combinatoric 
         </TooltipTrigger>
         <TooltipContent side="bottom" className="max-w-xs">
           <div className="text-xs">
-            Use this for storEDGE client CSVs. Requires combinatoric filters on
+            Use this for storEDGE pricing CSVs. Requires combinatoric filters on
             <strong> modstorage_location</strong> and <strong>unit_dimensions</strong>.
-            Competitors are non-combinatoric. You can include more filters, but they must be non-combinatoric.
+            Additional filters must be non-combinatoric. 
           </div>
         </TooltipContent>
       </Tooltip>
