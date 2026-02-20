@@ -1,13 +1,13 @@
+import type { Adjuster } from '@/lib/adjusters'
 import {
-  PricingSchemas,
-  SchemaStats,
-  PricingSnapshot,
-  PricingDataResponse,
-  FacilityPricingData,
-  ColumnStatistics
+    ColumnStatistics,
+    FacilityPricingData,
+    PricingDataResponse,
+    PricingSchemas,
+    PricingSnapshot,
+    SchemaStats
 } from '@/lib/api/types'
 import { API_BASE_URL, fetchWithError } from './shared'
-import type { Adjuster } from '@/lib/adjusters'
 
 export async function getPricingSchemas(): Promise<PricingSchemas> {
   const response = await fetchWithError(`${API_BASE_URL}/competitors/pricing-schemas`)
