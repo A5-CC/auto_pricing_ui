@@ -31,11 +31,15 @@ interface ProcessCsvButtonProps {
     // Catch-all for other universal filters (e.g. facility_location_city)
     [key: string]: string[] 
   }
-    adjusters?: Adjuster[]
+  adjusters?: Adjuster[]
   combinatoric?: Record<string, boolean>
+  rounding?: {
+    enabled: boolean
+    offset: number
+  }
 }
 
-export function ProcessCsvButton({ snapshotId, filters, adjusters, combinatoric }: ProcessCsvButtonProps) {
+export function ProcessCsvButton({ snapshotId, filters, adjusters, combinatoric, rounding }: ProcessCsvButtonProps) {
   const [open, setOpen] = useState(false)
   const [file, setFile] = useState<File | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
@@ -70,7 +74,7 @@ export function ProcessCsvButton({ snapshotId, filters, adjusters, combinatoric 
 
     setIsProcessing(true)
     try {
-      await processClientCSV(file, snapshotId, filters, adjusters, combinatoric)
+      await processClientCSV(file, snapshotId, filters, adjusters, combinatoric, rounding)
       toast.success("CSV processed and downloaded successfully.")
       setOpen(false)
       setFile(null)

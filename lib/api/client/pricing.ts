@@ -92,7 +92,8 @@ export async function processClientCSV(
   snapshotId: string,
   filters: Record<string, string[]>,
   adjusters?: Adjuster[],
-  combinatoric?: Record<string, boolean>
+  combinatoric?: Record<string, boolean>,
+  rounding?: { enabled: boolean; offset: number }
 ): Promise<void> {
   const formData = new FormData()
   formData.append("file", file)
@@ -103,6 +104,9 @@ export async function processClientCSV(
   }
   if (combinatoric) {
     formData.append("combinatoric", JSON.stringify(combinatoric))
+  }
+  if (rounding) {
+    formData.append("rounding", JSON.stringify(rounding))
   }
 
   const response = await fetch(`${API_BASE_URL}/client-data/process-csv`, {

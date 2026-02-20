@@ -468,6 +468,10 @@ export default function PipelinesPage() {
               }}
               adjusters={localAdjusters}
               combinatoric={universalCombinatoric}
+              rounding={{
+                enabled: roundingEnabled,
+                offset: roundingOffset,
+              }}
             />
             <PipelineSelector
               currentFilters={{
