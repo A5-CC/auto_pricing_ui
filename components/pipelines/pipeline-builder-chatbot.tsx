@@ -572,23 +572,6 @@ export function PipelineBuilderChatbot({
           )}>
             {message.content}
           </div>
-          
-          {/* Suggestions */}
-          {message.suggestions && message.suggestions.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {message.suggestions.map((suggestion, i) => (
-                <Button
-                  key={i}
-                  variant="outline"
-                  size="sm"
-                  className="text-xs h-7 bg-white hover:bg-blue-50 hover:border-blue-300"
-                  onClick={() => handleSuggestionClick(suggestion)}
-                >
-                  {suggestion}
-                </Button>
-              ))}
-            </div>
-          )}
         </div>
         
         {isUser && (
