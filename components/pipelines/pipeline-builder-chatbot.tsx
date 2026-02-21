@@ -5,45 +5,45 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import {
-    getE1DataSummary,
-    listPipelines,
-    loadPipelineIntoSession,
-    saveAgentPipeline,
-    sendAgentMessage,
-    type AgentChatResponse,
-    type ConversationPhase,
-    type E1DataSummary,
-    type PipelineAction,
-    type PipelineState,
+  getE1DataSummary,
+  listPipelines,
+  loadPipelineIntoSession,
+  saveAgentPipeline,
+  sendAgentMessage,
+  type AgentChatResponse,
+  type ConversationPhase,
+  type E1DataSummary,
+  type PipelineAction,
+  type PipelineState,
 } from "@/lib/api/client/pipelines";
 import type { Pipeline } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 import {
-    Bot,
-    Check,
-    CheckCircle2,
-    ChevronDown,
-    ChevronUp,
-    Database,
-    Filter,
-    FolderOpen,
-    Loader2,
-    MessageCircle,
-    Pencil,
-    RefreshCw,
-    Save,
-    Send,
-    Settings2,
-    Sparkles,
-    X,
-    Zap,
+  Bot,
+  Check,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  Database,
+  Filter,
+  FolderOpen,
+  Loader2,
+  MessageCircle,
+  Pencil,
+  RefreshCw,
+  Save,
+  Send,
+  Settings2,
+  Sparkles,
+  X,
+  Zap,
 } from "lucide-react";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -376,9 +376,9 @@ export function PipelineBuilderChatbot({
     sendMessage(inputValue);
   };
 
-  const handleSuggestionClick = (suggestion: string) => {
-    sendMessage(suggestion);
-  };
+  // const handleSuggestionClick = (suggestion: string) => {
+  //   sendMessage(suggestion);
+  // };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
