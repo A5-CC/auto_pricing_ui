@@ -3,10 +3,10 @@
 import { useAuth } from "@/components/AuthContext"; // ✅ import your auth hook
 import { Button } from "@/components/ui/button";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { BarChart3, Settings, SlidersHorizontal } from "lucide-react";
 import Link from "next/link";

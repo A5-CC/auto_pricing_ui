@@ -1,10 +1,10 @@
 "use client"
 
-import Link from "next/link"
+import { Footer } from "@/components/analytics/footer-actions"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Activity, Link2, FileText, ArrowRight, ChevronRight, BarChart3, SlidersHorizontal, Settings } from "lucide-react"
-import { Footer } from "@/components/analytics/footer-actions"
+import { Activity, ArrowRight, BarChart3, ChevronRight, FileText, Link2, Settings, SlidersHorizontal } from "lucide-react"
+import Link from "next/link"
 
 export default function Page() {
   return (
