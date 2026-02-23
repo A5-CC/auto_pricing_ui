@@ -1,82 +1,129 @@
 "use client"
 
 import Link from "next/link"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Activity, Link2, FileText, ArrowRight, ChevronRight, BarChart3, SlidersHorizontal } from "lucide-react"
+import { Activity, Link2, FileText, ArrowRight, ChevronRight, BarChart3, SlidersHorizontal, Settings } from "lucide-react"
 import { Footer } from "@/components/analytics/footer-actions"
 
 export default function Page() {
   return (
-    <main className="mx-auto max-w-6xl p-6 space-y-10">
-      <header className="space-y-2">
-        <h1 className="text-3xl font-semibold tracking-tight">Auto Pricing</h1>
-        <p className="text-sm text-muted-foreground">
-          Competitive pricing intelligence for self‑storage. Monitor your pipeline, inspect discovered URLs and raw scrapes, and keep your data flowing.
-        </p>
+    <main className="mx-auto max-w-6xl p-6 space-y-12">
+      <header className="space-y-6">
+        <div className="inline-flex items-center gap-2 rounded-full border bg-muted/40 px-3 py-1 text-xs text-muted-foreground">
+          Competitive pricing intelligence
+        </div>
+        <div className="space-y-3">
+          <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
+            Price with confidence.
+          </h1>
+          <p className="text-base text-muted-foreground max-w-2xl">
+            Monitor competitors, model pricing strategies, and push optimized rates from a single, modern dashboard built for self‑storage operators.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <Button asChild size="sm" className="gap-1.5">
+            <Link href="/pipelines">
+              <SlidersHorizontal className="h-4 w-4" aria-hidden />
+              Pricing Pipelines
+            </Link>
+          </Button>
+          <Button asChild size="sm" variant="outline" className="gap-1.5">
+            <Link href="/pricing">
+              <BarChart3 className="h-4 w-4" aria-hidden />
+              Competitor Pricing
+            </Link>
+          </Button>
+        </div>
       </header>
 
-      <section className="space-y-6">
-        <Link
-          href="/pipelines"
-          aria-label="Open Pricing Pipelines dashboard"
-          className="block group rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-        >
-          <Card className="rounded-xl transition-all duration-200 border bg-card hover:border-foreground/20 hover:bg-muted/40 shadow-sm hover:shadow-md">
-            <CardContent className="p-8">
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="rounded-lg bg-primary/10 p-3 text-primary ring-1 ring-primary/20">
-                    <SlidersHorizontal className="h-8 w-8" />
-                  </div>
-                  <div>
-                    <h2 className="text-2xl font-semibold tracking-tight">Pricing Pipelines</h2>
-                    <p className="text-muted-foreground mt-1">Build dynamic pricing strategies with competitive, function, and temporal adjusters</p>
-                  </div>
-                </div>
+      <section className="grid gap-6 md:grid-cols-2">
+        <Card className="rounded-xl border bg-card/80 shadow-sm">
+          <CardContent className="p-6 space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="rounded-lg bg-primary/10 p-3 text-primary ring-1 ring-primary/20">
+                <SlidersHorizontal className="h-6 w-6" />
               </div>
-              <p className="text-muted-foreground mt-6 leading-relaxed">
-                Design custom pricing pipelines by combining filters and sequential adjusters. Start with competitive pricing, apply function-based modifications, and add temporal rules.
-                Save and load pipeline configurations to test different pricing strategies.
-              </p>
-              <div className="mt-6 inline-flex items-center text-primary font-medium">
-                <span>Open pipelines dashboard</span>
-                <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+              <div>
+                <h2 className="text-xl font-semibold">Pricing Pipelines</h2>
+                <p className="text-sm text-muted-foreground">Design the strategy, iterate fast.</p>
               </div>
-            </CardContent>
-          </Card>
-        </Link>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Combine filters with competitive, function, and temporal adjusters. Compare outcomes instantly and publish new rates with confidence.
+            </p>
+            <Link href="/pipelines" className="inline-flex items-center text-sm font-medium text-primary">
+              Open pipelines
+              <ArrowRight className="ml-1.5 h-4 w-4" aria-hidden="true" />
+            </Link>
+          </CardContent>
+        </Card>
+        <Card className="rounded-xl border bg-card/80 shadow-sm">
+          <CardContent className="p-6 space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="rounded-lg bg-primary/10 p-3 text-primary ring-1 ring-primary/20">
+                <BarChart3 className="h-6 w-6" />
+              </div>
+              <div>
+                <h2 className="text-xl font-semibold">Competitor Pricing</h2>
+                <p className="text-sm text-muted-foreground">Track the market in real time.</p>
+              </div>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Explore normalized competitor pricing data, trends, and snapshots to stay ahead of local market moves.
+            </p>
+            <Link href="/pricing" className="inline-flex items-center text-sm font-medium text-primary">
+              Open pricing
+              <ArrowRight className="ml-1.5 h-4 w-4" aria-hidden="true" />
+            </Link>
+          </CardContent>
+        </Card>
       </section>
 
-      <section className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <FeatureCard
-          icon={<BarChart3 className="h-4 w-4" />}
-          title="Competitor Pricing"
-          description="Explore normalized competitor pricing data with dynamic columns."
-          href="/pricing"
-          cta="Open pricing"
-        />
-        <FeatureCard
-          icon={<Activity className="h-4 w-4" />}
-          title="Scraping runs"
-          description="Track execution status, and trigger new runs on demand."
-          href="/runs"
-          cta="Open runs"
-        />
-        <FeatureCard
-          icon={<FileText className="h-4 w-4" />}
-          title="Raw scrapes"
-          description="Inspect raw markdown scrapes to validate content."
-          href="/raw-scrapes"
-          cta="Open scrapes"
-        />
-        <FeatureCard
-          icon={<Link2 className="h-4 w-4" />}
-          title="URL discovery"
-          description="Browse discovered competitor URLs that feed the pipeline."
-          href="/url-dumps"
-          cta="Open URLs"
-        />
+      <section className="space-y-4">
+        <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-muted-foreground">
+          <Settings className="h-3.5 w-3.5" aria-hidden />
+          Settings
+        </div>
+        <div className="grid gap-5 md:grid-cols-3">
+          <FeatureCard
+            icon={<BarChart3 className="h-4 w-4" />}
+            title="Pricing schema"
+            description="Review the canonical schema powering pricing analytics."
+            href="/pricing-schemas"
+            cta="Open schema"
+          />
+          <FeatureCard
+            icon={<Activity className="h-4 w-4" />}
+            title="Scraping runs"
+            description="Audit run status and trigger updates."
+            href="/runs"
+            cta="Open runs"
+          />
+          <FeatureCard
+            icon={<FileText className="h-4 w-4" />}
+            title="Raw scrapes"
+            description="Inspect raw markdown scrapes for validation."
+            href="/raw-scrapes"
+            cta="Open scrapes"
+          />
+          <FeatureCard
+            icon={<Link2 className="h-4 w-4" />}
+            title="URL discovery"
+            description="Review discovered competitor URLs."
+            href="/url-dumps"
+            cta="Open URLs"
+          />
+          <FeatureCard
+            icon={<ChevronRight className="h-4 w-4" />}
+            title="Locations"
+            description="Manage target facility locations."
+            href="/locations"
+            cta="Open locations"
+          />
+        </div>
       </section>
+
       <Footer />
     </main>
   )

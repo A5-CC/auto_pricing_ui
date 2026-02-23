@@ -2,7 +2,13 @@
 
 import { useAuth } from "@/components/AuthContext"; // ✅ import your auth hook
 import { Button } from "@/components/ui/button";
-import { BarChart3, SlidersHorizontal, Table } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { BarChart3, Settings, SlidersHorizontal } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -37,44 +43,14 @@ export function SiteNavbar() {
     <nav className="sticky top-0 z-40 w-full border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
         {/* Left side: nav links */}
-        <div className="flex items-center gap-6">
-          {/* Pricing Schema button */}
-          <Button
-            asChild
-            variant="default"
-            size="sm"
-            className="rounded-full gap-1.5 ring-1 ring-primary/30 shadow-sm"
-          >
-            <Link href="/pricing-schemas">
-              <Table className="h-3.5 w-3.5" aria-hidden />
-              <span>Pricing Schema</span>
-            </Link>
-          </Button>
-
-          {/* Other nav links */}
-          <Link href="/locations" className={linkCls("/locations")}>
-            Locations
+        <div className="flex items-center gap-4">
+          <Link href="/" className="text-sm font-semibold tracking-tight">
+            Auto Pricing
           </Link>
-
-          <Link href="/url-dumps" className={linkCls("/url-dumps")}>
-            URL Discovery
-          </Link>
-
-          <Link href="/raw-scrapes" className={linkCls("/raw-scrapes")}>
-            Raw Scrapes
-          </Link>
-
-          <Link href="/runs" className={linkCls("/runs")}>
-            Scraping Runs
-          </Link>
-
           <Link href="/pricing" className={`${linkCls("/pricing")} gap-1.5`}>
             <BarChart3 className="h-3.5 w-3.5" aria-hidden />
             Competitor Pricing
           </Link>
-
-          <span aria-hidden className="mx-2 h-6 w-px bg-border" />
-
           <Link
             href="/pipelines"
             className={`${primaryLinkCls("/pipelines")} gap-1.5`}
@@ -82,6 +58,32 @@ export function SiteNavbar() {
             <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden />
             Pricing Pipelines
           </Link>
+          <span aria-hidden className="mx-1 h-6 w-px bg-border" />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-1.5">
+                <Settings className="h-3.5 w-3.5" aria-hidden />
+                Settings
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem asChild>
+                <Link href="/pricing-schemas">Pricing Schema</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/locations">Locations</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/url-dumps">URL Discovery</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/raw-scrapes">Raw Scrapes</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/runs">Scraping Runs</Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     </nav>
