@@ -1,8 +1,8 @@
 "use client"
 
-import { useMemo, useState } from "react"
-import { MapPin } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { MapPin } from "lucide-react"
+import { useMemo, useState } from "react"
 
 interface AddressCellProps {
   address: string | null | undefined
