@@ -235,14 +235,15 @@ export function PipelineBuilderChatbot({
     }
   }, [availableColumns, componentId, handleAgentResponse]);
 
-  const sendMessage = async (messageText: string) => {
-    if (!messageText.trim()) return;
+  const sendMessage = async (messageText: string | null | undefined) => {
+    const cleanedMessage = (messageText ?? "").trim();
+    if (!cleanedMessage) return;
 
     // Add user message
     const userMessage: Message = {
       id: generateMessageId("user"),
       role: "user",
-      content: messageText.trim(),
+      content: cleanedMessage,
       timestamp: new Date(),
     };
     setMessages(prev => [...prev, userMessage]);
@@ -257,7 +258,7 @@ export function PipelineBuilderChatbot({
       }
       
       const response = await sendAgentMessage(
-        messageText,
+        cleanedMessage,
         sessionId || undefined,
         context
       );
@@ -282,7 +283,7 @@ export function PipelineBuilderChatbot({
   };
 
   const handleSavePipeline = async () => {
-    if (!sessionId || !pipelineName.trim()) {
+    if (!sessionId || !(pipelineName ?? "").trim()) {
       toast.error("Name required", {
         description: "Please enter a name for the pipeline"
       });
@@ -291,7 +292,7 @@ export function PipelineBuilderChatbot({
 
     setIsSaving(true);
     try {
-      const result = await saveAgentPipeline(sessionId, pipelineName.trim());
+      const result = await saveAgentPipeline(sessionId, (pipelineName ?? "").trim());
       
       if (result.success) {
         toast.success("✅ Pipeline saved", {
@@ -788,7 +789,7 @@ export function PipelineBuilderChatbot({
                     />
                     <Button
                       onClick={handleSavePipeline}
-                      disabled={isSaving || !pipelineName.trim()}
+                      disabled={isSaving || !(pipelineName ?? "").trim()}
                       className="bg-green-600 hover:bg-green-700"
                     >
                       {isSaving ? (
@@ -818,7 +819,7 @@ export function PipelineBuilderChatbot({
                   />
                   <Button
                     type="submit"
-                    disabled={isTyping || !inputValue.trim()}
+                    disabled={isTyping || !(inputValue ?? "").trim()}
                     className="bg-blue-600 hover:bg-blue-700"
                   >
                     {isTyping ? (
