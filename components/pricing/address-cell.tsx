@@ -5,11 +5,11 @@ import { MapPin } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 interface AddressCellProps {
-  address: string
+  address: string | null | undefined
 }
 
-function parseAddress(address: string) {
-  const normalized = address.trim().replace(/\s+/g, " ")
+function parseAddress(address: string | null | undefined) {
+  const normalized = (address ?? "").trim().replace(/\s+/g, " ")
   const parts = normalized.split(",").map((p) => p.trim()).filter(Boolean)
 
   if (parts.length >= 3) {
