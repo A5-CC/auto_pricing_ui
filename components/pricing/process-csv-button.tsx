@@ -143,7 +143,7 @@ export function ProcessCsvButton({ snapshotId, filters, adjusters, combinatoric,
         </TooltipTrigger>
         <TooltipContent side="bottom" className="max-w-xs">
           <div className="text-xs">
-            Use this for storEDGE pricing CSVs. Requires combinatoric filters on
+            Use this for pricing CSVs. Requires combinatoric filters on
             <strong> modstorage_location</strong> and <strong>unit_dimensions</strong>.
             Additional filters must be non-combinatoric. 
           </div>
