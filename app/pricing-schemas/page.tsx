@@ -1,20 +1,18 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
-import { getPricingSchemas, getSchemaStats } from "@/lib/api/client/pricing"
-import type { PricingSchemas, SpineColumn, CanonicalWideSchema, SchemaStats } from "@/lib/api/types"
-import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { ContextChips } from "@/components/context-chips"
-import { useContextChips } from "@/hooks/useContextChips"
+import { Card, CardContent } from "@/components/ui/card"
 import {
-  MultiSelect,
-  MultiSelectContent,
-  MultiSelectItem,
-  MultiSelectTrigger,
-  MultiSelectValue,
+    MultiSelect,
+    MultiSelectContent,
+    MultiSelectItem,
+    MultiSelectTrigger,
+    MultiSelectValue,
 } from "@/components/ui/multi-select"
+import { getPricingSchemas, getSchemaStats } from "@/lib/api/client/pricing"
+import type { CanonicalWideSchema, PricingSchemas, SchemaStats, SpineColumn } from "@/lib/api/types"
+import { useEffect, useMemo, useState } from "react"
 
 function formatDate(value?: string) {
   if (!value) return "—"
@@ -39,7 +37,6 @@ export default function PricingSchemasPage() {
   const [, setError] = useState<string | null>(null)
   const [query, setQuery] = useState("")
   const [selectedTypes, setSelectedTypes] = useState<string[]>([])
-  const { createChips } = useContextChips()
 
   useEffect(() => {
     const load = async () => {
@@ -76,16 +73,6 @@ export default function PricingSchemasPage() {
 
   return (
     <main className="mx-auto max-w-6xl p-6 space-y-6">
-      <ContextChips
-        chips={createChips(
-          {
-            label: "Pricing Schema",
-            isCurrent: true
-          }
-        )}
-      />
-      <p className="text-sm text-muted-foreground">Evolved, wide-format schema powering competitor pricing analytics.</p>
-
       <section className="grid gap-4 sm:grid-cols-3">
         <StatCard label="Spine columns" value={stats?.spine_columns ?? (schemas?.spine?.length ?? "—")} />
         <StatCard label="Canonical columns" value={stats?.canonical_columns ?? (schemas?.canonical?.total_columns ?? "—")} />

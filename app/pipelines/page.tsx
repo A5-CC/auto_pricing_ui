@@ -1,6 +1,5 @@
 "use client";
 
-import { ContextChips } from "@/components/context-chips";
 import { AdjustersList } from "@/components/pipelines/adjusters-list";
 import { AddCompetitiveAdjusterDialog } from "@/components/pipelines/adjusters/add-competitive-adjuster-dialog";
 import { AddFunctionAdjusterDialog } from "@/components/pipelines/adjusters/add-function-adjuster-dialog";
@@ -16,20 +15,19 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { SectionLabel } from "@/components/ui/section-label";
-import { useContextChips } from "@/hooks/useContextChips";
 import type { Adjuster } from "@/lib/adjusters";
 import { getPriceDiagnostics, hasValidCompetitorPrices } from "@/lib/adjusters";
 import {
-    getE1Client,
+  getE1Client,
 } from "@/lib/api/client/pipelines";
 import { getColumnStatistics, getPricingData, getPricingSchemas, getPricingSnapshots } from "@/lib/api/client/pricing";
 import type {
-    ColumnStatistics,
-    Pipeline,
-    PipelineFilters as PipelineFiltersType,
-    PricingDataResponse,
-    PricingSchemas,
-    PricingSnapshot,
+  ColumnStatistics,
+  Pipeline,
+  PipelineFilters as PipelineFiltersType,
+  PricingDataResponse,
+  PricingSchemas,
+  PricingSnapshot,
 } from "@/lib/api/types";
 import { Calculator, Clock, Plus, TrendingDown } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -86,8 +84,6 @@ export default function PipelinesPage() {
 
   // Mirror /pricing: keep an unfiltered snapshot in memory and filter client-side.
   const baseRows = useMemo(() => dataResponse?.data ?? [], [dataResponse]);
-
-  const { createChips } = useContextChips();
 
   /* ---------------- Data loading ---------------- */
   const loadSnapshots = async () => {
@@ -440,19 +436,9 @@ export default function PipelinesPage() {
   /* ---------------- Render ---------------- */
   return (
     <main className="mx-auto max-w-7xl p-6 space-y-5">
-      <ContextChips
-        chips={createChips({
-          label: "Pricing Pipelines",
-          isCurrent: true,
-        })}
-      />
       <header>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-sm text-muted-foreground">
-              Build pricing strategies with Filters, and Competitive,
-              Function-based, and Temporal Adjusters
-            </p>
           </div>
           <div className="flex items-center gap-2">
             <ProcessCsvButton
@@ -682,6 +668,7 @@ export default function PipelinesPage() {
       {/* AI Pipeline Builder Chatbot */}
       <PipelineBuilderChatbot
         availableColumns={Object.keys(columnsStats)}
+        mode="floating"
       />
     </main>
   );

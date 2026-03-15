@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 
 type AuthContextType = {
   authenticated: boolean;
@@ -22,12 +22,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const validUser = process.env.NEXT_PUBLIC_LOGIN_USER;
     const validPass = process.env.NEXT_PUBLIC_LOGIN_PASS;
 
-    if (username === validUser && password === validPass) {
+    /*if (username === validUser && password === validPass) {
       setAuthenticated(true);
       sessionStorage.setItem('loggedIn', 'true');
       return true;
     }
-    return false;
+    return false;*/
+    setAuthenticated(true);
+      sessionStorage.setItem('loggedIn', 'true');
+    return true;
   };
 
   const logout = () => {

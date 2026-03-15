@@ -70,6 +70,7 @@ interface PipelineBuilderChatbotProps {
   onPipelineUpdate?: (state: PipelineState) => void;
   onActionExecute?: (action: PipelineAction) => void;
   className?: string;
+  mode?: 'floating' | 'fullpage' | 'embedded';
 }
 
 // =============================================================================
@@ -95,13 +96,14 @@ export function PipelineBuilderChatbot({
   onPipelineUpdate,
   onActionExecute,
   className,
+  mode = 'floating',
 }: PipelineBuilderChatbotProps) {
   // Hydration safety - only render dynamic content after mount
   const [mounted, setMounted] = useState(false);
   const componentId = useId();
 
   // State
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(mode === 'fullpage');
   const [isMinimized, setIsMinimized] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
@@ -593,6 +595,435 @@ export function PipelineBuilderChatbot({
     return null;
   }
 
+  // Embedded mode - chatbot embedded in homepage
+  if (mode === 'embedded') {
+    return (
+      <Card className="w-full h-[700px] flex flex-col shadow-lg border-2 border-blue-100">
+        {/* Header */}
+        <CardHeader className="p-6 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-t-lg flex-shrink-0">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-white/20 rounded-full">
+                <Sparkles className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <CardTitle className="text-white text-lg">
+                  Pricing Pipeline Builder
+                </CardTitle>
+                <p className="text-blue-100 text-sm mt-1">
+                  {e1DataSummary 
+                    ? `${e1DataSummary.competitors.length} competitors • ${e1DataSummary.locations.length} locations • ${e1DataSummary.total_rows.toLocaleString()} data points`
+                    : isLoadingE1Data 
+                      ? "Loading data..."
+                      : "Create and configure pricing data pipelines with AI assistance"
+                  }
+                </p>
+              </div>
+            </div>
+            {e1DataSummary && (
+              <div className="flex items-center gap-2 bg-white/20 rounded-full px-3 py-2">
+                <Database className="h-4 w-4 text-green-300" />
+                <span className="text-sm text-white/90 font-medium">Live Data</span>
+              </div>
+            )}
+          </div>
+          
+          {/* Phase Indicator */}
+          <div className="mt-4 flex items-center justify-between">
+            <div className="bg-white/20 rounded-full px-4 py-2">
+              {renderPhaseIndicator()}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-white/80 hover:text-white hover:bg-white/20"
+                onClick={() => setShowLoadDialog(!showLoadDialog)}
+                title="Load saved pipeline"
+              >
+                <FolderOpen className="h-4 w-4 mr-2" />
+                Load Pipeline
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-white/80 hover:text-white hover:bg-white/20"
+                onClick={resetConversation}
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Reset Chat
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+
+        {/* Load Pipeline Dialog */}
+        {showLoadDialog && (
+          <div className="px-6 py-4 border-b bg-blue-50">
+            <div className="text-sm font-medium text-slate-700 mb-3">Load Saved Pipeline</div>
+            <div className="flex gap-2">
+              <Select value={selectedPipelineId} onValueChange={setSelectedPipelineId}>
+                <SelectTrigger className="flex-1">
+                  <SelectValue placeholder={isLoadingPipelines ? "Loading..." : "Select a pipeline"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {savedPipelines.map((pipeline) => (
+                    <SelectItem key={pipeline.id} value={pipeline.id}>
+                      {pipeline.name || `Pipeline ${pipeline.id.substring(0, 8)}`}
+                    </SelectItem>
+                  ))}
+                  {savedPipelines.length === 0 && !isLoadingPipelines && (
+                    <SelectItem value="_none" disabled>No saved pipelines</SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+              <Button
+                size="sm"
+                onClick={() => refreshSavedPipelines()}
+                variant="outline"
+                disabled={isLoadingPipelines}
+              >
+                {isLoadingPipelines ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" />
+                )}
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => handleLoadPipeline(selectedPipelineId)}
+                disabled={!selectedPipelineId || isTyping}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                Load
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Messages Area */}
+        <CardContent className="p-0 flex-1 overflow-hidden">
+          <div className="h-full p-6 overflow-y-auto">
+            <div className="max-w-3xl mx-auto space-y-4">
+              {messages.map(renderMessage)}
+              
+              {isTyping && (
+                <div className="flex gap-3">
+                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+                    <Bot className="h-6 w-6 text-white" />
+                  </div>
+                  <div className="bg-white border border-slate-200 rounded-2xl rounded-bl-sm px-4 py-3">
+                    <div className="flex gap-1">
+                      <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                      <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                      <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              <div ref={messagesEndRef} />
+            </div>
+          </div>
+
+          {/* Pipeline Preview */}
+          {showPipelinePreview && (
+            <div className="px-6 pb-4 border-t">
+              {renderPipelinePreview()}
+            </div>
+          )}
+        </CardContent>
+
+        {/* Save Pipeline Section */}
+        {(currentPhase === "review" || currentPhase === "complete") && pipelineState && (
+          <div className="px-6 py-4 border-t bg-green-50 flex-shrink-0">
+            <div className="max-w-3xl mx-auto flex gap-2">
+              <Input
+                placeholder="Enter pipeline name..."
+                value={pipelineName}
+                onChange={(e) => setPipelineName(e.target.value)}
+                className="flex-1"
+              />
+              <Button
+                onClick={handleSavePipeline}
+                disabled={isSaving || !(pipelineName ?? "").trim()}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                {isSaving ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <>
+                    <Save className="h-4 w-4 mr-2" />
+                    Save Pipeline
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Input Area */}
+        <div className="p-6 border-t bg-white rounded-b-lg flex-shrink-0">
+          <div className="max-w-3xl mx-auto">
+            <form onSubmit={handleSubmit} className="flex gap-2">
+              <Input
+                ref={inputRef}
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Type your message or ask for help..."
+                disabled={isTyping}
+                className="flex-1"
+              />
+              <Button
+                type="submit"
+                disabled={isTyping || !(inputValue ?? "").trim()}
+                className="bg-blue-600 hover:bg-blue-700 px-6"
+              >
+                {isTyping ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <>
+                    <Send className="h-4 w-4 mr-2" />
+                    Send
+                  </>
+                )}
+              </Button>
+            </form>
+            
+            {/* Quick Actions */}
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs"
+                onClick={() => sendMessage("Show current state")}
+              >
+                Current State
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs"
+                onClick={() => sendMessage("Help")}
+              >
+                Help
+              </Button>
+            </div>
+          </div>
+        </div>
+      </Card>
+    );
+  }
+
+  // Fullpage mode - chatbot as primary interface
+  if (mode === 'fullpage') {
+    return (
+      <div className="flex flex-col h-[calc(100dvh-4rem)]">
+        <Card className="flex-1 flex flex-col border-0 rounded-none shadow-none">
+          {/* Header */}
+          <CardHeader className="p-4 bg-gradient-to-r from-blue-600 to-indigo-600 flex-shrink-0">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-white/20 rounded-full">
+                  <Sparkles className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <CardTitle className="text-white text-base">
+                    Pricing Pipeline Builder
+                  </CardTitle>
+                  <p className="text-blue-100 text-xs">
+                    {e1DataSummary 
+                      ? `${e1DataSummary.competitors.length} competitors • ${e1DataSummary.locations.length} locations`
+                      : isLoadingE1Data 
+                        ? "Loading data..."
+                        : "Configuration assistant"
+                    }
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1">
+                {e1DataSummary && (
+                  <div className="flex items-center gap-1 bg-white/20 rounded-full px-2 py-1" title="Real data loaded from E1 endpoint">
+                    <Database className="h-3 w-3 text-green-300" />
+                    <span className="text-xs text-white/90">{e1DataSummary.total_rows.toLocaleString()} rows</span>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            {/* Phase Indicator */}
+            <div className="mt-3 flex items-center justify-between">
+              <div className="bg-white/20 rounded-full px-3 py-1">
+                {renderPhaseIndicator()}
+              </div>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-white/80 hover:text-white hover:bg-white/20 text-xs"
+                  onClick={() => setShowLoadDialog(!showLoadDialog)}
+                  title="Load saved pipeline"
+                >
+                  <FolderOpen className="h-3 w-3 mr-1" />
+                  Load
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-white/80 hover:text-white hover:bg-white/20 text-xs"
+                  onClick={resetConversation}
+                >
+                  <RefreshCw className="h-3 w-3 mr-1" />
+                  Reset
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+
+          {/* Load Pipeline Dialog */}
+          {showLoadDialog && (
+            <div className="px-4 py-3 border-b bg-blue-50 flex-shrink-0">
+              <div className="text-sm font-medium text-slate-700 mb-2">Load Saved Pipeline</div>
+              <div className="flex gap-2">
+                <Select value={selectedPipelineId} onValueChange={setSelectedPipelineId}>
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder={isLoadingPipelines ? "Loading..." : "Select a pipeline"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {savedPipelines.map((pipeline) => (
+                      <SelectItem key={pipeline.id} value={pipeline.id}>
+                        {pipeline.name || `Pipeline ${pipeline.id.substring(0, 8)}`}
+                      </SelectItem>
+                    ))}
+                    {savedPipelines.length === 0 && !isLoadingPipelines && (
+                      <SelectItem value="_none" disabled>No saved pipelines</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+                <Button
+                  size="sm"
+                  onClick={() => refreshSavedPipelines()}
+                  variant="outline"
+                  disabled={isLoadingPipelines}
+                >
+                  {isLoadingPipelines ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => handleLoadPipeline(selectedPipelineId)}
+                  disabled={!selectedPipelineId || isTyping}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  Load
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Messages Area */}
+          <CardContent className="p-0 flex-1 overflow-hidden flex flex-col">
+            <div className="flex-1 p-4 overflow-y-auto">
+              <div className="max-w-4xl mx-auto space-y-4">
+                {messages.map(renderMessage)}
+                
+                {isTyping && (
+                  <div className="flex gap-3">
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+                      <Bot className="h-5 w-5 text-white" />
+                    </div>
+                    <div className="bg-white border border-slate-200 rounded-2xl rounded-bl-sm px-4 py-3">
+                      <div className="flex gap-1">
+                        <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                        <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                        <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                <div ref={messagesEndRef} />
+              </div>
+            </div>
+
+            {/* Pipeline Preview */}
+            {showPipelinePreview && (
+              <div className="px-4 pb-2 border-t">
+                {renderPipelinePreview()}
+              </div>
+            )}
+          </CardContent>
+
+          {/* Save Pipeline Section */}
+          {(currentPhase === "review" || currentPhase === "complete") && pipelineState && (
+            <div className="px-4 py-3 border-t bg-green-50 flex-shrink-0">
+              <div className="max-w-4xl mx-auto flex gap-2">
+                <Input
+                  placeholder="Pipeline name..."
+                  value={pipelineName}
+                  onChange={(e) => setPipelineName(e.target.value)}
+                  className="flex-1"
+                />
+                <Button
+                  onClick={handleSavePipeline}
+                  disabled={isSaving || !(pipelineName ?? "").trim()}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Save className="h-4 w-4 mr-2" />Save</>}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Input Area - Sticky Bottom */}
+          <div className="sticky bottom-0 p-4 border-t bg-white flex-shrink-0">
+            <div className="max-w-4xl mx-auto">
+              <form onSubmit={handleSubmit} className="flex gap-2">
+                <Input
+                  ref={inputRef}
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Type your message..."
+                  disabled={isTyping}
+                  className="flex-1"
+                />
+                <Button
+                  type="submit"
+                  disabled={isTyping || !(inputValue ?? "").trim()}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  {isTyping ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                </Button>
+              </form>
+              
+              <div className="mt-2 flex flex-wrap gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 text-xs text-slate-500 hover:text-blue-600"
+                  onClick={() => sendMessage("Show current state")}
+                >
+                  Current state
+                </Button>
+                <span className="text-slate-300">|</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 text-xs text-slate-500 hover:text-blue-600"
+                  onClick={() => sendMessage("Help")}
+                >
+                  Help
+                </Button>
+              </div>
+            </div>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  // Floating mode - widget on pipelines page
   return (
     <>
       {/* Floating Button */}

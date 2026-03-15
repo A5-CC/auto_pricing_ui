@@ -1,9 +1,7 @@
 "use client"
 
-import { ContextChips } from "@/components/context-chips"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { useContextChips } from "@/hooks/useContextChips"
 import { getLocations, saveLocations } from "@/lib/api/client/locations"
 import { MapPin, Plus, Trash2 } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
@@ -20,7 +18,6 @@ interface LocationEntry {
 }
 
 export default function LocationsPage() {
-  const { createChips } = useContextChips()
   const [nameInput, setNameInput] = useState("")
   const [addressInput, setAddressInput] = useState("")
   const [cityInput, setCityInput] = useState("")
@@ -148,19 +145,6 @@ export default function LocationsPage() {
 
   return (
     <main className="mx-auto max-w-6xl p-6 space-y-6">
-      <ContextChips
-        chips={createChips(
-          {
-            label: "Locations",
-            isCurrent: true,
-          }
-        )}
-      />
-      <p className="text-sm text-muted-foreground">
-        Add and validate target locations for competitor coverage. Use Google Maps to confirm the
-        address and assign a search radius to each location.
-      </p>
-
       <section className="rounded-lg border p-4 space-y-4">
         <div className="flex flex-wrap items-end gap-3">
           <div className="min-w-[220px]">

@@ -1,0 +1,168 @@
+'use client';
+
+import { cn } from '@/lib/utils';
+import {
+    ChevronDown,
+    ChevronRight,
+    FileCode,
+    FileText,
+    Link as LinkIcon,
+    MapPin,
+    MessageCircle,
+    PlayCircle,
+    Settings,
+    TrendingUp,
+    Wrench,
+    Zap
+} from 'lucide-react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { useState } from 'react';
+
+interface MenuItem {
+  label: string;
+  href: string;
+  icon: React.ReactNode;
+}
+
+interface MenuSection {
+  title: string;
+  items: MenuItem[];
+  collapsible?: boolean;
+}
+
+const MENU_SECTIONS: MenuSection[] = [
+  {
+    title: 'PRICING',
+    collapsible: false,
+    items: [
+      { label: 'Chat Assistant', href: '/', icon: <MessageCircle className="h-4 w-4" /> },
+      { label: 'Pipelines', href: '/pipelines', icon: <Zap className="h-4 w-4" /> },
+      { label: 'Competitor Pricing', href: '/pricing', icon: <TrendingUp className="h-4 w-4" /> },
+    ],
+  },
+  {
+    title: 'DATA',
+    collapsible: true,
+    items: [
+      { label: 'Raw Scrapes', href: '/raw-scrapes', icon: <FileText className="h-4 w-4" /> },
+      { label: 'URL Discovery', href: '/url-dumps', icon: <LinkIcon className="h-4 w-4" /> },
+      { label: 'Pricing Schemas', href: '/pricing-schemas', icon: <FileCode className="h-4 w-4" /> },
+      { label: 'Locations', href: '/locations', icon: <MapPin className="h-4 w-4" /> },
+    ],
+  },
+  {
+    title: 'MONITORING',
+    collapsible: true,
+    items: [
+      { label: 'Scraping Runs', href: '/runs', icon: <PlayCircle className="h-4 w-4" /> },
+    ],
+  },
+];
+
+// Developer section - conditional
+if (process.env.NODE_ENV === 'development') {
+  MENU_SECTIONS.push({
+    title: 'DEVELOPER',
+    collapsible: true,
+    items: [
+      { label: 'Test Components', href: '/test-components', icon: <Wrench className="h-4 w-4" /> },
+    ],
+  });
+}
+
+function MenuSectionComponent({ section }: { section: MenuSection }) {
+  const [isExpanded, setIsExpanded] = useState(true);
+  const pathname = usePathname();
+
+  const isActive = (href: string) => {
+    if (href === '/') return pathname === '/';
+    return pathname.startsWith(href);
+  };
+
+  return (
+    <div className="space-y-1">
+      {section.collapsible ? (
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-white/60 uppercase tracking-wider hover:text-white/80 transition-colors"
+        >
+          <span>{section.title}</span>
+          {isExpanded ? (
+            <ChevronDown className="h-3 w-3" />
+          ) : (
+            <ChevronRight className="h-3 w-3" />
+          )}
+        </button>
+      ) : (
+        <div className="px-3 py-2 text-xs font-semibold text-white/60 uppercase tracking-wider">
+          {section.title}
+        </div>
+      )}
+      
+      {(!section.collapsible || isExpanded) && (
+        <div className="space-y-0.5">
+          {section.items.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all',
+                isActive(item.href)
+                  ? 'bg-white/10 text-white font-medium shadow-sm'
+                  : 'text-white/90 hover:bg-white/5 hover:text-white'
+              )}
+            >
+              <span className={cn(
+                isActive(item.href) ? 'text-white' : 'text-white/70'
+              )}>
+                {item.icon}
+              </span>
+              <span>{item.label}</span>
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function Sidebar() {
+  const pathname = usePathname();
+  
+  const isSettingsActive = pathname.startsWith('/settings');
+
+  return (
+    <aside className="w-60 h-screen bg-[#2D1B4E] text-white flex flex-col border-r border-white/10">
+      {/* Logo */}
+      <div className="p-6 border-b border-white/10">
+        <Link href="/" className="block">
+          <h1 className="text-2xl font-semibold tracking-tight">facily</h1>
+        </Link>
+      </div>
+
+      {/* Menu Sections */}
+      <nav className="flex-1 px-3 py-6 space-y-6 overflow-y-auto">
+        {MENU_SECTIONS.map((section) => (
+          <MenuSectionComponent key={section.title} section={section} />
+        ))}
+      </nav>
+
+      {/* Settings at Bottom */}
+      <div className="p-3 border-t border-white/10">
+        <Link
+          href="/settings"
+          className={cn(
+            'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all',
+            isSettingsActive
+              ? 'bg-white/10 text-white font-medium'
+              : 'text-white/90 hover:bg-white/5 hover:text-white'
+          )}
+        >
+          <Settings className="h-4 w-4" />
+          <span>Settings</span>
+        </Link>
+      </div>
+    </aside>
+  );
+}

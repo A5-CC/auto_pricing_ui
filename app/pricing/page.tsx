@@ -1,37 +1,35 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
-import {
-  getPricingSnapshots,
-  getPricingData,
-  exportPricingCSV,
-  getColumnStatistics,
-  getPricingSchemas,
-} from "@/lib/api/client/pricing";
-import type {
-  PricingSnapshot,
-  PricingDataResponse,
-  ColumnStatistics,
-  PricingSchemas,
-  PricingDataRow,
-} from "@/lib/api/types";
-import { Button } from "@/components/ui/button";
+import { AddressCell } from "@/components/pricing/address-cell";
+import GroupByControl from "@/components/pricing/group-by-control";
+import { TableCell } from "@/components/pricing/table-cell";
+import { SortableTh } from "@/components/table/SortableTh";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { ContextChips } from "@/components/context-chips";
-import { useContextChips } from "@/hooks/useContextChips";
-import { AddressCell } from "@/components/pricing/address-cell";
-import { SortableTh } from "@/components/table/SortableTh";
-import { useSortableRows } from "@/hooks/useSortableRows";
-import GroupByControl from "@/components/pricing/group-by-control";
 import { SectionLabel } from "@/components/ui/section-label";
-import { getCompetitorColor } from "@/lib/pricing/formatters";
+import { useSortableRows } from "@/hooks/useSortableRows";
+import {
+    exportPricingCSV,
+    getColumnStatistics,
+    getPricingData,
+    getPricingSchemas,
+    getPricingSnapshots,
+} from "@/lib/api/client/pricing";
+import type {
+    ColumnStatistics,
+    PricingDataResponse,
+    PricingDataRow,
+    PricingSchemas,
+    PricingSnapshot,
+} from "@/lib/api/types";
 import { getCanonicalLabel } from "@/lib/pricing/column-labels";
-import { TableCell } from "@/components/pricing/table-cell";
-import { PricingOverview } from "./components/pricing-overview";
+import { getCompetitorColor } from "@/lib/pricing/formatters";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { PricingFilters } from "./components/pricing-filters";
+import { PricingOverview } from "./components/pricing-overview";
 
 export default function PricingPage() {
   const [snapshots, setSnapshots] = useState<PricingSnapshot[]>([]);
@@ -84,7 +82,6 @@ export default function PricingPage() {
   // Group by (single level)
   const [groupBy, setGroupBy] = useState<string | null>(null);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
-  const { createChips } = useContextChips();
 
   const grouped = useMemo(() => {
     if (!groupBy) return null;
@@ -219,12 +216,6 @@ export default function PricingPage() {
 
   return (
     <main className="mx-auto max-w-7xl p-6 space-y-5">
-      <ContextChips
-        chips={createChips({
-          label: "Pricing",
-          isCurrent: true,
-        })}
-      />
       <header>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">

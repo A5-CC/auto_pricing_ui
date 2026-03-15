@@ -1,14 +1,12 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
-import { getURLDumps, getURLDumpDetail, getLatestURLDump } from "@/lib/api/client/url-dumps"
-import type { URLDumpDetail, URLDumpSummary } from "@/lib/api/types"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { ExternalLink, MapPin, Eye } from "lucide-react"
-import { ContextChips } from "@/components/context-chips"
-import { useContextChips } from "@/hooks/useContextChips"
+import { getLatestURLDump, getURLDumpDetail, getURLDumps } from "@/lib/api/client/url-dumps"
+import type { URLDumpDetail, URLDumpSummary } from "@/lib/api/types"
+import { ExternalLink, Eye, MapPin } from "lucide-react"
+import { useEffect, useMemo, useState } from "react"
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return "0 Bytes"
@@ -34,7 +32,6 @@ export default function URLDumpsPage() {
   const [error, setError] = useState<string | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
-  const { createChips } = useContextChips()
 
   useEffect(() => {
     loadDumps()
@@ -83,16 +80,6 @@ export default function URLDumpsPage() {
 
   return (
     <main className="mx-auto max-w-6xl p-6 space-y-6">
-      <ContextChips 
-        chips={createChips(
-          { 
-            label: "URL Discovery", 
-            isCurrent: true 
-          }
-        )} 
-      />
-      <p className="text-sm text-muted-foreground">Explore discovered competitor URLs that feed the pricing pipeline.</p>
-
       {error && (
         <Alert variant="destructive">
           <AlertTitle>Error</AlertTitle>

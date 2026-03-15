@@ -1,15 +1,13 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
-import { getRawScrapeDates, getRawScrapesForDate, getRawScrapeDetail } from "@/lib/api/client/raw-scrapes"
-import type { RawScrapeDateSummary, RawScrapeDetail, RawScrapeSummary } from "@/lib/api/types"
+import { ContentMetrics } from "@/components/content-metrics"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { getRawScrapeDates, getRawScrapeDetail, getRawScrapesForDate } from "@/lib/api/client/raw-scrapes"
+import type { RawScrapeDateSummary, RawScrapeDetail, RawScrapeSummary } from "@/lib/api/types"
 import { Eye } from "lucide-react"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { ContentMetrics } from "@/components/content-metrics"
-import { ContextChips } from "@/components/context-chips"
-import { useContextChips } from "@/hooks/useContextChips"
+import { useEffect, useMemo, useState } from "react"
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return "0 Bytes"
@@ -42,7 +40,6 @@ export default function RawScrapesPage() {
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [expanded, setExpanded] = useState(false)
-  const { createChips } = useContextChips()
 
   // Reset expanded state when switching scrapes
   useEffect(() => {
@@ -105,22 +102,6 @@ export default function RawScrapesPage() {
     const displayedContent = expanded ? selectedScrape.content : contentLines.slice(0, MAX_PREVIEW_LINES).join('\n')
     return (
       <main className="mx-auto max-w-6xl p-6 space-y-6">
-        <ContextChips 
-          chips={createChips(
-            { 
-              label: "Raw Scrapes", 
-              onClick: () => { setSelectedDate(null); setSelectedScrape(null) } 
-            },
-            { 
-              label: selectedScrape.date, 
-              onClick: () => setSelectedScrape(null) 
-            },
-            { 
-              label: "Detail", 
-              isCurrent: true 
-            }
-          )} 
-        />
         <div className="text-sm text-muted-foreground">
           <div className="font-medium">{selectedScrape.date}</div>
           <div className="truncate font-mono" title={selectedScrape.filename}>{selectedScrape.filename}</div>
@@ -178,19 +159,6 @@ export default function RawScrapesPage() {
   if (selectedDate) {
     return (
       <main className="mx-auto max-w-6xl p-6 space-y-6">
-        <ContextChips 
-          chips={createChips(
-            { 
-              label: "Raw Scrapes", 
-              onClick: () => setSelectedDate(null) 
-            },
-            { 
-              label: selectedDate, 
-              isCurrent: true 
-            }
-          )} 
-        />
-
         <div className="flex items-center justify-between">
           <input
             className="w-72 rounded-md border px-3 py-2 text-sm outline-none focus-visible:border-ring"
@@ -242,16 +210,6 @@ export default function RawScrapesPage() {
 
   return (
     <main className="mx-auto max-w-6xl p-6 space-y-6">
-      <ContextChips 
-        chips={createChips(
-          { 
-            label: "Raw Scrapes", 
-            isCurrent: true 
-          }
-        )} 
-      />
-      <p className="text-sm text-muted-foreground">Browse raw markdown extracted from competitor pricing pages.</p>
-
       {error && (
         <Alert variant="destructive">
           <AlertTitle>Error</AlertTitle>
