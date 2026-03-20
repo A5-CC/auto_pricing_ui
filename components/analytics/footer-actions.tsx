@@ -1,21 +1,20 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import {
-  Activity,
-  Clock,
-  FileText,
-  Server,
-  History,
-  ChevronUp,
-  ChevronDown
-} from "lucide-react"
+import { Button } from "@/components/ui/button"
 import { getSystemHealth, getVersionInfo } from "@/lib/api/client/system"
+import { AppMode, DocMeta } from "@/lib/api/types"
+import {
+    Activity,
+    ChevronDown,
+    ChevronUp,
+    Clock,
+    FileText,
+    History,
+    Server
+} from "lucide-react"
+import { useEffect, useState } from "react"
 import { DashboardData } from "./types"
-import { DocMeta } from "@/lib/api/types"
-import { AppMode } from "@/lib/api/types"
 
 interface FooterProps {
   dashboardData?: DashboardData | null
@@ -204,30 +203,26 @@ export function Footer({ dashboardData, history = [], onHistorySelect, mode }: F
                 </div>
               )}
 
-              <div className="pt-2 border-t border-gray-100">
-                <div className="text-xs text-gray-600 space-y-1">
-                  <div className="font-semibold">Auto Pricing</div>
-                  <div>Competitive pricing intelligence for self‑storage</div>
-                  {versionInfo && (
-                    <>
-                      <div className="flex justify-between">
-                        <span>Version:</span>
-                        <span className="font-medium">{versionInfo.version}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Released:</span>
-                        <span className="font-medium">
-                          {new Date(versionInfo.release_date).toLocaleDateString('en-US', {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric'
-                          })}
-                        </span>
-                      </div>
-                    </>
-                  )}
+              {versionInfo && (
+                <div className="pt-2 border-t border-gray-100">
+                  <div className="text-xs text-gray-600 space-y-1">
+                    <div className="flex justify-between">
+                      <span>Version:</span>
+                      <span className="font-medium">{versionInfo.version}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Released:</span>
+                      <span className="font-medium">
+                        {new Date(versionInfo.release_date).toLocaleDateString('en-US', {
+                          year: 'numeric',
+                          month: 'short',
+                          day: 'numeric'
+                        })}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
 
@@ -236,7 +231,7 @@ export function Footer({ dashboardData, history = [], onHistorySelect, mode }: F
         {/* Bottom bar */}
         <div className="mt-8 pt-6 border-t border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-4">
           <div className="text-xs text-gray-500">
-            © {currentYear} Auto Pricing. Competitive pricing intelligence.
+            © {currentYear}
           </div>
 
           <div className="flex items-center gap-4">

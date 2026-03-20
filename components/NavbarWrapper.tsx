@@ -1,15 +1,19 @@
 "use client";
 
+import { useCacheClearOnNavigation } from "@/hooks/useCacheClearOnNavigation";
+import { usePathname, useRouter } from "next/navigation";
 import { ReactNode, useEffect, useState } from "react";
 import { useAuth } from "./AuthContext";
-import { useRouter, usePathname } from "next/navigation";
-import { SiteNavbar } from "./site-navbar";
+import { SidebarLayout } from "./layout/sidebar-layout";
 
 export function NavbarWrapper({ children }: { children: ReactNode }) {
   const { authenticated } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
+  
+  // Clear API cache when navigating between pages
+  useCacheClearOnNavigation();
 
   // Make sure component is mounted before redirecting
   useEffect(() => {
@@ -22,13 +26,12 @@ export function NavbarWrapper({ children }: { children: ReactNode }) {
     }
   }, [authenticated, mounted, pathname, router]);
 
-  // Show navbar only if logged in
+  // Show sidebar layout only if logged in
   if (!authenticated) return <>{children}</>; // allow /login page to render
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <SiteNavbar />
-      <main className="flex-1">{children}</main>
-    </div>
+    <SidebarLayout>
+      {children}
+    </SidebarLayout>
   );
 }

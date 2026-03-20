@@ -1,20 +1,18 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
-import { getPricingSchemas, getSchemaStats } from "@/lib/api/client/pricing"
-import type { PricingSchemas, SpineColumn, CanonicalWideSchema, SchemaStats } from "@/lib/api/types"
-import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { ContextChips } from "@/components/context-chips"
-import { useContextChips } from "@/hooks/useContextChips"
+import { Card, CardContent } from "@/components/ui/card"
 import {
-  MultiSelect,
-  MultiSelectContent,
-  MultiSelectItem,
-  MultiSelectTrigger,
-  MultiSelectValue,
+    MultiSelect,
+    MultiSelectContent,
+    MultiSelectItem,
+    MultiSelectTrigger,
+    MultiSelectValue,
 } from "@/components/ui/multi-select"
+import { getPricingSchemas, getSchemaStats } from "@/lib/api/client/pricing"
+import type { CanonicalWideSchema, PricingSchemas, SchemaStats, SpineColumn } from "@/lib/api/types"
+import { useEffect, useMemo, useState } from "react"
 
 function formatDate(value?: string) {
   if (!value) return "—"
@@ -32,6 +30,22 @@ function formatDate(value?: string) {
   }
 }
 
+function StatCard({ label, value }: { label: string; value: string | number }) {
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <div className="text-xs uppercase text-muted-foreground">{label}</div>
+        <div className="mt-1 text-xl font-semibold">{value}</div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function TypeBadge({ type }: { type: string }) {
+  const color = type === 'decimal' ? 'bg-blue-100 text-blue-800' : type === 'integer' ? 'bg-violet-100 text-violet-800' : type === 'boolean' ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-800'
+  return <span className={`inline-flex items-center rounded px-2 py-0.5 text-xs ${color}`}>{type}</span>
+}
+
 export default function PricingSchemasPage() {
   const [schemas, setSchemas] = useState<PricingSchemas | null>(null)
   const [stats, setStats] = useState<SchemaStats | null>(null)
@@ -39,7 +53,6 @@ export default function PricingSchemasPage() {
   const [, setError] = useState<string | null>(null)
   const [query, setQuery] = useState("")
   const [selectedTypes, setSelectedTypes] = useState<string[]>([])
-  const { createChips } = useContextChips()
 
   useEffect(() => {
     const load = async () => {
@@ -75,18 +88,8 @@ export default function PricingSchemasPage() {
   }, [schemas?.canonical, query, selectedTypes])
 
   return (
-    <main className="mx-auto max-w-6xl p-6 space-y-6">
-      <ContextChips
-        chips={createChips(
-          {
-            label: "Pricing Schema",
-            isCurrent: true
-          }
-        )}
-      />
-      <p className="text-sm text-muted-foreground">Evolved, wide-format schema powering competitor pricing analytics.</p>
-
-      <section className="grid gap-4 sm:grid-cols-3">
+    <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 space-y-4 sm:space-y-6">
+      <section className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-3">
         <StatCard label="Spine columns" value={stats?.spine_columns ?? (schemas?.spine?.length ?? "—")} />
         <StatCard label="Canonical columns" value={stats?.canonical_columns ?? (schemas?.canonical?.total_columns ?? "—")} />
         <StatCard label="Schema version" value={stats?.schema_version ?? (schemas?.canonical?.version ?? "—")} />
@@ -213,22 +216,6 @@ export default function PricingSchemasPage() {
       </section>
     </main>
   )
-}
-
-function StatCard({ label, value }: { label: string; value: string | number }) {
-  return (
-    <Card>
-      <CardContent className="p-4">
-        <div className="text-xs uppercase text-muted-foreground">{label}</div>
-        <div className="mt-1 text-xl font-semibold">{value}</div>
-      </CardContent>
-    </Card>
-  )
-}
-
-function TypeBadge({ type }: { type: string }) {
-  const color = type === 'decimal' ? 'bg-blue-100 text-blue-800' : type === 'integer' ? 'bg-violet-100 text-violet-800' : type === 'boolean' ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-800'
-  return <span className={`inline-flex items-center rounded px-2 py-0.5 text-xs ${color}`}>{type}</span>
 }
 
 

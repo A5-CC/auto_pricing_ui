@@ -1,16 +1,14 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
-import Link from "next/link"
+import { RunHistoryTable } from "@/components/runs/run-history-table"
+import { StatusHeader } from "@/components/runs/status-header"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { getLatestRunStatus, getRunHistory, triggerPipelineRun } from "@/lib/api/client/runs"
 import { ApiError } from "@/lib/api/client/shared"
 import { RunStatus } from "@/lib/api/types"
-import { StatusHeader } from "@/components/runs/status-header"
-import { RunHistoryTable } from "@/components/runs/run-history-table"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Info } from "lucide-react"
-import { ContextChips } from "@/components/context-chips"
-import { useContextChips } from "@/hooks/useContextChips"
+import Link from "next/link"
+import { useEffect, useMemo, useState } from "react"
 
 
 function formatDate(value?: string) {
@@ -74,7 +72,6 @@ export default function RunsPage() {
   const [info, setInfo] = useState<string | null>(null)
   const [triggering, setTriggering] = useState(false)
   const [currentTime, setCurrentTime] = useState(Date.now())
-  const { createChips } = useContextChips()
 
   const isBusy = latestStatus?.status === "running"
 
@@ -166,15 +163,7 @@ export default function RunsPage() {
   }
 
   return (
-    <main className="mx-auto max-w-6xl p-6 space-y-6">
-      <ContextChips
-        chips={createChips(
-          {
-            label: "Scraping Runs",
-            isCurrent: true
-          }
-        )}
-      />
+    <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 space-y-4 sm:space-y-6">
       <StatusHeader isBusy={isBusy} triggering={triggering} onTrigger={onTrigger} />
 
       {error && (

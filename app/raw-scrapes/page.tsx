@@ -1,15 +1,13 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
-import { getRawScrapeDates, getRawScrapesForDate, getRawScrapeDetail } from "@/lib/api/client/raw-scrapes"
-import type { RawScrapeDateSummary, RawScrapeDetail, RawScrapeSummary } from "@/lib/api/types"
+import { ContentMetrics } from "@/components/content-metrics"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { getRawScrapeDates, getRawScrapeDetail, getRawScrapesForDate } from "@/lib/api/client/raw-scrapes"
+import type { RawScrapeDateSummary, RawScrapeDetail, RawScrapeSummary } from "@/lib/api/types"
 import { Eye } from "lucide-react"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { ContentMetrics } from "@/components/content-metrics"
-import { ContextChips } from "@/components/context-chips"
-import { useContextChips } from "@/hooks/useContextChips"
+import { useEffect, useMemo, useState } from "react"
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return "0 Bytes"
@@ -42,7 +40,6 @@ export default function RawScrapesPage() {
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [expanded, setExpanded] = useState(false)
-  const { createChips } = useContextChips()
 
   // Reset expanded state when switching scrapes
   useEffect(() => {
@@ -104,23 +101,7 @@ export default function RawScrapesPage() {
     const isLong = contentLines.length > MAX_PREVIEW_LINES
     const displayedContent = expanded ? selectedScrape.content : contentLines.slice(0, MAX_PREVIEW_LINES).join('\n')
     return (
-      <main className="mx-auto max-w-6xl p-6 space-y-6">
-        <ContextChips 
-          chips={createChips(
-            { 
-              label: "Raw Scrapes", 
-              onClick: () => { setSelectedDate(null); setSelectedScrape(null) } 
-            },
-            { 
-              label: selectedScrape.date, 
-              onClick: () => setSelectedScrape(null) 
-            },
-            { 
-              label: "Detail", 
-              isCurrent: true 
-            }
-          )} 
-        />
+      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 space-y-4 sm:space-y-6">
         <div className="text-sm text-muted-foreground">
           <div className="font-medium">{selectedScrape.date}</div>
           <div className="truncate font-mono" title={selectedScrape.filename}>{selectedScrape.filename}</div>
@@ -177,20 +158,7 @@ export default function RawScrapesPage() {
 
   if (selectedDate) {
     return (
-      <main className="mx-auto max-w-6xl p-6 space-y-6">
-        <ContextChips 
-          chips={createChips(
-            { 
-              label: "Raw Scrapes", 
-              onClick: () => setSelectedDate(null) 
-            },
-            { 
-              label: selectedDate, 
-              isCurrent: true 
-            }
-          )} 
-        />
-
+      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 space-y-4 sm:space-y-6">
         <div className="flex items-center justify-between">
           <input
             className="w-72 rounded-md border px-3 py-2 text-sm outline-none focus-visible:border-ring"
@@ -200,11 +168,12 @@ export default function RawScrapesPage() {
           />
         </div>
 
-        <div className="overflow-x-auto rounded-lg border">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/40 text-left">
-              <tr>
-                <th className="px-4 py-2">Filename</th>
+        <div className="overflow-x-auto rounded-lg border bg-card">
+          <div className="min-w-[600px]">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/40 text-left">
+                <tr>
+                  <th className="px-4 py-2">Filename</th>
                 <th className="px-4 py-2">Size</th>
                 <th className="px-4 py-2">Created At</th>
                 <th className="px-4 py-2">Actions</th>
@@ -235,23 +204,14 @@ export default function RawScrapesPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       </main>
     )
   }
 
   return (
-    <main className="mx-auto max-w-6xl p-6 space-y-6">
-      <ContextChips 
-        chips={createChips(
-          { 
-            label: "Raw Scrapes", 
-            isCurrent: true 
-          }
-        )} 
-      />
-      <p className="text-sm text-muted-foreground">Browse raw markdown extracted from competitor pricing pages.</p>
-
+    <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 space-y-4 sm:space-y-6">
       {error && (
         <Alert variant="destructive">
           <AlertTitle>Error</AlertTitle>
@@ -261,11 +221,12 @@ export default function RawScrapesPage() {
 
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Dates</h2>
-        <div className="overflow-x-auto rounded-lg border">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/40 text-left">
-              <tr>
-                <th className="px-4 py-2">Date</th>
+        <div className="overflow-x-auto rounded-lg border bg-card">
+          <div className="min-w-[650px]">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/40 text-left">
+                <tr>
+                  <th className="px-4 py-2">Date</th>
                 <th className="px-4 py-2">URLs / Pricing</th>
                 <th className="px-4 py-2">Total Size</th>
                 <th className="px-4 py-2">Latest Created</th>
@@ -328,8 +289,7 @@ export default function RawScrapesPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
+          </table>          </div>        </div>
       </section>
     </main>
   )

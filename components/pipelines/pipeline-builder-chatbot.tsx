@@ -5,45 +5,45 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
 } from "@/components/ui/select";
 import {
-  getE1DataSummary,
-  listPipelines,
-  loadPipelineIntoSession,
-  saveAgentPipeline,
-  sendAgentMessage,
-  type AgentChatResponse,
-  type ConversationPhase,
-  type E1DataSummary,
-  type PipelineAction,
-  type PipelineState,
+    getE1DataSummary,
+    listPipelines,
+    loadPipelineIntoSession,
+    saveAgentPipeline,
+    sendAgentMessage,
+    type AgentChatResponse,
+    type ConversationPhase,
+    type E1DataSummary,
+    type PipelineAction,
+    type PipelineState,
 } from "@/lib/api/client/pipelines";
 import type { Pipeline } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 import {
-  Bot,
-  Check,
-  CheckCircle2,
-  ChevronDown,
-  ChevronUp,
-  Database,
-  Filter,
-  FolderOpen,
-  Loader2,
-  MessageCircle,
-  Pencil,
-  RefreshCw,
-  Save,
-  Send,
-  Settings2,
-  Sparkles,
-  X,
-  Zap,
+    Bot,
+    Check,
+    CheckCircle2,
+    ChevronDown,
+    ChevronUp,
+    Database,
+    Filter,
+    FolderOpen,
+    Loader2,
+    MessageCircle,
+    Pencil,
+    RefreshCw,
+    Save,
+    Send,
+    Settings2,
+    Sparkles,
+    X,
+    Zap,
 } from "lucide-react";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -69,7 +69,9 @@ interface PipelineBuilderChatbotProps {
   availableColumns: string[];
   onPipelineUpdate?: (state: PipelineState) => void;
   onActionExecute?: (action: PipelineAction) => void;
+  onReady?: () => void;
   className?: string;
+  mode?: 'floating' | 'fullpage' | 'embedded';
 }
 
 // =============================================================================
@@ -94,14 +96,16 @@ export function PipelineBuilderChatbot({
   availableColumns,
   onPipelineUpdate,
   onActionExecute,
+  onReady,
   className,
+  mode = 'floating',
 }: PipelineBuilderChatbotProps) {
   // Hydration safety - only render dynamic content after mount
   const [mounted, setMounted] = useState(false);
   const componentId = useId();
 
   // State
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(mode === 'fullpage');
   const [isMinimized, setIsMinimized] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
@@ -122,6 +126,9 @@ export function PipelineBuilderChatbot({
   // E1 Data Summary state for interactive suggestions
   const [e1DataSummary, setE1DataSummary] = useState<E1DataSummary | null>(null);
   const [isLoadingE1Data, setIsLoadingE1Data] = useState(false);
+  
+  // Track if initialization has happened to prevent duplicate calls
+  const hasInitialized = useRef(false);
 
   // Set mounted after hydration
   useEffect(() => {
@@ -148,21 +155,6 @@ export function PipelineBuilderChatbot({
     }
   }, [isOpen, isMinimized]);
   
-  // Load E1 data summary when chatbot opens
-  const loadE1DataSummary = useCallback(async () => {
-    if (e1DataSummary) return; // Already loaded
-    setIsLoadingE1Data(true);
-    try {
-      const summary = await getE1DataSummary();
-      setE1DataSummary(summary);
-      console.log("E1 Data Summary loaded:", summary);
-    } catch (error) {
-      console.error("Failed to load E1 data summary:", error);
-    } finally {
-      setIsLoadingE1Data(false);
-    }
-  }, [e1DataSummary]);
-
   // Notify parent of pipeline changes
   useEffect(() => {
     if (pipelineState && onPipelineUpdate) {
@@ -205,6 +197,21 @@ export function PipelineBuilderChatbot({
       });
     }
   }, [onActionExecute]);
+
+  // Load E1 data summary
+  const loadE1DataSummary = useCallback(async () => {
+    if (e1DataSummary || isLoadingE1Data) return; // Already loaded or loading
+    setIsLoadingE1Data(true);
+    try {
+      const summary = await getE1DataSummary();
+      setE1DataSummary(summary);
+      console.log("E1 Data Summary loaded:", summary);
+    } catch (error) {
+      console.error("Failed to load E1 data summary:", error);
+    } finally {
+      setIsLoadingE1Data(false);
+    }
+  }, [e1DataSummary, isLoadingE1Data]);
 
   const initializeConversation = useCallback(async () => {
     setIsTyping(true);
@@ -330,14 +337,47 @@ export function PipelineBuilderChatbot({
     }
   }, []);
 
-  // Initialize conversation when opened
+  // Initialize conversation when opened (floating mode) or when component mounts (fullpage mode)
   useEffect(() => {
-    if (isOpen && messages.length === 0) {
-      loadE1DataSummary(); // Load E1 data for interactive suggestions
-      initializeConversation();
-      refreshSavedPipelines();
+    // For fullpage mode, initialize only once when mounted
+    if (mode === 'fullpage' && mounted && !hasInitialized.current) {
+      hasInitialized.current = true;
+      
+      (async () => {
+        try {
+          await Promise.all([
+            loadE1DataSummary(),
+            refreshSavedPipelines(),
+          ]);
+          await initializeConversation();
+        } catch (error) {
+          console.error("Failed to initialize chatbot:", error);
+        }
+      })();
     }
-  }, [isOpen, loadE1DataSummary, initializeConversation, refreshSavedPipelines, messages.length]);
+    
+    // For floating mode, initialize when opened (only if no messages exist)
+    if (mode !== 'fullpage' && isOpen && messages.length === 0 && !isTyping) {
+      (async () => {
+        try {
+          await Promise.all([
+            loadE1DataSummary(),
+            refreshSavedPipelines(),
+          ]);
+          await initializeConversation();
+        } catch (error) {
+          console.error("Failed to initialize chatbot:", error);
+        }
+      })();
+    }
+  }, [mode, mounted, isOpen, messages.length, isTyping]);
+
+  // Notify parent when ready (E1 data loaded and conversation initialized)
+  useEffect(() => {
+    if (mode === 'fullpage' && e1DataSummary && messages.length > 0 && onReady) {
+      onReady();
+    }
+  }, [mode, e1DataSummary, messages.length, onReady]);
 
   // Load a specific pipeline into the session
   const handleLoadPipeline = async (pipelineId: string) => {
@@ -549,35 +589,35 @@ export function PipelineBuilderChatbot({
       <div
         key={message.id}
         className={cn(
-          "flex gap-3",
+          "flex gap-3 animate-fade-in",
           isUser ? "justify-end" : "justify-start"
         )}
       >
         {!isUser && (
-          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+          <div className="flex-shrink-0 w-10 h-10 rounded-2xl bg-gradient-to-br from-primary to-primary/80 shadow-lg shadow-primary/20 flex items-center justify-center">
             <Bot className="h-5 w-5 text-white" />
           </div>
         )}
         
         <div
           className={cn(
-            "max-w-[80%] rounded-2xl px-4 py-2",
+            "max-w-[80%] rounded-2xl px-5 py-3.5",
             isUser
-              ? "bg-blue-600 text-white rounded-br-sm"
-              : "bg-white border border-slate-200 rounded-bl-sm"
+              ? "bg-gradient-to-br from-primary to-primary/90 text-white shadow-lg shadow-primary/25"
+              : "bg-white border border-slate-200/80 shadow-md hover:shadow-lg transition-shadow"
           )}
         >
           <div className={cn(
-            "text-sm whitespace-pre-wrap",
-            !isUser && "text-slate-700"
+            "text-[15px] leading-relaxed whitespace-pre-wrap",
+            isUser ? "text-white" : "text-slate-800"
           )}>
             {message.content}
           </div>
         </div>
         
         {isUser && (
-          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center">
-            <span className="text-sm font-medium text-slate-600">You</span>
+          <div className="flex-shrink-0 w-10 h-10 rounded-2xl bg-gradient-to-br from-slate-600 to-slate-700 shadow-lg flex items-center justify-center">
+            <span className="text-sm font-semibold text-white">You</span>
           </div>
         )}
       </div>
@@ -593,6 +633,446 @@ export function PipelineBuilderChatbot({
     return null;
   }
 
+  // Embedded mode - chatbot embedded in homepage
+  if (mode === 'embedded') {
+    return (
+      <div className="w-full h-[700px] flex flex-col bg-white">
+        {/* Header */}
+        <div className="px-6 py-5 border-b border-slate-200/80 bg-white/80 backdrop-blur-sm flex-shrink-0">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="p-2.5 bg-gradient-to-br from-primary to-primary/80 rounded-xl shadow-lg shadow-primary/20">
+                <MessageCircle className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-slate-900 tracking-tight">
+                  AI Pricing Assistant
+                </h2>
+                <p className="text-sm text-slate-600 mt-0.5 font-medium">
+                  {e1DataSummary 
+                    ? `${e1DataSummary.competitors.length} competitors • ${e1DataSummary.locations.length} locations • ${e1DataSummary.total_rows.toLocaleString()} rows`
+                    : isLoadingE1Data 
+                      ? "Loading data..."
+                      : "Ask questions or request pipeline configurations"
+                  }
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {e1DataSummary && (
+                <div className="flex items-center gap-1.5 bg-gradient-to-r from-green-50 to-emerald-50 text-green-700 rounded-lg px-3 py-1.5 text-xs font-semibold border border-green-200/50 shadow-sm">
+                  <Database className="h-3.5 w-3.5" />
+                  <span>Live</span>
+                </div>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowLoadDialog(!showLoadDialog)}
+                className="text-xs font-medium border-slate-300 hover:bg-slate-50 hover:border-slate-400 transition-all"
+              >
+                <FolderOpen className="h-3.5 w-3.5 mr-1.5" />
+                Load
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={resetConversation}
+                className="text-xs font-medium border-slate-300 hover:bg-slate-50 hover:border-slate-400 transition-all"
+              >
+                <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+                Reset
+              </Button>
+            </div>
+          </div>
+          
+          {/* Phase Indicator */}
+          {currentPhase !== "welcome" && (
+            <div className="mt-4 inline-flex items-center gap-2 bg-gradient-to-r from-slate-100 to-slate-50 rounded-xl px-4 py-2 border border-slate-200/80 shadow-sm">
+              {renderPhaseIndicator()}
+            </div>
+          )}
+        </div>
+
+        {/* Load Pipeline Dialog */}
+        {showLoadDialog && (
+          <div className="px-6 py-4 border-b bg-gradient-to-r from-slate-50 to-slate-100/50 shadow-inner">
+            <div className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+              <FolderOpen className="h-4 w-4" />
+              Load Saved Pipeline
+            </div>
+            <div className="flex gap-3">
+              <Select value={selectedPipelineId} onValueChange={setSelectedPipelineId}>
+                <SelectTrigger className="flex-1 h-10 text-sm border-2 border-slate-200 rounded-xl bg-white shadow-sm hover:border-slate-300 transition-all">
+                  <SelectValue placeholder={isLoadingPipelines ? "Loading..." : "Select a pipeline"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {savedPipelines.map((pipeline) => (
+                    <SelectItem key={pipeline.id} value={pipeline.id}>
+                      {pipeline.name || `Pipeline ${pipeline.id.substring(0, 8)}`}
+                    </SelectItem>
+                  ))}
+                  {savedPipelines.length === 0 && !isLoadingPipelines && (
+                    <SelectItem value="_none" disabled>No saved pipelines</SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+              <Button
+                size="sm"
+                onClick={() => refreshSavedPipelines()}
+                variant="outline"
+                disabled={isLoadingPipelines}
+                className="h-10 px-4 border-2 border-slate-200 hover:border-slate-300 rounded-xl transition-all"
+              >
+                {isLoadingPipelines ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" />
+                )}
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => handleLoadPipeline(selectedPipelineId)}
+                disabled={!selectedPipelineId || isTyping}
+                className="h-10 px-5 bg-gradient-to-r from-primary to-primary/90 text-white shadow-md rounded-xl font-medium hover:scale-105 transition-all disabled:opacity-50 disabled:hover:scale-100"
+              >
+                <FolderOpen className="h-4 w-4 mr-1.5" />
+                Load
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Messages Area */}
+        <div className="flex-1 overflow-hidden bg-white">
+          <div className="h-full pt-8 px-6 pb-6 overflow-y-auto">
+            <div className="max-w-4xl mx-auto space-y-5">
+              {messages.map(renderMessage)}
+              
+              {isTyping && (
+                <div className="flex gap-3 animate-fade-in">
+                  <div className="flex-shrink-0 w-10 h-10 rounded-2xl bg-gradient-to-br from-primary to-primary/80 shadow-lg shadow-primary/20 flex items-center justify-center">
+                    <Bot className="h-5 w-5 text-white" />
+                  </div>
+                  <div className="bg-white border border-slate-200/80 rounded-2xl px-5 py-3 shadow-md">
+                    <div className="flex gap-1.5">
+                      <span className="w-2 h-2 bg-primary/70 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                      <span className="w-2 h-2 bg-primary/70 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                      <span className="w-2 h-2 bg-primary/70 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              <div ref={messagesEndRef} />
+            </div>
+          </div>
+
+          {/* Pipeline Preview */}
+          {showPipelinePreview && (
+            <div className="px-6 pb-4 border-t">
+              {renderPipelinePreview()}
+            </div>
+          )}
+        </div>
+
+        {/* Save Pipeline Section */}
+        {(currentPhase === "review" || currentPhase === "complete") && pipelineState && (
+          <div className="px-6 py-4 border-t bg-gradient-to-r from-green-50 to-emerald-50 flex-shrink-0 shadow-inner">
+            <div className="max-w-4xl mx-auto flex gap-3">
+              <div className="flex-1 relative">
+                <Input
+                  placeholder="Enter pipeline name..."
+                  value={pipelineName}
+                  onChange={(e) => setPipelineName(e.target.value)}
+                  className="h-11 text-sm border-2 border-green-200 focus:border-green-500 rounded-xl shadow-sm bg-white"
+                />
+              </div>
+              <Button
+                onClick={handleSavePipeline}
+                disabled={isSaving || !(pipelineName ?? "").trim()}
+                className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white h-11 px-6 rounded-xl shadow-lg shadow-green-600/25 font-semibold transition-all hover:scale-105 disabled:opacity-50 disabled:hover:scale-100"
+                size="sm"
+              >
+                {isSaving ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <>
+                    <Save className="h-4 w-4 mr-2" />
+                    Save Pipeline
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Input Area */}
+        <div className="px-6 py-5 border-t bg-white/90 backdrop-blur-sm flex-shrink-0 shadow-2xl">
+          <div className="max-w-4xl mx-auto">
+            <form onSubmit={handleSubmit} className="flex gap-3">
+              <div className="flex-1 relative">
+                <Input
+                  ref={inputRef}
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Type your message or ask for help..."
+                  disabled={isTyping}
+                  className="flex-1 h-12 pl-4 pr-4 text-[15px] border-2 border-slate-200 focus:border-primary rounded-xl shadow-sm transition-all hover:border-slate-300 disabled:opacity-50"
+                />
+              </div>
+              <Button
+                type="submit"
+                disabled={isTyping || !(inputValue ?? "").trim()}
+                className="h-12 px-6 bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary text-white shadow-lg shadow-primary/25 rounded-xl font-semibold transition-all hover:scale-105 disabled:opacity-50 disabled:hover:scale-100"
+              >
+                {isTyping ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <>
+                    <Send className="h-4 w-4 mr-2" />
+                    Send
+                  </>
+                )}
+              </Button>
+            </form>
+            
+            {/* Quick Actions */}
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 text-xs text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg font-medium transition-all"
+                onClick={() => sendMessage("Show current state")}
+              >
+                <Sparkles className="h-3 w-3 mr-1.5" />
+                Current State
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 text-xs text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg font-medium transition-all"
+                onClick={() => sendMessage("Help")}
+              >
+                Help
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Fullpage mode - chatbot as primary interface
+  if (mode === 'fullpage') {
+    return (
+      <div className="flex flex-col h-[calc(100dvh-4rem)] bg-white">
+        <div className="flex-1 flex flex-col max-w-7xl mx-auto w-full">
+          {/* Header */}
+          <div className="px-6 py-5 border-b border-slate-200/80 bg-white/80 backdrop-blur-sm flex-shrink-0 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="p-2.5 bg-gradient-to-br from-primary to-primary/80 rounded-xl shadow-lg shadow-primary/20">
+                  <MessageCircle className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold text-slate-900 tracking-tight">
+                    AI Pricing Assistant
+                  </h1>
+                  <p className="text-sm text-slate-600 font-medium mt-0.5">
+                    {e1DataSummary 
+                      ? `${e1DataSummary.competitors.length} competitors • ${e1DataSummary.locations.length} locations • ${e1DataSummary.total_rows.toLocaleString()} rows`
+                      : isLoadingE1Data 
+                        ? "Loading data..."
+                        : "Ready to help you configure pricing pipelines"
+                    }
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {e1DataSummary && (
+                  <div className="flex items-center gap-1.5 bg-gradient-to-r from-green-50 to-emerald-50 text-green-700 rounded-lg px-3 py-1.5 text-xs font-semibold border border-green-200/50 shadow-sm">
+                    <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+                    Connected
+                  </div>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowLoadDialog(!showLoadDialog)}
+                  className="gap-2 text-xs font-medium border-slate-300 hover:bg-slate-50 hover:border-slate-400 transition-all"
+                >
+                  <FolderOpen className="h-4 w-4" />
+                  Load
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={resetConversation}
+                  className="gap-2 text-xs font-medium border-slate-300 hover:bg-slate-50 hover:border-slate-400 transition-all"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  Reset
+                </Button>
+              </div>
+            </div>
+            
+            {/* Phase Indicator */}
+            {currentPhase !== "welcome" && (
+              <div className="mt-4 inline-flex items-center gap-2 bg-gradient-to-r from-slate-100 to-slate-50 rounded-xl px-4 py-2 border border-slate-200/80 shadow-sm">
+                {renderPhaseIndicator()}
+              </div>
+            )}
+          </div>
+
+          {/* Load Pipeline Dialog */}
+          {showLoadDialog && (
+            <div className="px-6 py-3 border-b bg-muted/50 flex-shrink-0">
+              <div className="text-sm font-medium text-foreground mb-2">Load Saved Pipeline</div>
+              <div className="flex gap-2">
+                <Select value={selectedPipelineId} onValueChange={setSelectedPipelineId}>
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder={isLoadingPipelines ? "Loading..." : "Select a pipeline"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {savedPipelines.map((pipeline) => (
+                      <SelectItem key={pipeline.id} value={pipeline.id}>
+                        {pipeline.name || `Pipeline ${pipeline.id.substring(0, 8)}`}
+                      </SelectItem>
+                    ))}
+                    {savedPipelines.length === 0 && !isLoadingPipelines && (
+                      <SelectItem value="_none" disabled>No saved pipelines</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+                <Button
+                  size="sm"
+                  onClick={() => refreshSavedPipelines()}
+                  variant="outline"
+                  disabled={isLoadingPipelines}
+                >
+                  {isLoadingPipelines ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => handleLoadPipeline(selectedPipelineId)}
+                  disabled={!selectedPipelineId || isTyping}
+                >
+                  Load
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Messages Area */}
+          <div className="flex-1 overflow-hidden flex flex-col">
+            <div className="flex-1 pt-12 px-8 pb-8 overflow-y-auto bg-white">
+              <div className="max-w-4xl mx-auto space-y-5">
+                {messages.map(renderMessage)}
+                
+                {isTyping && (
+                  <div className="flex gap-3 animate-fade-in">
+                    <div className="flex-shrink-0 w-10 h-10 rounded-2xl bg-gradient-to-br from-primary to-primary/80 shadow-lg shadow-primary/20 flex items-center justify-center">
+                      <Bot className="h-5 w-5 text-white" />
+                    </div>
+                    <div className="bg-white border border-slate-200/80 rounded-2xl px-5 py-3 shadow-md">
+                      <div className="flex gap-1.5">
+                        <span className="w-2 h-2 bg-primary/70 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                        <span className="w-2 h-2 bg-primary/70 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                        <span className="w-2 h-2 bg-primary/70 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                <div ref={messagesEndRef} />
+              </div>
+            </div>
+
+            {/* Pipeline Preview */}
+            {showPipelinePreview && (
+              <div className="px-6 pb-4 border-t bg-card">
+                {renderPipelinePreview()}
+              </div>
+            )}
+          </div>
+
+          {/* Save Pipeline Section */}
+          {(currentPhase === "review" || currentPhase === "complete") && pipelineState && (
+            <div className="px-6 py-4 border-t bg-gradient-to-r from-green-50 to-emerald-50 flex-shrink-0 shadow-inner">
+              <div className="max-w-4xl mx-auto flex gap-3">
+                <div className="flex-1 relative">
+                  <Input
+                    placeholder="Enter pipeline name..."
+                    value={pipelineName}
+                    onChange={(e) => setPipelineName(e.target.value)}
+                    className="h-11 text-sm border-2 border-green-200 focus:border-green-500 rounded-xl shadow-sm bg-white"
+                  />
+                </div>
+                <Button
+                  onClick={handleSavePipeline}
+                  disabled={isSaving || !(pipelineName ?? "").trim()}
+                  className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white h-11 px-6 rounded-xl shadow-lg shadow-green-600/25 font-semibold transition-all hover:scale-105 disabled:opacity-50 disabled:hover:scale-100"
+                  size="sm"
+                >
+                  {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Save className="h-4 w-4 mr-2" />Save Pipeline</>}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Input Area - Sticky Bottom */}
+          <div className="px-6 py-5 border-t bg-white/90 backdrop-blur-sm flex-shrink-0 shadow-2xl">
+            <div className="max-w-4xl mx-auto">
+              <form onSubmit={handleSubmit} className="flex gap-3">
+                <div className="flex-1 relative">
+                  <Input
+                    ref={inputRef}
+                    value={inputValue}
+                    onChange={(e) => setInputValue(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Type your message or ask for help..."
+                    disabled={isTyping}
+                    className="flex-1 h-12 pl-4 pr-4 text-[15px] border-2 border-slate-200 focus:border-primary rounded-xl shadow-sm transition-all hover:border-slate-300 disabled:opacity-50"
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  disabled={isTyping || !(inputValue ?? "").trim()}
+                  className="h-12 px-6 bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary text-white shadow-lg shadow-primary/25 rounded-xl font-semibold transition-all hover:scale-105 disabled:opacity-50 disabled:hover:scale-100"
+                >
+                  {isTyping ? <Loader2 className="h-5 w-5 animate-spin" /> : <><Send className="h-4 w-4 mr-2" />Send</>}
+                </Button>
+              </form>
+              
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 text-xs text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg font-medium transition-all"
+                  onClick={() => sendMessage("Show current state")}
+                >
+                  <Sparkles className="h-3 w-3 mr-1.5" />
+                  Current State
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 text-xs text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg font-medium transition-all"
+                  onClick={() => sendMessage("Help")}
+                >
+                  Help
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Floating mode - widget on pipelines page
   return (
     <>
       {/* Floating Button */}
@@ -600,15 +1080,14 @@ export function PipelineBuilderChatbot({
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
           "fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg transition-all hover:scale-110",
-          "bg-gradient-to-br from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700",
           "z-50"
         )}
         size="icon"
       >
         {isOpen ? (
-          <X className="h-6 w-6 text-white" />
+          <X className="h-6 w-6" />
         ) : (
-          <MessageCircle className="h-6 w-6 text-white" />
+          <MessageCircle className="h-6 w-6" />
         )}
       </Button>
 
@@ -616,29 +1095,29 @@ export function PipelineBuilderChatbot({
       {isOpen && (
         <Card
           className={cn(
-            "fixed bottom-24 right-6 w-[460px] shadow-2xl border-2 border-blue-100 z-50",
+            "fixed bottom-24 right-6 w-[460px] shadow-2xl border z-50",
             "animate-in slide-in-from-bottom-5 fade-in duration-300",
             isMinimized ? "h-auto" : "h-[650px]",
             className
           )}
         >
           {/* Header */}
-          <CardHeader className="p-4 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-t-lg">
+          <CardHeader className="p-4 border-b bg-card">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-white/20 rounded-full">
-                  <Sparkles className="h-5 w-5 text-white" />
+                <div className="p-2 bg-primary/10 rounded-lg">
+                  <MessageCircle className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <CardTitle className="text-white text-base">
-                    Pricing Pipeline Builder Chatbot
+                  <CardTitle className="text-base text-foreground">
+                    Pipeline Assistant
                   </CardTitle>
-                  <p className="text-blue-100 text-xs">
+                  <p className="text-xs text-muted-foreground">
                     {e1DataSummary 
                       ? `${e1DataSummary.competitors.length} competitors • ${e1DataSummary.locations.length} locations`
                       : isLoadingE1Data 
                         ? "Loading data..."
-                        : "Configuration assistant"
+                        : "Ready to help"
                     }
                   </p>
                 </div>
@@ -646,15 +1125,15 @@ export function PipelineBuilderChatbot({
               <div className="flex items-center gap-1">
                 {/* Data Status Indicator */}
                 {e1DataSummary && (
-                  <div className="flex items-center gap-1 bg-white/20 rounded-full px-2 py-1 mr-2" title="Real data loaded from E1 endpoint">
-                    <Database className="h-3 w-3 text-green-300" />
-                    <span className="text-xs text-white/90">{e1DataSummary.total_rows.toLocaleString()} rows</span>
-                  </div>
+                  <Badge variant="outline" className="gap-1.5 mr-2">
+                    <div className="h-2 w-2 rounded-full bg-green-500" />
+                    Connected
+                  </Badge>
                 )}
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 text-white hover:bg-white/20"
+                  className="h-8 w-8"
                   onClick={() => setIsMinimized(!isMinimized)}
                 >
                   {isMinimized ? (
@@ -669,14 +1148,14 @@ export function PipelineBuilderChatbot({
             {/* Phase Indicator */}
             {!isMinimized && (
               <div className="mt-3 flex items-center justify-between">
-                <div className="bg-white/20 rounded-full px-3 py-1">
+                <div className="bg-muted rounded-lg px-3 py-1">
                   {renderPhaseIndicator()}
                 </div>
                 <div className="flex items-center gap-1">
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="text-white/80 hover:text-white hover:bg-white/20 text-xs"
+                    className="text-xs"
                     onClick={() => setShowLoadDialog(!showLoadDialog)}
                     title="Load saved pipeline"
                   >
@@ -686,7 +1165,7 @@ export function PipelineBuilderChatbot({
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="text-white/80 hover:text-white hover:bg-white/20 text-xs"
+                    className="text-xs"
                     onClick={resetConversation}
                   >
                     <RefreshCw className="h-3 w-3 mr-1" />
@@ -699,7 +1178,7 @@ export function PipelineBuilderChatbot({
 
           {/* Load Pipeline Dialog */}
           {showLoadDialog && !isMinimized && (
-            <div className="px-4 py-3 border-b bg-blue-50">
+            <div className="px-4 py-3 border-b bg-muted/50">
               <div className="text-sm font-medium text-slate-700 mb-2">Load Saved Pipeline</div>
               <div className="flex gap-2">
                 <Select value={selectedPipelineId} onValueChange={setSelectedPipelineId}>
@@ -733,7 +1212,6 @@ export function PipelineBuilderChatbot({
                   size="sm"
                   onClick={() => handleLoadPipeline(selectedPipelineId)}
                   disabled={!selectedPipelineId || isTyping}
-                  className="bg-blue-600 hover:bg-blue-700"
                 >
                   Load
                 </Button>
@@ -745,21 +1223,21 @@ export function PipelineBuilderChatbot({
             <>
               {/* Messages Area */}
               <CardContent className="p-0 flex-1 overflow-hidden">
-                <div className="h-[350px] p-4 overflow-y-auto">
+                <div className="h-[350px] p-4 overflow-y-auto bg-muted/30">
                   <div className="space-y-4">
                     {messages.map(renderMessage)}
                     
                     {/* Typing indicator */}
                     {isTyping && (
                       <div className="flex gap-3">
-                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
-                          <Bot className="h-5 w-5 text-white" />
+                        <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                          <Bot className="h-5 w-5 text-primary" />
                         </div>
-                        <div className="bg-white border border-slate-200 rounded-2xl rounded-bl-sm px-4 py-3">
+                        <div className="bg-card border border-border rounded-lg px-4 py-3 shadow-sm">
                           <div className="flex gap-1">
-                            <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                            <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                            <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                            <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                            <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                            <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
                           </div>
                         </div>
                       </div>
@@ -771,7 +1249,7 @@ export function PipelineBuilderChatbot({
 
                 {/* Pipeline Preview */}
                 {showPipelinePreview && (
-                  <div className="px-4 pb-2">
+                  <div className="px-4 pb-2 border-t bg-card">
                     {renderPipelinePreview()}
                   </div>
                 )}
@@ -779,7 +1257,7 @@ export function PipelineBuilderChatbot({
 
               {/* Save Pipeline Section (shown in review/complete phase) */}
               {(currentPhase === "review" || currentPhase === "complete") && pipelineState && (
-                <div className="px-4 py-3 border-t bg-green-50">
+                <div className="px-4 py-3 border-t bg-card">
                   <div className="flex gap-2">
                     <Input
                       placeholder="Pipeline name..."
@@ -790,13 +1268,13 @@ export function PipelineBuilderChatbot({
                     <Button
                       onClick={handleSavePipeline}
                       disabled={isSaving || !(pipelineName ?? "").trim()}
-                      className="bg-green-600 hover:bg-green-700"
+                      className="gap-2"
                     >
                       {isSaving ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
                         <>
-                          <Save className="h-4 w-4 mr-2" />
+                          <Save className="h-4 w-4" />
                           Save
                         </>
                       )}
@@ -806,7 +1284,7 @@ export function PipelineBuilderChatbot({
               )}
 
               {/* Input Area */}
-              <div className="p-4 border-t bg-white rounded-b-lg">
+              <div className="p-4 border-t bg-card">
                 <form onSubmit={handleSubmit} className="flex gap-2">
                   <Input
                     ref={inputRef}
@@ -820,31 +1298,29 @@ export function PipelineBuilderChatbot({
                   <Button
                     type="submit"
                     disabled={isTyping || !(inputValue ?? "").trim()}
-                    className="bg-blue-600 hover:bg-blue-700"
                   >
                     {isTyping ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
-                      <Send className="h-4 w-4" />
+                      <><Send className="h-4 w-4 mr-2" />Send</>
                     )}
                   </Button>
                 </form>
                 
                 {/* Quick Actions */}
-                <div className="mt-2 flex flex-wrap gap-1">
+                <div className="mt-2 flex flex-wrap gap-2">
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-6 text-xs text-slate-500 hover:text-blue-600"
+                    className="h-7 text-xs hover:bg-muted"
                     onClick={() => sendMessage("Show current state")}
                   >
                     Current state
                   </Button>
-                  <span className="text-slate-300">|</span>
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-6 text-xs text-slate-500 hover:text-blue-600"
+                    className="h-7 text-xs hover:bg-muted"
                     onClick={() => sendMessage("Help")}
                   >
                     Help

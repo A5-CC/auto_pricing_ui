@@ -1,19 +1,21 @@
-import "./globals.css";
 import { AuthProviderWrapper } from "@/components/AuthProviderWrapper";
 import { NavbarWrapper } from "@/components/NavbarWrapper";
+import { NavigationProgress } from "@/components/navigation-progress";
+import { ThemeProvider } from "@/components/ThemeProvider";
 import { Toaster } from "@/components/ui/sonner";
-import { Roboto } from "next/font/google";
-
-const robotoLight = Roboto({ subsets: ["latin"], weight: "300", variable: "--font-roboto-light" });
+import "./globals.css";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className={`${robotoLight.variable} font-sans antialiased`}>
-        <AuthProviderWrapper>
-          <NavbarWrapper>{children}</NavbarWrapper>
-        </AuthProviderWrapper>
-        <Toaster />
+      <body className="antialiased">
+        <ThemeProvider>
+          <AuthProviderWrapper>
+            <NavigationProgress />
+            <NavbarWrapper>{children}</NavbarWrapper>
+          </AuthProviderWrapper>
+          <Toaster />
+        </ThemeProvider>
       </body>
     </html>
   );

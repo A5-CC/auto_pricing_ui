@@ -1,4 +1,5 @@
 import { ColumnStatistics, CreatePipelineRequest, E1DataResponse, E1Snapshot, Pipeline, UpdatePipelineRequest } from '@/lib/api/types'
+import { cachedFetch } from '../cache'
 import { API_BASE_URL, fetchWithError } from './shared'
 
 /**
@@ -9,8 +10,13 @@ import { API_BASE_URL, fetchWithError } from './shared'
  */
 
 export async function getE1Snapshots(): Promise<E1Snapshot[]> {
-  const response = await fetchWithError(`${API_BASE_URL}/competitors/e1-data/snapshots`)
-  return response.json()
+  return cachedFetch(
+    'e1-snapshots',
+    async () => {
+      const response = await fetchWithError(`${API_BASE_URL}/competitors/e1-data/snapshots`)
+      return response.json()
+    }
+  )
 }
 
 export async function getE1Competitors(
@@ -89,9 +95,17 @@ export async function getE1Client(
       if (value !== undefined) queryParams.append(key, String(value))
     })
   }
-  const url = `${API_BASE_URL}/competitors/e1-data/${encodeURIComponent(snapshot)}/client${queryParams.toString() ? `?${queryParams}` : ""}`
-  const response = await fetchWithError(url)
-  return response.json()
+  const queryString = queryParams.toString()
+  const cacheKey = `e1-client-${snapshot}-${queryString}`
+  
+  return cachedFetch(
+    cacheKey,
+    async () => {
+      const url = `${API_BASE_URL}/competitors/e1-data/${encodeURIComponent(snapshot)}/client${queryString ? `?${queryString}` : ""}`
+      const response = await fetchWithError(url)
+      return response.json()
+    }
+  )
 }
 
 export async function exportE1ClientCSV(
@@ -460,8 +474,14 @@ export interface E1DataSummary {
 /**
  * Get E1 data summary for chatbot context
  * Returns unique values for filters and available columns
+ * This is cached to prevent repeated calls
  */
 export async function getE1DataSummary(): Promise<E1DataSummary> {
-  const response = await fetchWithError(`${API_BASE_URL}/agent/e1-data-summary`)
-  return response.json()
+  return cachedFetch(
+    'e1-data-summary',
+    async () => {
+      const response = await fetchWithError(`${API_BASE_URL}/agent/e1-data-summary`)
+      return response.json()
+    }
+  )
 }

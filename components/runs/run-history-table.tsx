@@ -1,7 +1,7 @@
 "use client"
 
-import { RunStatus } from "@/lib/api/types"
 import { Badge } from "@/components/ui/badge"
+import { RunStatus } from "@/lib/api/types"
 
 function StatusBadge({ status }: { status: RunStatus["status"] }) {
   const variant =
@@ -46,8 +46,9 @@ export function RunHistoryTable({
   loading: boolean
 }) {
   return (
-    <div className="overflow-x-auto rounded-lg border">
-      <table className="w-full text-sm">
+    <div className="overflow-x-auto rounded-lg border bg-card">
+      <div className="min-w-[600px]">
+        <table className="w-full text-sm">
         <thead className="bg-muted/40 text-left">
           <tr>
             <th className="px-4 py-2">Run ID</th>
@@ -86,6 +87,7 @@ export function RunHistoryTable({
           ))}
         </tbody>
       </table>
+      </div>
     </div>
   )
 }

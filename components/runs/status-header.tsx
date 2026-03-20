@@ -1,18 +1,18 @@
 "use client"
 
-import { useState } from "react"
 import { Button } from "@/components/ui/button"
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import { ChevronDown, Play, RefreshCcw, AlertTriangle } from "lucide-react"
+import { AlertTriangle, ChevronDown, Play, RefreshCcw } from "lucide-react"
+import { useState } from "react"
 
 // Status badge removed from header actions to keep UI minimal; latest status is shown below
 
@@ -50,9 +50,6 @@ export function StatusHeader({
   return (
     <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="space-y-1">
-        <p className="text-sm text-muted-foreground">
-          Monitor the A1/A2 competitor pricing pipeline and trigger new runs.
-        </p>
       </div>
       <div className="flex items-center">
         <div className="flex items-stretch">
