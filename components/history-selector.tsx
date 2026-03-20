@@ -1,10 +1,10 @@
 "use client"
 
-import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { History, ChevronDown, FileText } from "lucide-react"
 import { DocMeta } from "@/lib/api/types"
+import { ChevronDown, FileText, History } from "lucide-react"
+import { useState } from "react"
 
 interface HistorySelectorProps {
   history: DocMeta[]
@@ -56,14 +56,14 @@ export function HistorySelector({ history, onSelect, isLoading, mode = 'default'
                     setIsOpen(false)
                   }}
                   disabled={isLoading}
-                  className="w-full px-4 py-3 text-left hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed border-b last:border-b-0 flex items-center gap-3"
+                  className="w-full px-4 py-3 text-left hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed border-b last:border-b-0 flex items-center gap-3"
                 >
-                  <FileText className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                  <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                   <div className="flex-1 min-w-0">
                     <div className="font-medium text-sm truncate">
                       {doc.title}
                     </div>
-                    <div className="text-xs text-gray-500">
+                    <div className="text-xs text-muted-foreground">
                       {new Date(doc.created_at).toLocaleDateString('en-US', {
                         year: 'numeric',
                         month: 'short',

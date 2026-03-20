@@ -2,26 +2,26 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import {
-  Upload,
-  FileText,
-  AlertCircle,
-  CheckCircle2,
-  File,
-  X,
-  BarChart3,
-  TrendingUp,
-  Database,
-  Brain
-} from "lucide-react"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 import { cn } from "@/lib/utils"
+import {
+    AlertCircle,
+    BarChart3,
+    Brain,
+    CheckCircle2,
+    Database,
+    File,
+    FileText,
+    TrendingUp,
+    Upload,
+    X
+} from "lucide-react"
+import { useState } from "react"
 
 interface UploadFormProps {
   onUpload: (files: File[]) => void
@@ -148,21 +148,21 @@ export function UploadForm({ onUpload, isUploading }: UploadFormProps) {
       {/* Header Section - Enterprise style */}
       <div className="text-center space-y-4">
         <div>
-          <h1 className="text-2xl font-medium text-gray-900">Auto Analyst</h1>
-          <p className="text-gray-600 mt-1.5">Transform your business data into actionable insights</p>
+          <h1 className="text-2xl font-medium">Auto Analyst</h1>
+          <p className="text-muted-foreground mt-1.5">Transform your business data into actionable insights</p>
         </div>
 
         {/* Feature highlights - Enterprise style */}
         <div className="flex flex-wrap justify-center gap-2.5 mt-2">
-          <Badge variant="secondary" className="flex items-center gap-1.5 px-3 py-1 text-sm bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors">
+          <Badge variant="secondary" className="flex items-center gap-1.5 px-3 py-1 text-sm">
             <BarChart3 className="h-3.5 w-3.5" />
             Automated Analytics
           </Badge>
-          <Badge variant="secondary" className="flex items-center gap-1.5 px-3 py-1 text-sm bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors">
+          <Badge variant="secondary" className="flex items-center gap-1.5 px-3 py-1 text-sm">
             <TrendingUp className="h-3.5 w-3.5" />
             Executive Insights
           </Badge>
-          <Badge variant="secondary" className="flex items-center gap-1.5 px-3 py-1 text-sm bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors">
+          <Badge variant="secondary" className="flex items-center gap-1.5 px-3 py-1 text-sm">
             <CheckCircle2 className="h-3.5 w-3.5" />
             Instant Reports
           </Badge>
@@ -173,10 +173,10 @@ export function UploadForm({ onUpload, isUploading }: UploadFormProps) {
       <Card className="border transition-all duration-300 animate-in fade-in slide-in-from-bottom-4 delay-300 shadow-sm">
         <CardHeader className="text-center pb-4">
           <CardTitle className="flex items-center justify-center gap-2 text-lg font-medium">
-            <FileText className="h-4 w-4 text-gray-600" />
+            <FileText className="h-4 w-4 text-muted-foreground" />
             Upload Your Data Files
           </CardTitle>
-          <CardDescription className="text-sm text-gray-600">
+          <CardDescription className="text-sm">
             Upload one or more files and get comprehensive analytics in seconds
           </CardDescription>
         </CardHeader>
@@ -187,8 +187,8 @@ export function UploadForm({ onUpload, isUploading }: UploadFormProps) {
               className={cn(
                 "border-2 border-dashed rounded-xl p-12 text-center transition-all duration-300",
                 dragActive
-                  ? "border-blue-500 bg-blue-50/80 scale-[1.02] shadow-lg"
-                  : "border-gray-300 hover:border-gray-400 hover:bg-gray-50/80 group"
+                  ? "border-primary bg-accent scale-[1.02] shadow-lg"
+                  : "border-border hover:border-muted-foreground/50 hover:bg-accent/50 group"
               )}
               onDrop={handleDrop}
               onDragOver={handleDragOver}
@@ -198,22 +198,22 @@ export function UploadForm({ onUpload, isUploading }: UploadFormProps) {
                 <div
                   className={cn(
                     "mx-auto w-16 h-16 rounded-xl flex items-center justify-center transition-all duration-300",
-                    dragActive ? "bg-blue-100 scale-110" : "bg-gray-100 group-hover:bg-gray-200"
+                    dragActive ? "bg-accent scale-110" : "bg-muted group-hover:bg-accent"
                   )}
                 >
                   <Upload
                     className={cn(
                       "h-7 w-7 transition-all duration-300",
-                      dragActive ? "text-blue-600 scale-110" : "text-gray-400 group-hover:text-gray-500"
+                      dragActive ? "text-primary scale-110" : "text-muted-foreground group-hover:text-foreground"
                     )}
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <h3 className="text-xl font-semibold text-gray-900">
+                  <h3 className="text-xl font-semibold">
                     {dragActive ? "Drop your files here" : "Drag & drop your files here"}
                   </h3>
-                  <p className="text-gray-600">or click to browse from your computer</p>
+                  <p className="text-muted-foreground">or click to browse from your computer</p>
                 </div>
 
                 <div className="space-y-3">

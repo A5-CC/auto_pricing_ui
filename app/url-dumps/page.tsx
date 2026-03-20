@@ -1,14 +1,12 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
-import { getURLDumps, getURLDumpDetail, getLatestURLDump } from "@/lib/api/client/url-dumps"
-import type { URLDumpDetail, URLDumpSummary } from "@/lib/api/types"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { ExternalLink, MapPin, Eye } from "lucide-react"
-import { ContextChips } from "@/components/context-chips"
-import { useContextChips } from "@/hooks/useContextChips"
+import { getLatestURLDump, getURLDumpDetail, getURLDumps } from "@/lib/api/client/url-dumps"
+import type { URLDumpDetail, URLDumpSummary } from "@/lib/api/types"
+import { ExternalLink, Eye, MapPin } from "lucide-react"
+import { useEffect, useMemo, useState } from "react"
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return "0 Bytes"
@@ -34,7 +32,6 @@ export default function URLDumpsPage() {
   const [error, setError] = useState<string | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
-  const { createChips } = useContextChips()
 
   useEffect(() => {
     loadDumps()
@@ -82,17 +79,7 @@ export default function URLDumpsPage() {
   }, [selectedDump, searchTerm])
 
   return (
-    <main className="mx-auto max-w-6xl p-6 space-y-6">
-      <ContextChips 
-        chips={createChips(
-          { 
-            label: "URL Discovery", 
-            isCurrent: true 
-          }
-        )} 
-      />
-      <p className="text-sm text-muted-foreground">Explore discovered competitor URLs that feed the pricing pipeline.</p>
-
+    <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 space-y-4 sm:space-y-6">
       {error && (
         <Alert variant="destructive">
           <AlertTitle>Error</AlertTitle>
@@ -100,7 +87,7 @@ export default function URLDumpsPage() {
         </Alert>
       )}
 
-      <section className="grid gap-4 sm:grid-cols-3">
+      <section className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-3">
         <div className="rounded-lg border p-4">
           <div className="text-xs text-muted-foreground">Latest dump</div>
           <div className="font-medium">{latestDump ? latestDump.timestamp : "—"}</div>
@@ -123,8 +110,9 @@ export default function URLDumpsPage() {
 
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Available dumps</h2>
-        <div className="overflow-x-auto rounded-lg border">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto rounded-lg border bg-card">
+          <div className="min-w-[700px]">
+            <table className="w-full text-sm">
             <thead className="bg-muted/40 text-left">
               <tr>
                 <th className="px-4 py-2">ID</th>
@@ -195,6 +183,7 @@ export default function URLDumpsPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       </section>
 
@@ -234,17 +223,18 @@ export default function URLDumpsPage() {
           </div>
 
           <div className="space-y-3">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <h4 className="font-medium">URLs</h4>
               <input
-                className="w-64 rounded-md border px-3 py-2 text-sm outline-none focus-visible:border-ring"
+                className="w-full sm:w-64 rounded-md border px-3 py-2 text-sm outline-none focus-visible:border-ring"
                 placeholder="Search location, competitor, address"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <div className="overflow-x-auto rounded-lg border">
-              <table className="w-full text-sm">
+            <div className="overflow-x-auto rounded-lg border bg-card">
+              <div className="min-w-[800px]">
+                <table className="w-full text-sm">
                 <thead className="bg-muted/40 text-left">
                   <tr>
                     <th className="px-4 py-2">Location & Competitor</th>
@@ -326,6 +316,7 @@ export default function URLDumpsPage() {
                   })}
                 </tbody>
               </table>
+              </div>
             </div>
           </div>
         </section>
