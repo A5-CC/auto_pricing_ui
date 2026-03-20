@@ -22,15 +22,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const validUser = process.env.NEXT_PUBLIC_LOGIN_USER;
     const validPass = process.env.NEXT_PUBLIC_LOGIN_PASS;
 
-    /*if (username === validUser && password === validPass) {
+    if (username === validUser && password === validPass) {
       setAuthenticated(true);
       sessionStorage.setItem('loggedIn', 'true');
       return true;
     }
-    return false;*/
-    setAuthenticated(true);
-      sessionStorage.setItem('loggedIn', 'true');
-    return true;
+    return false;
   };
 
   const logout = () => {

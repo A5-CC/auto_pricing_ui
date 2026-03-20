@@ -189,10 +189,11 @@ export default function PricingPage() {
     }
   }, [selectedSnapshot]);
 
-  // Reload when inputs change (snapshot only)
+  // Reload when snapshot changes
   useEffect(() => {
     loadData();
-  }, [selectedSnapshot, loadData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedSnapshot]); // Only depend on selectedSnapshot to avoid duplicate calls
 
   const onExport = async () => {
     if (!selectedSnapshot) return;
@@ -215,14 +216,9 @@ export default function PricingPage() {
   }, [selectedSnapshot, selectedFilters, setSortBy, setSortDir]);
 
   return (
-    <main className="mx-auto max-w-7xl p-6 space-y-5">
+    <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 space-y-4 sm:space-y-5">
       <header>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-sm text-muted-foreground">
-              Explore normalized competitor unit pricing with dynamic columns.
-            </p>
-          </div>
+        <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
@@ -297,8 +293,9 @@ export default function PricingPage() {
       />
 
       <section className="space-y-3">
-        <div className="overflow-x-auto rounded-lg border">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto rounded-lg border bg-card">
+          <div className="min-w-[800px]">
+            <table className="w-full text-sm">
             <thead className="bg-muted/40 text-left">
               <tr>
                 <SortableTh
@@ -307,7 +304,7 @@ export default function PricingPage() {
                   sortBy={sortBy}
                   sortDir={sortDir}
                   onSortClick={handleSortClick}
-                  className="px-4 py-2 sticky left-0 z-20 bg-background border-r w-[280px] min-w-[280px] max-w-[280px]"
+                  className="px-4 py-2 w-[280px] min-w-[280px] max-w-[280px]"
                 />
                 <SortableTh
                   columnId="modstorage_location"
@@ -393,7 +390,7 @@ export default function PricingPage() {
                           className="border-t align-top"
                           id={`group-body-${key}`}
                         >
-                          <td className="px-4 py-2 whitespace-nowrap sticky left-0 z-10 bg-background border-r w-[280px] min-w-[280px] max-w-[280px]">
+                          <td className="px-4 py-2 whitespace-nowrap w-[280px] min-w-[280px] max-w-[280px]">
                             <div className="space-y-0.5">
                               <div className="flex min-w-0 items-center gap-2">
                                 <span
@@ -445,7 +442,7 @@ export default function PricingPage() {
                     key={`${row.modstorage_location}-${idx}`}
                     className="border-t align-top"
                   >
-                    <td className="px-4 py-2 whitespace-nowrap sticky left-0 z-10 bg-background border-r w-[280px] min-w-[280px] max-w-[280px]">
+                    <td className="px-4 py-2 whitespace-nowrap w-[280px] min-w-[280px] max-w-[280px]">
                       <div className="space-y-0.5">
                         <div className="flex min-w-0 items-center gap-2">
                           <span
@@ -501,6 +498,7 @@ export default function PricingPage() {
               )}
             </tbody>
           </table>
+          </div>
         </div>
       </section>
     </main>

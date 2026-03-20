@@ -1,13 +1,17 @@
 'use client';
 
+import { useAuth } from '@/components/AuthContext';
 import { cn } from '@/lib/utils';
 import {
     ChevronDown,
+    ChevronLeft,
     ChevronRight,
     FileCode,
     FileText,
     Link as LinkIcon,
+    LogOut,
     MapPin,
+    Menu,
     MessageCircle,
     PlayCircle,
     Settings,
@@ -16,7 +20,7 @@ import {
     Zap
 } from 'lucide-react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 interface MenuItem {
@@ -71,7 +75,7 @@ if (process.env.NODE_ENV === 'development') {
   });
 }
 
-function MenuSectionComponent({ section }: { section: MenuSection }) {
+function MenuSectionComponent({ section, isCollapsed }: { section: MenuSection; isCollapsed: boolean }) {
   const [isExpanded, setIsExpanded] = useState(true);
   const pathname = usePathname();
 
@@ -82,22 +86,26 @@ function MenuSectionComponent({ section }: { section: MenuSection }) {
 
   return (
     <div className="space-y-1">
-      {section.collapsible ? (
-        <button
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-white/60 uppercase tracking-wider hover:text-white/80 transition-colors"
-        >
-          <span>{section.title}</span>
-          {isExpanded ? (
-            <ChevronDown className="h-3 w-3" />
+      {!isCollapsed && (
+        <>
+          {section.collapsible ? (
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-white/60 uppercase tracking-wider hover:text-white/80 transition-colors"
+            >
+              <span>{section.title}</span>
+              {isExpanded ? (
+                <ChevronDown className="h-3 w-3" />
+              ) : (
+                <ChevronRight className="h-3 w-3" />
+              )}
+            </button>
           ) : (
-            <ChevronRight className="h-3 w-3" />
+            <div className="px-3 py-2 text-xs font-semibold text-white/60 uppercase tracking-wider">
+              {section.title}
+            </div>
           )}
-        </button>
-      ) : (
-        <div className="px-3 py-2 text-xs font-semibold text-white/60 uppercase tracking-wider">
-          {section.title}
-        </div>
+        </>
       )}
       
       {(!section.collapsible || isExpanded) && (
@@ -106,11 +114,13 @@ function MenuSectionComponent({ section }: { section: MenuSection }) {
             <Link
               key={item.href}
               href={item.href}
+              title={isCollapsed ? item.label : undefined}
               className={cn(
                 'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all',
                 isActive(item.href)
                   ? 'bg-white/10 text-white font-medium shadow-sm'
-                  : 'text-white/90 hover:bg-white/5 hover:text-white'
+                  : 'text-white/90 hover:bg-white/5 hover:text-white',
+                isCollapsed && 'justify-center'
               )}
             >
               <span className={cn(
@@ -118,7 +128,7 @@ function MenuSectionComponent({ section }: { section: MenuSection }) {
               )}>
                 {item.icon}
               </span>
-              <span>{item.label}</span>
+              {!isCollapsed && <span>{item.label}</span>}
             </Link>
           ))}
         </div>
@@ -129,39 +139,74 @@ function MenuSectionComponent({ section }: { section: MenuSection }) {
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const { logout } = useAuth();
+  const [isCollapsed, setIsCollapsed] = useState(true);
   
   const isSettingsActive = pathname.startsWith('/settings');
 
+  const handleLogout = () => {
+    logout();
+    router.push('/login');
+  };
+
   return (
-    <aside className="w-60 h-screen bg-[#2D1B4E] text-white flex flex-col border-r border-white/10">
-      {/* Logo */}
-      <div className="p-6 border-b border-white/10">
-        <Link href="/" className="block">
-          <h1 className="text-2xl font-semibold tracking-tight">facily</h1>
-        </Link>
+    <aside className={cn(
+      "h-screen bg-[#2D1B4E] text-white flex flex-col border-r border-white/10 transition-all duration-300",
+      isCollapsed ? "w-16" : "w-60"
+    )}>
+      {/* Header with collapse button */}
+      <div className={cn(
+        "p-3 border-b border-white/10 flex items-center",
+        isCollapsed ? "justify-center" : "justify-end"
+      )}>
+        <button
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+          title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          {isCollapsed ? (
+            <Menu className="h-5 w-5" />
+          ) : (
+            <ChevronLeft className="h-5 w-5" />
+          )}
+        </button>
       </div>
 
       {/* Menu Sections */}
       <nav className="flex-1 px-3 py-6 space-y-6 overflow-y-auto">
         {MENU_SECTIONS.map((section) => (
-          <MenuSectionComponent key={section.title} section={section} />
+          <MenuSectionComponent key={section.title} section={section} isCollapsed={isCollapsed} />
         ))}
       </nav>
 
-      {/* Settings at Bottom */}
-      <div className="p-3 border-t border-white/10">
+      {/* Settings and Logout at Bottom */}
+      <div className="p-3 border-t border-white/10 space-y-1">
         <Link
           href="/settings"
+          title={isCollapsed ? "Settings" : undefined}
           className={cn(
             'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all',
             isSettingsActive
               ? 'bg-white/10 text-white font-medium'
-              : 'text-white/90 hover:bg-white/5 hover:text-white'
+              : 'text-white/90 hover:bg-white/5 hover:text-white',
+            isCollapsed && 'justify-center'
           )}
         >
           <Settings className="h-4 w-4" />
-          <span>Settings</span>
+          {!isCollapsed && <span>Settings</span>}
         </Link>
+        <button
+          onClick={handleLogout}
+          title={isCollapsed ? "Logout" : undefined}
+          className={cn(
+            'w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all text-white/90 hover:bg-white/5 hover:text-white',
+            isCollapsed && 'justify-center'
+          )}
+        >
+          <LogOut className="h-4 w-4" />
+          {!isCollapsed && <span>Logout</span>}
+        </button>
       </div>
     </aside>
   );

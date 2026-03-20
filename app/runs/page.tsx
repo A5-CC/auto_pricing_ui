@@ -163,7 +163,7 @@ export default function RunsPage() {
   }
 
   return (
-    <main className="mx-auto max-w-6xl p-6 space-y-6">
+    <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 space-y-4 sm:space-y-6">
       <StatusHeader isBusy={isBusy} triggering={triggering} onTrigger={onTrigger} />
 
       {error && (

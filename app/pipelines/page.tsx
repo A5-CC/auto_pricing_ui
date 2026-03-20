@@ -6,7 +6,6 @@ import { AddFunctionAdjusterDialog } from "@/components/pipelines/adjusters/add-
 import { AddTemporalAdjusterDialog } from "@/components/pipelines/adjusters/add-temporal-adjuster-dialog";
 import { useAdjusterDialog } from "@/components/pipelines/adjusters/use-adjuster-dialog";
 import { CalculatedPrice } from "@/components/pipelines/calculated-price";
-import { PipelineBuilderChatbot } from "@/components/pipelines/pipeline-builder-chatbot";
 import { PipelineSelector } from "@/components/pipelines/pipeline-selector";
 import { PriceDataWarning } from "@/components/pipelines/price-data-warning";
 import { ProcessCsvButton } from "@/components/pricing/process-csv-button";
@@ -130,7 +129,6 @@ export default function PipelinesPage() {
 
   useEffect(() => {
     loadSnapshots();
-    loadData(); // initial load
     (async () => {
       try {
         const schemas = await getPricingSchemas();
@@ -139,11 +137,13 @@ export default function PipelinesPage() {
         // ignore
       }
     })();
-  }, [loadData]);
+  }, []);
 
+  // Reload when snapshot changes
   useEffect(() => {
     loadData();
-  }, [selectedSnapshot, loadData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedSnapshot]); // Only depend on selectedSnapshot to avoid duplicate calls
 
   /* ---------------- Pipeline load/save handlers ---------------- */
   const handleLoadPipeline = (filters: PipelineFiltersType) => {
@@ -435,9 +435,9 @@ export default function PipelinesPage() {
 
   /* ---------------- Render ---------------- */
   return (
-    <main className="mx-auto max-w-7xl p-6 space-y-5">
+    <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 space-y-4 sm:space-y-5">
       <header>
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div className="min-w-0">
           </div>
           <div className="flex items-center gap-2">
@@ -518,7 +518,7 @@ export default function PipelinesPage() {
           }
         />
 
-        <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-muted/30 p-3">
+        <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-2 sm:gap-3 rounded-lg border bg-muted/30 p-3">
           <Button type="button" variant="outline" size="sm">
             Rounding
           </Button>
@@ -587,7 +587,7 @@ export default function PipelinesPage() {
         <AdjustersList
           adjusters={localAdjusters}
           actions={
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <span className="inline-flex items-center gap-1 rounded-full bg-muted/40 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                 <Plus className="h-3.5 w-3.5" /> Add adjuster
               </span>
@@ -664,12 +664,6 @@ export default function PipelinesPage() {
           onAdd={handleAddAdjuster}
         />
       </div>
-
-      {/* AI Pipeline Builder Chatbot */}
-      <PipelineBuilderChatbot
-        availableColumns={Object.keys(columnsStats)}
-        mode="floating"
-      />
     </main>
   );
 }

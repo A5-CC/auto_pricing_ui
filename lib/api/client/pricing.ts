@@ -7,21 +7,37 @@ import {
     PricingSnapshot,
     SchemaStats
 } from '@/lib/api/types'
+import { cachedFetch } from '../cache'
 import { API_BASE_URL, fetchWithError } from './shared'
 
 export async function getPricingSchemas(): Promise<PricingSchemas> {
-  const response = await fetchWithError(`${API_BASE_URL}/competitors/pricing-schemas`)
-  return (await response.json()) as PricingSchemas
+  return cachedFetch(
+    'pricing-schemas',
+    async () => {
+      const response = await fetchWithError(`${API_BASE_URL}/competitors/pricing-schemas`)
+      return (await response.json()) as PricingSchemas
+    }
+  )
 }
 
 export async function getSchemaStats(): Promise<SchemaStats> {
-  const response = await fetchWithError(`${API_BASE_URL}/competitors/pricing-schemas/columns/stats`)
-  return (await response.json()) as SchemaStats
+  return cachedFetch(
+    'schema-stats',
+    async () => {
+      const response = await fetchWithError(`${API_BASE_URL}/competitors/pricing-schemas/columns/stats`)
+      return (await response.json()) as SchemaStats
+    }
+  )
 }
 
 export async function getPricingSnapshots(): Promise<PricingSnapshot[]> {
-  const response = await fetchWithError(`${API_BASE_URL}/competitors/pricing-data/snapshots`)
-  return (await response.json()) as PricingSnapshot[]
+  return cachedFetch(
+    'pricing-snapshots',
+    async () => {
+      const response = await fetchWithError(`${API_BASE_URL}/competitors/pricing-data/snapshots`)
+      return (await response.json()) as PricingSnapshot[]
+    }
+  )
 }
 
 export async function getPricingData(
@@ -42,9 +58,17 @@ export async function getPricingData(
       if (value !== undefined) queryParams.append(key, String(value))
     })
   }
-  const url = `${API_BASE_URL}/competitors/pricing-data/${encodeURIComponent(snapshot)}${queryParams.toString() ? `?${queryParams}` : ""}`
-  const response = await fetchWithError(url)
-  return (await response.json()) as PricingDataResponse
+  const queryString = queryParams.toString()
+  const cacheKey = `pricing-data-${snapshot}-${queryString}`
+  
+  return cachedFetch(
+    cacheKey,
+    async () => {
+      const url = `${API_BASE_URL}/competitors/pricing-data/${encodeURIComponent(snapshot)}${queryString ? `?${queryString}` : ""}`
+      const response = await fetchWithError(url)
+      return (await response.json()) as PricingDataResponse
+    }
+  )
 }
 
 export async function getFacilityPricing(
@@ -82,9 +106,16 @@ export async function getColumnStatistics(
   columns?: string[]
 ): Promise<ColumnStatistics[]> {
   const queryParams = columns && columns.length ? `?columns=${columns.join(',')}` : ''
-  const url = `${API_BASE_URL}/competitors/pricing-data/${encodeURIComponent(snapshot)}/statistics${queryParams}`
-  const response = await fetchWithError(url)
-  return (await response.json()) as ColumnStatistics[]
+  const cacheKey = `column-stats-${snapshot}-${columns && columns.length ? columns.sort().join(',') : 'all'}`
+  
+  return cachedFetch(
+    cacheKey,
+    async () => {
+      const url = `${API_BASE_URL}/competitors/pricing-data/${encodeURIComponent(snapshot)}/statistics${queryParams}`
+      const response = await fetchWithError(url)
+      return (await response.json()) as ColumnStatistics[]
+    }
+  )
 }
 
 export async function processClientCSV(

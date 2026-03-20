@@ -144,10 +144,10 @@ export default function LocationsPage() {
   const locationRows = useMemo(() => locations, [locations])
 
   return (
-    <main className="mx-auto max-w-6xl p-6 space-y-6">
-      <section className="rounded-lg border p-4 space-y-4">
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="min-w-[220px]">
+    <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 space-y-4 sm:space-y-6">
+      <section className="rounded-lg border p-3 sm:p-4 space-y-4">
+        <div className="flex flex-col sm:flex-row flex-wrap items-end gap-2 sm:gap-3">
+          <div className="w-full sm:min-w-[220px] sm:w-auto">
             <label className="text-xs text-muted-foreground">Location name</label>
             <Input
               placeholder="modSTORAGE Airport Way"
@@ -155,7 +155,7 @@ export default function LocationsPage() {
               onChange={(e) => setNameInput(e.target.value)}
             />
           </div>
-          <div className="min-w-[260px] flex-1">
+          <div className="w-full sm:min-w-[260px] sm:flex-1">
             <label className="text-xs text-muted-foreground">Location address</label>
             <Input
               placeholder="123 Main St, Dallas, TX"
@@ -169,7 +169,7 @@ export default function LocationsPage() {
               }}
             />
           </div>
-          <div className="min-w-[160px]">
+          <div className="w-full sm:min-w-[160px] sm:w-auto">
             <label className="text-xs text-muted-foreground">City</label>
             <Input
               placeholder="Monterey"
@@ -177,7 +177,7 @@ export default function LocationsPage() {
               onChange={(e) => setCityInput(e.target.value)}
             />
           </div>
-          <div className="min-w-[120px]">
+          <div className="w-full sm:min-w-[120px] sm:w-auto">
             <label className="text-xs text-muted-foreground">State</label>
             <Input
               placeholder="CA"
@@ -185,7 +185,7 @@ export default function LocationsPage() {
               onChange={(e) => setStateInput(e.target.value)}
             />
           </div>
-          <div className="min-w-[140px]">
+          <div className="w-full sm:min-w-[140px] sm:w-auto">
             <label className="text-xs text-muted-foreground">ZIP</label>
             <Input
               placeholder="93940"
@@ -193,16 +193,16 @@ export default function LocationsPage() {
               onChange={(e) => setZipInput(e.target.value)}
             />
           </div>
-          <Button onClick={addLocation} disabled={!canAdd} className="gap-1.5">
+          <Button onClick={addLocation} disabled={!canAdd} className="gap-1.5 w-full sm:w-auto">
             <Plus className="h-4 w-4" aria-hidden />
             Add location
           </Button>
           {locations.length > 0 && (
-            <Button variant="outline" onClick={() => setLocations([])}>
+            <Button variant="outline" onClick={() => setLocations([])} className="w-full sm:w-auto">
               Clear all
             </Button>
           )}
-          <Button variant="default" onClick={handleSave} disabled={!locations.length || saving}>
+          <Button variant="default" onClick={handleSave} disabled={!locations.length || saving} className="w-full sm:w-auto">
             {saving ? "Saving..." : "Save locations"}
           </Button>
         </div>
@@ -221,8 +221,9 @@ export default function LocationsPage() {
               : "No locations yet"}
         </div>
 
-        <div className="overflow-x-auto rounded-lg border">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto rounded-lg border bg-card">
+          <div className="min-w-[700px]">
+            <table className="w-full text-sm">
             <thead className="bg-muted/40 text-left">
               <tr>
                 <th className="px-4 py-2">Name</th>
@@ -284,6 +285,7 @@ export default function LocationsPage() {
               )}
             </tbody>
           </table>
+          </div>
         </div>
       </section>
     </main>

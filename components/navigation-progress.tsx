@@ -7,44 +7,28 @@ import { useEffect, useState } from 'react';
 export function NavigationProgress() {
   const pathname = usePathname();
   const [loading, setLoading] = useState(false);
-  const [timeoutId, setTimeoutId] = useState<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    // Clear any existing timeout
-    if (timeoutId) {
-      clearTimeout(timeoutId);
-      setTimeoutId(null);
-    }
-
-    // Show loading indicator briefly
+    // Show loading indicator
     setLoading(true);
 
-    // Hide after a short delay to ensure smooth transitions
-    const id = setTimeout(() => {
+    // Hide after transition completes
+    const timer = setTimeout(() => {
       setLoading(false);
-    }, 300);
+    }, 500);
 
-    setTimeoutId(id);
-
-    return () => {
-      if (id) clearTimeout(id);
-    };
+    return () => clearTimeout(timer);
   }, [pathname]);
 
   if (!loading) return null;
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-[9999] pointer-events-none">
-      {/* Progress bar */}
-      <div className="h-1 bg-primary animate-pulse">
-        <div className="h-full bg-primary/50 animate-[shimmer_1s_infinite]" />
-      </div>
-      
-      {/* Spinner overlay */}
-      <div className="fixed inset-0 bg-background/30 backdrop-blur-[2px] flex items-center justify-center">
-        <div className="bg-background/90 rounded-lg shadow-lg p-4 flex items-center gap-3 border">
-          <Loader2 className="h-5 w-5 animate-spin text-primary" />
-          <span className="text-sm font-medium">Loading...</span>
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/20 backdrop-blur-sm">
+      <div className="bg-white rounded-xl shadow-2xl p-6 flex flex-col items-center gap-4 min-w-[200px] border border-slate-200">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <div className="text-center">
+          <p className="text-sm font-semibold text-slate-900">Loading page...</p>
+          <p className="text-xs text-slate-500 mt-1">Please wait</p>
         </div>
       </div>
     </div>

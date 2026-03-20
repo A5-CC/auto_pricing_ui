@@ -1,5 +1,4 @@
-export const API_BASE_URL = "http://localhost:8000";
-//(process.env.NEXT_PUBLIC_API_URL || '').replace(/\/+$/, '')
+export const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/+$/, '')
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {

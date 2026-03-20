@@ -1,5 +1,6 @@
 "use client";
 
+import { useCacheClearOnNavigation } from "@/hooks/useCacheClearOnNavigation";
 import { usePathname, useRouter } from "next/navigation";
 import { ReactNode, useEffect, useState } from "react";
 import { useAuth } from "./AuthContext";
@@ -10,6 +11,9 @@ export function NavbarWrapper({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
+  
+  // Clear API cache when navigating between pages
+  useCacheClearOnNavigation();
 
   // Make sure component is mounted before redirecting
   useEffect(() => {

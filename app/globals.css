@@ -152,6 +152,35 @@
     cursor: pointer;
   }
 
+  /* Custom scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: rgb(var(--color-accent) / 0.3);
+    border-radius: 5px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgb(var(--color-primary) / 0.4);
+    border-radius: 5px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgb(var(--color-primary) / 0.6);
+    background-clip: padding-box;
+  }
+
+  /* Firefox scrollbar */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--color-primary) / 0.4) rgb(var(--color-accent) / 0.3);
+  }
+
   [data-sonner-toast][data-type="warning"] {
     --normal-bg: oklch(0.96 0.05 85) !important;
     --normal-border: oklch(0.85 0.12 75) !important;
@@ -173,4 +202,20 @@
   100% {
     transform: translateX(100%);
   }
+}
+
+/* Chatbot message fade-in animation */
+@keyframes fade-in {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
 }
