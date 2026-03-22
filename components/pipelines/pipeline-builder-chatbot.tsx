@@ -370,7 +370,16 @@ export function PipelineBuilderChatbot({
         }
       })();
     }
-  }, [mode, mounted, isOpen, messages.length, isTyping]);
+  }, [
+    mode,
+    mounted,
+    isOpen,
+    messages.length,
+    isTyping,
+    loadE1DataSummary,
+    refreshSavedPipelines,
+    initializeConversation,
+  ]);
 
   // Notify parent when ready (E1 data loaded and conversation initialized)
   useEffect(() => {

@@ -20,6 +20,8 @@ export function ProcessingBanner({ fileName, onCancel }: ProcessingBannerProps) 
       </CardHeader>
       <CardContent className="text-center">
         <div className="space-y-4">
+          <p className="text-sm text-muted-foreground break-all">{fileName}</p>
+
           <div className="flex items-center justify-center gap-2 text-sm">
             <div className="flex space-x-1">
               <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:-0.3s]"></div>
