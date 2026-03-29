@@ -50,16 +50,10 @@ const MENU_SECTIONS: MenuSection[] = [
     collapsible: true,
     items: [
       { label: 'Raw Scrapes', href: '/raw-scrapes', icon: <FileText className="h-4 w-4" /> },
-      { label: 'URL Discovery', href: '/url-dumps', icon: <LinkIcon className="h-4 w-4" /> },
-      { label: 'Pricing Schemas', href: '/pricing-schemas', icon: <FileCode className="h-4 w-4" /> },
-      { label: 'Locations', href: '/locations', icon: <MapPin className="h-4 w-4" /> },
-    ],
-  },
-  {
-    title: 'MONITORING',
-    collapsible: true,
-    items: [
       { label: 'Scraping Runs', href: '/runs', icon: <PlayCircle className="h-4 w-4" /> },
+      { label: 'URL Discovery', href: '/url-dumps', icon: <LinkIcon className="h-4 w-4" /> },
+      { label: 'Schema', href: '/pricing-schemas', icon: <FileCode className="h-4 w-4" /> },
+      { label: 'Locations', href: '/locations', icon: <MapPin className="h-4 w-4" /> },
     ],
   },
 ];

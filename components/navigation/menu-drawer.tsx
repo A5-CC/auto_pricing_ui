@@ -106,17 +106,12 @@ export function MenuDrawer({ children }: MenuDrawerProps) {
               <div className="space-y-1">
                 {section.items.map((item) => (
                   <Link
+                  { label: 'Scraping Runs', href: '/runs', icon: <PlayCircle className="h-4 w-4" /> },
                     key={item.href}
-                    href={item.href}
+                  { label: 'Schema', href: '/pricing-schemas', icon: <FileCode className="h-4 w-4" /> },
                     onClick={() => setOpen(false)}
                     className={cn(
                       'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',
-                      isActive(item.href)
-                        ? 'bg-primary text-primary-foreground font-medium'
-                        : 'hover:bg-accent hover:text-accent-foreground'
-                    )}
-                  >
-                    {item.icon}
                     <span>{item.label}</span>
                   </Link>
                 ))}
