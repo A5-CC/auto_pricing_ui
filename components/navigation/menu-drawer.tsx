@@ -2,15 +2,27 @@
 
 import { Button } from '@/components/ui/button';
 import {
-    Sheet,
-    SheetContent,
-    SheetDescription,
-    SheetHeader,
-    SheetTitle,
-    SheetTrigger,
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
 } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
-import { Activity, FileCode, FileText, Link as LinkIcon, MapPin, Menu, PlayCircle, Settings, TrendingUp, Wrench, Zap } from 'lucide-react';
+import {
+  Activity,
+  FileCode,
+  FileText,
+  Link as LinkIcon,
+  MapPin,
+  Menu,
+  PlayCircle,
+  Settings,
+  TrendingUp,
+  Wrench,
+  Zap,
+} from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
@@ -42,8 +54,9 @@ const NAV_SECTIONS: NavSection[] = [
     title: 'Data',
     items: [
       { label: 'Raw Scrapes', href: '/raw-scrapes', icon: <FileText className="h-4 w-4" /> },
+      { label: 'Scraping Runs', href: '/runs', icon: <PlayCircle className="h-4 w-4" /> },
       { label: 'URL Discovery', href: '/url-dumps', icon: <LinkIcon className="h-4 w-4" /> },
-      { label: 'Pricing Schemas', href: '/pricing-schemas', icon: <FileCode className="h-4 w-4" /> },
+      { label: 'Schema', href: '/pricing-schemas', icon: <FileCode className="h-4 w-4" /> },
       { label: 'Locations', href: '/locations', icon: <MapPin className="h-4 w-4" /> },
     ],
   },
@@ -54,15 +67,8 @@ const NAV_SECTIONS: NavSection[] = [
       { label: 'System Status', href: '/settings/system-status', icon: <Activity className="h-4 w-4" /> },
     ],
   },
-  {
-    title: 'Monitoring',
-    items: [
-      { label: 'Scraping Runs', href: '/runs', icon: <PlayCircle className="h-4 w-4" /> },
-    ],
-  },
 ];
 
-// Add dev section conditionally (you can toggle this based on environment)
 if (process.env.NODE_ENV === 'development') {
   NAV_SECTIONS.push({
     title: 'Developer',
@@ -96,7 +102,7 @@ export function MenuDrawer({ children }: MenuDrawerProps) {
           <SheetTitle>Menu</SheetTitle>
           <SheetDescription>Navigate to different sections of the application</SheetDescription>
         </SheetHeader>
-        
+
         <nav className="mt-8 space-y-6">
           {NAV_SECTIONS.map((section) => (
             <div key={section.title}>
@@ -106,12 +112,17 @@ export function MenuDrawer({ children }: MenuDrawerProps) {
               <div className="space-y-1">
                 {section.items.map((item) => (
                   <Link
-                  { label: 'Scraping Runs', href: '/runs', icon: <PlayCircle className="h-4 w-4" /> },
                     key={item.href}
-                  { label: 'Schema', href: '/pricing-schemas', icon: <FileCode className="h-4 w-4" /> },
+                    href={item.href}
                     onClick={() => setOpen(false)}
                     className={cn(
                       'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',
+                      isActive(item.href)
+                        ? 'bg-primary text-primary-foreground font-medium'
+                        : 'hover:bg-accent hover:text-accent-foreground'
+                    )}
+                  >
+                    {item.icon}
                     <span>{item.label}</span>
                   </Link>
                 ))}
