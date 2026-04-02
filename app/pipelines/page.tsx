@@ -17,16 +17,16 @@ import { SectionLabel } from "@/components/ui/section-label";
 import type { Adjuster } from "@/lib/adjusters";
 import { getPriceDiagnostics, hasValidCompetitorPrices } from "@/lib/adjusters";
 import {
-  getE1Client,
+    getE1Client,
 } from "@/lib/api/client/pipelines";
 import { getColumnStatistics, getPricingData, getPricingSchemas, getPricingSnapshots } from "@/lib/api/client/pricing";
 import type {
-  ColumnStatistics,
-  Pipeline,
-  PipelineFilters as PipelineFiltersType,
-  PricingDataResponse,
-  PricingSchemas,
-  PricingSnapshot,
+    ColumnStatistics,
+    Pipeline,
+    PipelineFilters as PipelineFiltersType,
+    PricingDataResponse,
+    PricingSchemas,
+    PricingSnapshot,
 } from "@/lib/api/types";
 import { Calculator, Clock, Plus, TrendingDown } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -35,6 +35,32 @@ import { UniversalPipelineFilters } from "../pipelines/components/universal-pipe
 import { PricingOverview } from "../pricing/components/pricing-overview";
 
 export default function PipelinesPage() {
+  const LEGACY_TO_COLUMN: Record<string, string> = {
+    competitors: 'competitor_name',
+    locations: 'modstorage_location',
+    dimensions: 'unit_dimensions',
+    unit_categories: 'unit_category',
+  }
+
+  const normalizeFilterKeys = (filters?: Record<string, string[]>) => {
+    const next: Record<string, string[]> = {}
+    for (const [key, vals] of Object.entries(filters ?? {})) {
+      if (!Array.isArray(vals) || vals.length === 0) continue
+      const resolvedKey = LEGACY_TO_COLUMN[key] ?? key
+      next[resolvedKey] = vals
+    }
+    return next
+  }
+
+  const normalizeCombinatoricFlagKeys = (flags?: Record<string, boolean>) => {
+    const next: Record<string, boolean> = {}
+    for (const [key, value] of Object.entries(flags ?? {})) {
+      const resolvedKey = LEGACY_TO_COLUMN[key] ?? key
+      next[resolvedKey] = Boolean(value)
+    }
+    return next
+  }
+
   /* ---------------- State ---------------- */
   const [snapshots, setSnapshots] = useState<PricingSnapshot[]>([]);
   const [selectedSnapshot, setSelectedSnapshot] = useState<string>("latest");
@@ -147,22 +173,7 @@ export default function PipelinesPage() {
 
   /* ---------------- Pipeline load/save handlers ---------------- */
   const handleLoadPipeline = (filters: PipelineFiltersType) => {
-    // Start-over behavior: treat pipeline filters as universal (pricing-style) column filters.
-    const nextUniversal: Record<string, string[]> = {}
-    const legacyToColumn: Record<string, string> = {
-      competitors: 'competitor_name',
-      locations: 'modstorage_location',
-      dimensions: 'unit_dimensions',
-      unit_categories: 'unit_category',
-    }
-
-    for (const [key, vals] of Object.entries(filters || {})) {
-      if (!Array.isArray(vals) || vals.length === 0) continue
-      const resolvedKey = legacyToColumn[key] ?? key
-      nextUniversal[resolvedKey] = vals
-    }
-
-    setUniversalFilters(nextUniversal)
+    setUniversalFilters(normalizeFilterKeys(filters))
 
     // Clear legacy filter state so it cannot create accidental combinatoric combinations.
     setSelectedCompetitors([])
@@ -173,16 +184,30 @@ export default function PipelinesPage() {
 
   const handlePipelineChange = (pipeline: Pipeline | null) => {
     setLocalAdjusters(pipeline?.adjusters || []);
-    if (pipeline?.settings?.universal_filters) {
-      setUniversalFilters(pipeline.settings.universal_filters)
+
+    if (!pipeline) {
+      setUniversalCombinatoric({})
+      setRoundingEnabled(false)
+      setRoundingOffset(0)
+      return
     }
-    if (pipeline?.settings?.combinatoric_flags) {
-      setUniversalCombinatoric(pipeline.settings.combinatoric_flags)
-    }
-    if (pipeline?.settings?.rounding) {
-      setRoundingEnabled(Boolean(pipeline.settings.rounding.enabled))
-      setRoundingOffset(Number(pipeline.settings.rounding.offset ?? 0))
-    }
+
+    const settingsFilters = normalizeFilterKeys(pipeline.settings?.universal_filters)
+    const baseFilters = normalizeFilterKeys(pipeline.filters)
+    const effectiveFilters = Object.keys(settingsFilters).length > 0 ? settingsFilters : baseFilters
+    setUniversalFilters(effectiveFilters)
+
+    const normalizedFlags = normalizeCombinatoricFlagKeys(pipeline.settings?.combinatoric_flags)
+    const alignedFlags = Object.keys(effectiveFilters).reduce((acc, key) => {
+      // Backward compatibility: older pipelines may not have explicit flags.
+      // Treat loaded filter dimensions as combinatoric by default.
+      acc[key] = normalizedFlags[key] ?? true
+      return acc
+    }, {} as Record<string, boolean>)
+    setUniversalCombinatoric(alignedFlags)
+
+    setRoundingEnabled(Boolean(pipeline.settings?.rounding?.enabled))
+    setRoundingOffset(Number(pipeline.settings?.rounding?.offset ?? 0))
   };
 
   /* ---------------- Adjuster actions ---------------- */
