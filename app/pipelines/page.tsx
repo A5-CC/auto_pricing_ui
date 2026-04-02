@@ -194,7 +194,12 @@ export default function PipelinesPage() {
 
     const settingsFilters = normalizeFilterKeys(pipeline.settings?.universal_filters)
     const baseFilters = normalizeFilterKeys(pipeline.filters)
-    const effectiveFilters = Object.keys(settingsFilters).length > 0 ? settingsFilters : baseFilters
+    // Keep all saved dimensions: backend `filters` is the durable source,
+    // while `settings.universal_filters` may be partial on older pipelines.
+    const effectiveFilters = {
+      ...baseFilters,
+      ...settingsFilters,
+    }
     setUniversalFilters(effectiveFilters)
 
     const normalizedFlags = normalizeCombinatoricFlagKeys(pipeline.settings?.combinatoric_flags)
