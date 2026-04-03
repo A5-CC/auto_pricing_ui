@@ -10,6 +10,12 @@ type ResultRow = {
   price: number | null
 }
 
+function rowMatchesValue(cell: unknown, selected: FilterValue): boolean {
+  if (cell === null || cell === undefined) return false
+  if (Array.isArray(cell)) return cell.some((item) => String(item) === String(selected))
+  return String(cell) === String(selected)
+}
+
 function cartesianProduct<T>(arrays: T[][]): T[][] {
   return arrays.reduce<T[][]>(
     (acc, curr) => acc.flatMap(a => curr.map(b => [...a, b])),
@@ -66,9 +72,17 @@ export function CalculatedPrice({
     return String(value)
   }
 
-  const rows = useMemo<ResultRow[]>(() => {
-    if (noCompetitorData) return []
-    if (!adjusters || adjusters.length === 0) return []
+  const { rows, headers, hasCombinatoricFilters } = useMemo<{
+    rows: ResultRow[]
+    headers: string[]
+    hasCombinatoricFilters: boolean
+  }>(() => {
+    if (noCompetitorData) {
+      return { rows: [], headers: ['Price'], hasCombinatoricFilters: false }
+    }
+    if (!adjusters || adjusters.length === 0) {
+      return { rows: [], headers: ['Price'], hasCombinatoricFilters: false }
+    }
 
     const arrays: FilterValue[][] = []
     const humanKeys: string[] = []
@@ -109,6 +123,7 @@ export function CalculatedPrice({
         pool = pool.filter((row) => {
           const val = (row as Record<string, unknown>)[pf.column]
           if (val === null || val === undefined) return false
+          if (Array.isArray(val)) return val.some((item) => set.has(String(item)))
           return set.has(String(val))
         })
       }
@@ -143,22 +158,23 @@ export function CalculatedPrice({
         console.error('[CalculatedPrice] Error for aggregate dataset (no combinatoric filters):', e)
       }
 
-      if (price === null) return []
-
-      return [{ comboMap: {}, price }]
+      return {
+        rows: [{ comboMap: {}, price }],
+        headers: ['Price'],
+        hasCombinatoricFilters: false,
+      }
     }
 
     // Case 2: at least one combinatoric filter → Cartesian combinations
     const combinations = cartesianProduct<FilterValue>(arrays)
 
-    return combinations
-      .map((combo): ResultRow => {
+    const resultRows = combinations.map((combo): ResultRow => {
       // Apply pre-filters (non-combinatoric) first to the competitor data
       let pool = competitorData
       pool = applyPreFilters(pool)
 
       const subset = pool.filter((row) =>
-        columnNames.every((col, i) => String((row as Record<string, unknown>)[col]) === String(combo[i]))
+        columnNames.every((col, i) => rowMatchesValue((row as Record<string, unknown>)[col], combo[i]))
       )
 
       const comboMap = humanKeys.reduce<Record<string, FilterValue>>((acc, k, i) => {
@@ -185,7 +201,12 @@ export function CalculatedPrice({
 
       return { comboMap, price }
     })
-      .filter((r) => r.price !== null) // skip invalid rows
+
+    return {
+      rows: resultRows,
+      headers: [...humanKeys, 'Price'],
+      hasCombinatoricFilters: true,
+    }
   }, [noCompetitorData, competitorData, clientAvailableUnits, adjusters, currentDate, filters, combinatoricFlags])
 
   if (!adjusters || adjusters.length === 0) {
@@ -207,8 +228,6 @@ export function CalculatedPrice({
     )
   }
 
-  const headers = [...new Set(rows.flatMap((r) => Object.keys(r.comboMap))), 'Price']
-
   return (
     <div className="overflow-x-auto overflow-y-auto max-h-[70vh]">
       <table className="w-full table-auto border border-gray-200">
@@ -227,7 +246,7 @@ export function CalculatedPrice({
               {headers.map((h) =>
                 h === 'Price' ? (
                   <td key={h} className="border px-3 py-2 font-bold">
-                    {`$${formatNumeric(r.price!, true)}`}
+                    {r.price === null ? '-' : `$${formatNumeric(r.price, true)}`}
                   </td>
                 ) : (
                   <td key={h} className="border px-3 py-2">
