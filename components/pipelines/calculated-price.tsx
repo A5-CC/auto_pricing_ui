@@ -72,7 +72,7 @@ export function CalculatedPrice({
     return String(value)
   }
 
-  const { rows, headers, hasCombinatoricFilters } = useMemo<{
+  const { rows, headers } = useMemo<{
     rows: ResultRow[]
     headers: string[]
     hasCombinatoricFilters: boolean
