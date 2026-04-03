@@ -326,7 +326,8 @@ export default function PipelinesPage() {
     return rows as unknown as PricingDataResponse["data"]
   }, [baseRows, subsetFilters])
 
-  // Combinatoric filters: only those with values in the filtered dataset
+  // Combinatoric filters: preserve selected dimensions so loaded pipelines
+  // keep all combinatoric columns visible.
   const combinatoricFilters = useMemo<Record<string, { mode: 'subset'; values: string[] }>>(() => {
     return Object.entries(allFilters)
       .filter(([k, v]) => {
@@ -344,16 +345,25 @@ export default function PipelinesPage() {
         }
 
         const resolvedColumn = FILTER_KEY_TO_COLUMN[k] ?? k
-        // Only keep values that exist in the filtered dataset
-        const present = Array.from(
-          new Set(
-            subsetFilteredRows.map(
-              (r: { [key: string]: unknown }) => r[resolvedColumn]
-            )
-          )
-        ).filter((x) => filter.values.includes(String(x)))
-        if (present.length > 0) {
-          acc[k] = { mode: 'subset', values: present.map(String) }
+        // Prefer values that exist in the current subset, but never drop the
+        // combinatoric dimension entirely (older saved pipelines can otherwise
+        // appear to lose a column after load).
+        const presentSet = new Set<string>()
+        for (const row of subsetFilteredRows as { [key: string]: unknown }[]) {
+          const cell = row[resolvedColumn]
+          if (cell === null || cell === undefined) continue
+          if (Array.isArray(cell)) {
+            for (const item of cell as unknown[]) presentSet.add(String(item))
+          } else {
+            presentSet.add(String(cell))
+          }
+        }
+
+        const selectedValues = filter.values.map(String)
+        const presentValues = selectedValues.filter((v) => presentSet.has(v))
+        acc[k] = {
+          mode: 'subset',
+          values: presentValues.length > 0 ? presentValues : selectedValues,
         }
         return acc
       }, {} as Record<string, { mode: 'subset'; values: string[] }>)
