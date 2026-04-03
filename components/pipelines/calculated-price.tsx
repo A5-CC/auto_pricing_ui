@@ -77,9 +77,6 @@ export function CalculatedPrice({
     headers: string[]
     hasCombinatoricFilters: boolean
   }>(() => {
-    if (noCompetitorData) {
-      return { rows: [], headers: ['Price'], hasCombinatoricFilters: false }
-    }
     if (!adjusters || adjusters.length === 0) {
       return { rows: [], headers: ['Price'], hasCombinatoricFilters: false }
     }
@@ -213,7 +210,7 @@ export function CalculatedPrice({
     return <p className="text-muted-foreground">Add adjusters to calculate prices</p>
   }
 
-  if (noCompetitorData) {
+  if (noCompetitorData && Object.keys(filters ?? {}).length === 0) {
     return (
       <p className="text-muted-foreground">No data selected — adjust your filters to include competitor units.</p>
     )
