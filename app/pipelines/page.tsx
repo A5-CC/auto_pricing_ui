@@ -290,7 +290,7 @@ export default function PipelinesPage() {
   // Split filters into subset and combinatoric
   const subsetFilters = useMemo<Record<string, string[]>>(() => {
     return Object.entries(allFilters)
-      .filter(([k]) => !allCombinatoricFlags[k])
+      .filter(([k]) => (allCombinatoricFlags[k] ?? true) === false)
       .reduce((acc, [k]) => {
         const filter = allFilters[k] as FilterMode
         if (filter.mode === 'subset' && Array.isArray(filter.values) && filter.values.length > 0) {
@@ -332,7 +332,8 @@ export default function PipelinesPage() {
     return Object.entries(allFilters)
       .filter(([k, v]) => {
         const filter = v as FilterMode
-        return allCombinatoricFlags[k] && filter.mode === 'subset' && Array.isArray((filter as { mode: 'subset'; values: string[] }).values) && (filter as { mode: 'subset'; values: string[] }).values.length > 0
+        const isCombinatoric = allCombinatoricFlags[k] ?? true
+        return isCombinatoric && filter.mode === 'subset' && Array.isArray((filter as { mode: 'subset'; values: string[] }).values) && (filter as { mode: 'subset'; values: string[] }).values.length > 0
       })
       .reduce((acc, [k]) => {
         const filter = allFilters[k] as { mode: 'subset'; values: string[] }
