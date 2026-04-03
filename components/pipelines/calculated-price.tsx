@@ -75,10 +75,9 @@ export function CalculatedPrice({
   const { rows, headers } = useMemo<{
     rows: ResultRow[]
     headers: string[]
-    hasCombinatoricFilters: boolean
   }>(() => {
     if (!adjusters || adjusters.length === 0) {
-      return { rows: [], headers: ['Price'], hasCombinatoricFilters: false }
+      return { rows: [], headers: ['Price'] }
     }
 
     const arrays: FilterValue[][] = []
@@ -155,17 +154,21 @@ export function CalculatedPrice({
         console.error('[CalculatedPrice] Error for aggregate dataset (no combinatoric filters):', e)
       }
 
+      if (price === null) {
+        return { rows: [], headers: ['Price'] }
+      }
+
       return {
         rows: [{ comboMap: {}, price }],
         headers: ['Price'],
-        hasCombinatoricFilters: false,
       }
     }
 
     // Case 2: at least one combinatoric filter → Cartesian combinations
     const combinations = cartesianProduct<FilterValue>(arrays)
 
-    const resultRows = combinations.map((combo): ResultRow => {
+    const resultRows = combinations
+      .map((combo): ResultRow => {
       // Apply pre-filters (non-combinatoric) first to the competitor data
       let pool = competitorData
       pool = applyPreFilters(pool)
@@ -198,11 +201,11 @@ export function CalculatedPrice({
 
       return { comboMap, price }
     })
+      .filter((r) => r.price !== null)
 
     return {
       rows: resultRows,
       headers: [...humanKeys, 'Price'],
-      hasCombinatoricFilters: true,
     }
   }, [noCompetitorData, competitorData, clientAvailableUnits, adjusters, currentDate, filters, combinatoricFlags])
 
@@ -210,7 +213,7 @@ export function CalculatedPrice({
     return <p className="text-muted-foreground">Add adjusters to calculate prices</p>
   }
 
-  if (noCompetitorData && Object.keys(filters ?? {}).length === 0) {
+  if (noCompetitorData) {
     return (
       <p className="text-muted-foreground">No data selected — adjust your filters to include competitor units.</p>
     )
@@ -243,7 +246,7 @@ export function CalculatedPrice({
               {headers.map((h) =>
                 h === 'Price' ? (
                   <td key={h} className="border px-3 py-2 font-bold">
-                    {r.price === null ? '-' : `$${formatNumeric(r.price, true)}`}
+                    {`$${formatNumeric(r.price!, true)}`}
                   </td>
                 ) : (
                   <td key={h} className="border px-3 py-2">
