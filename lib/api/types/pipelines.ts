@@ -144,10 +144,13 @@ export interface PipelineRoundingSettings {
   offset: number
 }
 
+export type PipelineFilterMode = 'combinatoric' | 'subset'
+
 export interface PipelineSettings {
   rounding?: PipelineRoundingSettings
   universal_filters?: Record<string, string[]>
   combinatoric_flags?: Record<string, boolean>
+  filter_modes?: Record<string, PipelineFilterMode>
 }
 
 /**

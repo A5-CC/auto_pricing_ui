@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/select";
 import type { Adjuster } from "@/lib/adjusters";
 import { createPipeline, deletePipeline, listPipelines } from "@/lib/api/client/pipelines";
-import type { Pipeline, PipelineFilters, PipelineSettings } from "@/lib/api/types";
+import type { Pipeline, PipelineFilterMode, PipelineFilters, PipelineSettings } from "@/lib/api/types";
 import { Save, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { DeletePipelineDialog } from "./delete-pipeline-dialog";
@@ -55,6 +55,33 @@ export function PipelineSelector({
     } catch {
       // ignore
     }
+  }, []);
+
+  const buildPersistedSettings = useCallback((
+    filters: PipelineFilters,
+    settings?: PipelineSettings
+  ): PipelineSettings | undefined => {
+    if (!settings) return undefined;
+
+    const activeKeys = Object.keys(filters).filter((key) => Array.isArray(filters[key]) && filters[key].length > 0);
+    const combinatoricFlags = Object.fromEntries(
+      activeKeys.map((key) => [key, Boolean(settings.combinatoric_flags?.[key])])
+    ) as Record<string, boolean>;
+    const filterModes = Object.fromEntries(
+      activeKeys.map((key) => [key, combinatoricFlags[key] ? "combinatoric" : "subset"])
+    ) as Record<string, PipelineFilterMode>;
+    const universalFilters = Object.fromEntries(
+      Object.entries(settings.universal_filters ?? {}).filter(
+        ([key, value]) => activeKeys.includes(key) && Array.isArray(value) && value.length > 0
+      )
+    ) as Record<string, string[]>;
+
+    return {
+      ...settings,
+      universal_filters: universalFilters,
+      combinatoric_flags: combinatoricFlags,
+      filter_modes: filterModes,
+    };
   }, []);
 
   const loadPipelines = useCallback(async () => {
@@ -110,14 +137,15 @@ export function PipelineSelector({
       const mergedFilters = Object.fromEntries(
         Object.entries(rawFilters).filter(([, value]) => Array.isArray(value) && value.length > 0)
       ) as PipelineFilters;
+      const persistedSettings = buildPersistedSettings(mergedFilters, currentSettings);
       const newPipeline = await createPipeline({
         name,
         filters: mergedFilters,
         adjusters: currentAdjusters,
-        settings: currentSettings,
+        settings: persistedSettings,
       });
       const extras = readLocalExtras();
-      extras[newPipeline.id] = { filters: mergedFilters, settings: currentSettings };
+      extras[newPipeline.id] = { filters: mergedFilters, settings: persistedSettings };
       writeLocalExtras(extras);
       setPipelines((prev) => [newPipeline, ...prev]);
       setSelectedPipelineId(newPipeline.id);

@@ -61,6 +61,15 @@ export default function PipelinesPage() {
     return next
   }
 
+  const normalizeFilterModeKeys = (modes?: Record<string, string>) => {
+    const next: Record<string, string> = {}
+    for (const [key, value] of Object.entries(modes ?? {})) {
+      const resolvedKey = LEGACY_TO_COLUMN[key] ?? key
+      next[resolvedKey] = value
+    }
+    return next
+  }
+
   /* ---------------- State ---------------- */
   const [snapshots, setSnapshots] = useState<PricingSnapshot[]>([]);
   const [selectedSnapshot, setSelectedSnapshot] = useState<string>("latest");
@@ -203,7 +212,18 @@ export default function PipelinesPage() {
     setUniversalFilters(effectiveFilters)
 
     const normalizedFlags = normalizeCombinatoricFlagKeys(pipeline.settings?.combinatoric_flags)
+    const normalizedModes = normalizeFilterModeKeys(pipeline.settings?.filter_modes)
     const alignedFlags = Object.keys(effectiveFilters).reduce((acc, key) => {
+      const mode = normalizedModes[key]
+      if (mode === 'combinatoric') {
+        acc[key] = true
+        return acc
+      }
+      if (mode === 'subset') {
+        acc[key] = false
+        return acc
+      }
+
       // Backward compatibility: older pipelines may not have explicit flags.
       // Treat loaded filter dimensions as combinatoric by default.
       acc[key] = normalizedFlags[key] ?? true
