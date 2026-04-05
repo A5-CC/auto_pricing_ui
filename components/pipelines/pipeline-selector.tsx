@@ -75,15 +75,21 @@ function normalizeModeKeys(modes?: Record<string, PipelineFilterMode>): Record<s
   return next;
 }
 
+function compactFilters(filters: Record<string, string[]>): Record<string, string[]> {
+  return Object.fromEntries(
+    Object.entries(filters).filter(([, values]) => Array.isArray(values) && values.length > 0)
+  );
+}
+
 function buildLegacyFilters(filters?: Record<string, string[]>): PipelineFilters {
   const canonicalFilters = normalizeToCanonicalFilters(filters);
 
-  return {
+  return compactFilters({
     competitors: canonicalFilters.competitor_name ?? [],
     locations: canonicalFilters.modstorage_location ?? [],
     dimensions: canonicalFilters.unit_dimensions ?? [],
     unit_categories: canonicalFilters.unit_category ?? [],
-  };
+  }) as PipelineFilters;
 }
 
 interface PipelineSelectorProps {
@@ -230,7 +236,7 @@ export function PipelineSelector({
       return;
     }
 
-    const pipeline = pipelines.find((p) => p.id === pipelineId);
+    const pipeline = pipelines.find((p: Pipeline) => p.id === pipelineId);
     if (pipeline) {
       setSelectedPipelineId(pipelineId);
       onLoadPipeline(pipeline.filters);
@@ -255,7 +261,7 @@ export function PipelineSelector({
       const extras = readLocalExtras();
       extras[newPipeline.id] = { filters: mergedFilters, settings: persistedSettings };
       writeLocalExtras(extras);
-      setPipelines((prev) => [normalizePipelineForUi(newPipeline, extras[newPipeline.id]), ...prev]);
+      setPipelines((prev: Pipeline[]) => [normalizePipelineForUi(newPipeline, extras[newPipeline.id]), ...prev]);
       setSelectedPipelineId(newPipeline.id);
     } catch (error) {
       console.error("Failed to save pipeline:", error);
@@ -271,7 +277,7 @@ export function PipelineSelector({
       delete extras[selectedPipelineId];
       writeLocalExtras(extras);
     }
-    setPipelines((prev) => prev.filter((p) => p.id !== selectedPipelineId));
+    setPipelines((prev: Pipeline[]) => prev.filter((p: Pipeline) => p.id !== selectedPipelineId));
     setSelectedPipelineId(null);
     onLoadPipeline({
       competitors: [],
@@ -282,7 +288,7 @@ export function PipelineSelector({
     onPipelineChange?.(null);
   };
 
-  const selectedPipeline = pipelines.find((p) => p.id === selectedPipelineId);
+  const selectedPipeline = pipelines.find((p: Pipeline) => p.id === selectedPipelineId);
 
   return (
     <div className="flex items-center gap-2">

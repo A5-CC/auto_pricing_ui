@@ -469,12 +469,14 @@ export default function PipelinesPage() {
   }
 
   const saveFilters = useMemo<PipelineFiltersType>(() => {
-    return {
+    return Object.fromEntries(
+      Object.entries({
       competitors: universalFilters.competitor_name || [],
       locations: universalFilters.modstorage_location || [],
       dimensions: universalFilters.unit_dimensions || [],
       unit_categories: universalFilters.unit_category || [],
-    }
+      }).filter(([, values]) => Array.isArray(values) && values.length > 0)
+    ) as PipelineFiltersType
   }, [universalFilters])
 
   /* ---------------- Render ---------------- */
