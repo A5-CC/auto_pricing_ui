@@ -29,10 +29,13 @@ import type {
     PricingSnapshot,
 } from "@/lib/api/types";
 import { Calculator, Clock, Plus, TrendingDown } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { UniversalPipelineFilters } from "../pipelines/components/universal-pipeline-filters";
 import { PricingOverview } from "../pricing/components/pricing-overview";
+
+const INITIAL_LOAD_LIMIT = 250
+const FULL_LOAD_LIMIT = 1000
 
 export default function PipelinesPage() {
   const LEGACY_TO_COLUMN: Record<string, string> = {
@@ -115,6 +118,7 @@ export default function PipelinesPage() {
   const [columnsStats, setColumnsStats] = useState<
     Record<string, ColumnStatistics>
   >({});
+  const activeLoadRef = useRef(0)
 
   // Mirror /pricing: keep an unfiltered snapshot in memory and filter client-side.
   const baseRows = useMemo(() => dataResponse?.data ?? [], [dataResponse]);
@@ -130,34 +134,53 @@ export default function PipelinesPage() {
   };
 
   const loadData = useCallback(async () => {
+    const loadId = ++activeLoadRef.current
     setLoading(true);
     setError(null);
+    setColumnsStats({})
     try {
-      // Mirror /pricing: fetch pricing-data snapshot and do all filtering client-side.
-      const res = await getPricingData(selectedSnapshot, { limit: 1000 });
-      setDataResponse(res);
+      // Stage 1: quick initial payload for first paint.
+      const initialRes = await getPricingData(selectedSnapshot, { limit: INITIAL_LOAD_LIMIT });
+      if (loadId !== activeLoadRef.current) return
+      setDataResponse(initialRes);
+      setLoading(false);
 
-      // Best-effort: client (modSTORAGE) data lives under the E1 client endpoint.
-      // If it fails for a given snapshot, continue without it.
-      try {
-        const clientRes = await getE1Client(selectedSnapshot, { limit: 1000 });
-        setClientDataResponse(clientRes as unknown as PricingDataResponse);
-      } catch {
-        setClientDataResponse(null);
-      }
+      // Stage 2a: hydrate full competitor data + stats in background.
+      void (async () => {
+        try {
+          const fullRes = await getPricingData(selectedSnapshot, { limit: FULL_LOAD_LIMIT })
+          if (loadId !== activeLoadRef.current) return
+          setDataResponse(fullRes)
 
-      if (res.columns?.length) {
-        const stats = await getColumnStatistics(selectedSnapshot, res.columns);
-        const byName = Object.fromEntries(stats.map((s) => [s.column, s]));
-        setColumnsStats(byName);
-      }
+          if (fullRes.columns?.length) {
+            const stats = await getColumnStatistics(selectedSnapshot, fullRes.columns)
+            if (loadId !== activeLoadRef.current) return
+            const byName = Object.fromEntries(stats.map((s) => [s.column, s]));
+            setColumnsStats(byName)
+          }
+        } catch {
+          // keep initial dataset visible
+        }
+      })()
+
+      // Stage 2b: load client units in background (best-effort).
+      void (async () => {
+        try {
+          const clientRes = await getE1Client(selectedSnapshot, { limit: FULL_LOAD_LIMIT });
+          if (loadId !== activeLoadRef.current) return
+          setClientDataResponse(clientRes as unknown as PricingDataResponse);
+        } catch {
+          if (loadId !== activeLoadRef.current) return
+          setClientDataResponse(null);
+        }
+      })()
     } catch (e) {
+      if (loadId !== activeLoadRef.current) return
       const message =
         e instanceof Error
           ? e.message
           : "Failed to load pricing data";
       setError(message);
-    } finally {
       setLoading(false);
     }
   }, [selectedSnapshot]);

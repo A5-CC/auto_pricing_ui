@@ -164,12 +164,17 @@ export function PipelineSelector({
 
     if (!settings && activeKeys.length === 0) return undefined;
 
-    return {
+    const persisted: PipelineSettings = {
       ...settings,
       universal_filters: universalFilters,
-      combinatoric_flags: combinatoricFlags,
       filter_modes: filterModes,
     };
+
+    // Canonical persistence: keep only filter_modes for combinatoric state.
+    // Backward compatibility on read still supports combinatoric_flags.
+    delete persisted.combinatoric_flags;
+
+    return persisted;
   }, []);
 
   const normalizePipelineForUi = useCallback((

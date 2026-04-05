@@ -27,9 +27,12 @@ import type {
 } from "@/lib/api/types";
 import { getCanonicalLabel } from "@/lib/pricing/column-labels";
 import { getCompetitorColor } from "@/lib/pricing/formatters";
-import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PricingFilters } from "./components/pricing-filters";
 import { PricingOverview } from "./components/pricing-overview";
+
+const INITIAL_LOAD_LIMIT = 250
+const FULL_LOAD_LIMIT = 1000
 
 export default function PricingPage() {
   const [snapshots, setSnapshots] = useState<PricingSnapshot[]>([]);
@@ -50,6 +53,7 @@ export default function PricingPage() {
   );
   const [showSparseColumns, setShowSparseColumns] = useState(false);
   const sparseThreshold = 85; // 85% fill-rate (backend returns 0-100, not 0-1)
+  const activeLoadRef = useRef(0)
 
   const [selectedFilters, setSelectedFilters] = useState<Record<string, string[]>>({})
 
@@ -157,19 +161,17 @@ export default function PricingPage() {
   }, []);
 
   const loadData = useCallback(async () => {
+    const loadId = ++activeLoadRef.current
     setLoading(true);
     setError(null);
+    setColumnsStats({})
     try {
-      // Fetch full snapshot (no backend filters); keep a generous limit
-      const res = await getPricingData(selectedSnapshot, { limit: 1000 });
-      setDataResponse(res);
-      if (res.columns?.length) {
-        // Get statistics for ALL columns that are being displayed
-        const stats = await getColumnStatistics(selectedSnapshot, res.columns);
-        const byName = Object.fromEntries(stats.map((s) => [s.column, s]));
-        setColumnsStats(byName);
+      // Stage 1: fetch a smaller slice so the table renders quickly.
+      const initialRes = await getPricingData(selectedSnapshot, { limit: INITIAL_LOAD_LIMIT });
+      if (loadId !== activeLoadRef.current) return
 
-        // Filter out columns that are already shown in fixed columns
+      setDataResponse(initialRes);
+      if (initialRes.columns?.length) {
         const fixedColumns = [
           "competitor_name",
           "competitor_address",
@@ -177,14 +179,47 @@ export default function PricingPage() {
           "snapshot_date",
           "unit_dimensions",
         ];
-        const filteredColumns = res.columns.filter(
+        const filteredColumns = initialRes.columns.filter(
           (col) => !fixedColumns.includes(col)
         );
         setVisibleColumns((prev) => (prev.length ? prev : filteredColumns));
       }
+
+      setLoading(false);
+
+      // Stage 2: hydrate full data + stats in background.
+      void (async () => {
+        try {
+          const fullRes = await getPricingData(selectedSnapshot, { limit: FULL_LOAD_LIMIT })
+          if (loadId !== activeLoadRef.current) return
+
+          setDataResponse(fullRes)
+
+          if (fullRes.columns?.length) {
+            const fixedColumns = [
+              "competitor_name",
+              "competitor_address",
+              "modstorage_location",
+              "snapshot_date",
+              "unit_dimensions",
+            ];
+            const filteredColumns = fullRes.columns.filter(
+              (col) => !fixedColumns.includes(col)
+            );
+            setVisibleColumns((prev) => (prev.length ? prev : filteredColumns));
+
+            const stats = await getColumnStatistics(selectedSnapshot, fullRes.columns)
+            if (loadId !== activeLoadRef.current) return
+            const byName = Object.fromEntries(stats.map((s) => [s.column, s]));
+            setColumnsStats(byName)
+          }
+        } catch {
+          // Keep the initial fast load; don't block the page on background hydration errors.
+        }
+      })()
     } catch {
+      if (loadId !== activeLoadRef.current) return
       setError("Failed to load pricing data");
-    } finally {
       setLoading(false);
     }
   }, [selectedSnapshot]);
