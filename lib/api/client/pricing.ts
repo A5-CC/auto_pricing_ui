@@ -125,7 +125,7 @@ export async function processClientCSV(
   adjusters?: Adjuster[],
   combinatoric?: Record<string, boolean>,
   rounding?: { enabled: boolean; offset: number }
-): Promise<void> {
+): Promise<Blob> {
   const formData = new FormData()
   formData.append("file", file)
   formData.append("snapshot_id", snapshotId)
@@ -156,13 +156,5 @@ export async function processClientCSV(
     throw new Error(errorMessage)
   }
 
-  const blob = await response.blob()
-  const url = window.URL.createObjectURL(blob)
-  const a = document.createElement("a")
-  a.href = url
-  a.download = `processed_${file.name}`
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-  window.URL.revokeObjectURL(url)
+  return response.blob()
 }
