@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/multi-select"
 import { SectionLabel } from "@/components/ui/section-label"
 import { useUniversalFilter } from "@/hooks/useUniversalFilter"
-import { useMemo, useState, type ChangeEvent, type MouseEvent } from "react"
+import { useEffect, useMemo, useState, type ChangeEvent, type MouseEvent } from "react"
 import type { E1DataRow, PricingSchemas } from "@/lib/api/types"
 import { getCanonicalLabel } from "@/lib/pricing/column-labels"
 
@@ -135,6 +135,37 @@ function FilterRow({ columnKey, rows, schemaCols, values, combinatoric, onChange
 
   const selectedLabel = schemaCols.find((s) => s.key === columnKey)?.label ?? columnKey
 
+  const normalizedValues = useMemo(() => {
+    if (!Array.isArray(values)) return []
+    if (!Array.isArray(allValues) || allValues.length === 0) return values
+
+    const canonicalByKey = new Map<string, string>()
+    for (const v of allValues) {
+      const s = String(v)
+      canonicalByKey.set(s.trim().toLowerCase(), s)
+    }
+
+    const next: string[] = []
+    const seen = new Set<string>()
+    for (const raw of values) {
+      const key = String(raw).trim().toLowerCase()
+      const canonical = canonicalByKey.get(key)
+      if (!canonical) continue
+      if (seen.has(canonical)) continue
+      seen.add(canonical)
+      next.push(canonical)
+    }
+    return next
+  }, [values, allValues])
+
+  useEffect(() => {
+    if (!Array.isArray(values)) return
+    if (!Array.isArray(allValues) || allValues.length === 0) return
+    if (values.length !== normalizedValues.length || values.some((v, i) => String(v) !== String(normalizedValues[i]))) {
+      onChange(normalizedValues)
+    }
+  }, [values, allValues, normalizedValues, onChange])
+
   const filteredCols = useMemo(() => {
     const q = query.trim().toLowerCase()
     return schemaCols.filter((c) => !q || c.label.toLowerCase().includes(q) || c.key.toLowerCase().includes(q))
@@ -178,7 +209,7 @@ function FilterRow({ columnKey, rows, schemaCols, values, combinatoric, onChange
       <div className="sm:col-span-1">
         <label className="block text-[12px] text-foreground/80 mb-1">Values</label>
         <div className="h-12">
-          <MultiSelect values={values} onValuesChange={onChange}>
+          <MultiSelect values={normalizedValues} onValuesChange={onChange}>
             <MultiSelectTrigger className="w-full justify-between data-[placeholder]:text-foreground/70 h-12">
               <MultiSelectValue placeholder="Select values" />
             </MultiSelectTrigger>
