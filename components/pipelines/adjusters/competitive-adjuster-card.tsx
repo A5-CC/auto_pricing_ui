@@ -11,6 +11,9 @@ interface CompetitiveAdjusterCardProps {
 
 export function CompetitiveAdjusterCard({ adjuster, stepNumber, totalSteps, onRemove }: CompetitiveAdjusterCardProps) {
   const multiplierDisplay = Number(adjuster.multiplier).toFixed(2)
+  const sourceColumn = Array.isArray(adjuster.price_columns) && adjuster.price_columns.length > 0
+    ? adjuster.price_columns[0]
+    : '—'
 
   return (
     <AdjusterCardShell
@@ -27,6 +30,10 @@ export function CompetitiveAdjusterCard({ adjuster, stepNumber, totalSteps, onRe
       }
     >
       <dl className="space-y-3 text-sm">
+        <div className="flex items-center justify-between gap-3">
+          <dt className="text-muted-foreground">Source column</dt>
+          <dd className="font-mono text-xs sm:text-sm break-all text-right">{sourceColumn}</dd>
+        </div>
         <div className="flex items-center justify-between gap-3">
           <dt className="text-muted-foreground">Aggregation</dt>
           <dd className="font-semibold capitalize">{adjuster.aggregation}</dd>

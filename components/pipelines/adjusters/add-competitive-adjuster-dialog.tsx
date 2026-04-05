@@ -34,13 +34,15 @@ export function AddCompetitiveAdjusterDialog({
 }: AddCompetitiveAdjusterDialogProps) {
   const [aggregation, setAggregation] = useState<'min' | 'max' | 'avg'>('min')
   const [multiplier, setMultiplier] = useState('0.97')
+  const [priceColumn, setPriceColumn] = useState<string>(DEFAULT_PRICE_FALLBACK_CHAIN[0])
 
   const handleAdd = () => {
+    const parsedMultiplier = parseFloat(multiplier)
     const adjuster: CompetitivePriceAdjuster = {
       type: 'competitive',
-      price_columns: DEFAULT_PRICE_FALLBACK_CHAIN,
+      price_columns: priceColumn ? [priceColumn] : [DEFAULT_PRICE_FALLBACK_CHAIN[0]],
       aggregation,
-      multiplier: parseFloat(multiplier),
+      multiplier: Number.isFinite(parsedMultiplier) && parsedMultiplier > 0 ? parsedMultiplier : 1,
     }
     onAdd(adjuster)
     onOpenChange(false)
@@ -63,6 +65,23 @@ export function AddCompetitiveAdjusterDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label>Price source column</Label>
+            <Select value={priceColumn} onValueChange={setPriceColumn}>
+              <SelectTrigger className="focus:ring-blue-500">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {DEFAULT_PRICE_FALLBACK_CHAIN.map((column) => (
+                  <SelectItem key={column} value={column}>{column}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              One column only. Aggregation is applied across competitors for this selected column.
+            </p>
+          </div>
+
           <div className="space-y-2">
             <Label>Aggregation</Label>
             <Select value={aggregation} onValueChange={(v) => setAggregation(v as 'min' | 'max' | 'avg')}>
