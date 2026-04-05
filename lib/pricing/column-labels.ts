@@ -1,10 +1,15 @@
 import type { PricingSchemas } from "@/lib/api/types"
 
+const COLUMN_LABEL_OVERRIDES: Record<string, string> = {
+  client_location: "Client Location",
+}
+
 /**
  * Resolves a user-friendly label for a column ID
  * Priority: spine label > canonical label > formatted column ID
  */
 export function getColumnLabel(columnId: string, pricingSchemas: PricingSchemas | null): string {
+  if (COLUMN_LABEL_OVERRIDES[columnId]) return COLUMN_LABEL_OVERRIDES[columnId]
   if (!pricingSchemas) return columnId
 
   // Check spine columns first
@@ -23,6 +28,7 @@ export function getColumnLabel(columnId: string, pricingSchemas: PricingSchemas 
  * Prefer the canonical schema label if present; otherwise fall back to `getColumnLabel`.
  */
 export function getCanonicalLabel(columnId: string, pricingSchemas: PricingSchemas | null): string {
+  if (COLUMN_LABEL_OVERRIDES[columnId]) return COLUMN_LABEL_OVERRIDES[columnId]
   if (!pricingSchemas) return columnId
   const canonicalColumn = pricingSchemas.canonical?.columns?.[columnId]
   if (canonicalColumn?.label) return canonicalColumn.label
