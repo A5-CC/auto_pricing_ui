@@ -2,18 +2,18 @@
 
 import { Button } from "@/components/ui/button"
 import {
-  MultiSelect,
-  MultiSelectContent,
-  MultiSelectGroup,
-  MultiSelectItem,
-  MultiSelectTrigger,
-  MultiSelectValue,
+    MultiSelect,
+    MultiSelectContent,
+    MultiSelectGroup,
+    MultiSelectItem,
+    MultiSelectTrigger,
+    MultiSelectValue,
 } from "@/components/ui/multi-select"
 import { SectionLabel } from "@/components/ui/section-label"
 import { useUniversalFilter } from "@/hooks/useUniversalFilter"
-import { useEffect, useMemo, useState, type ChangeEvent, type MouseEvent } from "react"
 import type { E1DataRow, PricingSchemas } from "@/lib/api/types"
 import { getCanonicalLabel } from "@/lib/pricing/column-labels"
+import { useEffect, useMemo, useState, type ChangeEvent, type MouseEvent } from "react"
 
 interface UniversalPipelineFiltersProps {
   rows: E1DataRow[]
