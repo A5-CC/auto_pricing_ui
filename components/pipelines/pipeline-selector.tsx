@@ -170,6 +170,13 @@ export function PipelineSelector({
       filter_modes: filterModes,
     };
 
+    if (!persisted.universal_filters || Object.keys(persisted.universal_filters).length === 0) {
+      delete persisted.universal_filters;
+    }
+    if (!persisted.filter_modes || Object.keys(persisted.filter_modes).length === 0) {
+      delete persisted.filter_modes;
+    }
+
     // Canonical persistence: keep only filter_modes for combinatoric state.
     // Backward compatibility on read still supports combinatoric_flags.
     delete persisted.combinatoric_flags;
@@ -200,15 +207,19 @@ export function PipelineSelector({
         }
       : undefined;
 
-    const canonicalFilters = normalizeToCanonicalFilters({
-      ...pipeline.filters,
-      ...(mergedSettings?.universal_filters ?? {}),
+    const legacyFilters = compactFilters({
+      ...((pipeline.filters ?? {}) as Record<string, string[]>),
       ...(extra?.filters ?? {}),
+    }) as PipelineFilters;
+
+    const canonicalFilters = normalizeToCanonicalFilters({
+      ...legacyFilters,
+      ...(mergedSettings?.universal_filters ?? {}),
     });
 
     return {
       ...pipeline,
-      filters: buildLegacyFilters(canonicalFilters),
+      filters: legacyFilters,
       settings: buildPersistedSettings(canonicalFilters, mergedSettings),
     };
   }, [buildPersistedSettings]);
@@ -244,7 +255,12 @@ export function PipelineSelector({
     const pipeline = pipelines.find((p: Pipeline) => p.id === pipelineId);
     if (pipeline) {
       setSelectedPipelineId(pipelineId);
-      onLoadPipeline(pipeline.filters);
+      onLoadPipeline(
+        buildLegacyFilters(
+          (pipeline.settings?.universal_filters as Record<string, string[]> | undefined)
+          ?? (pipeline.filters as Record<string, string[]> | undefined)
+        )
+      );
       onPipelineChange?.(pipeline);
     }
   };
@@ -255,7 +271,7 @@ export function PipelineSelector({
         ...currentFilters,
         ...(currentSettings?.universal_filters ?? {}),
       });
-      const mergedFilters = buildLegacyFilters(canonicalFilters);
+      const mergedFilters = {} as PipelineFilters;
       const persistedSettings = buildPersistedSettings(canonicalFilters, currentSettings);
       const newPipeline = await createPipeline({
         name,
@@ -264,7 +280,7 @@ export function PipelineSelector({
         settings: persistedSettings,
       });
       const extras = readLocalExtras();
-      extras[newPipeline.id] = { filters: mergedFilters, settings: persistedSettings };
+      extras[newPipeline.id] = { filters: {}, settings: persistedSettings };
       writeLocalExtras(extras);
       setPipelines((prev: Pipeline[]) => [normalizePipelineForUi(newPipeline, extras[newPipeline.id]), ...prev]);
       setSelectedPipelineId(newPipeline.id);

@@ -491,17 +491,6 @@ export default function PipelinesPage() {
     setRoundingOffset(clamped)
   }
 
-  const saveFilters = useMemo<PipelineFiltersType>(() => {
-    return Object.fromEntries(
-      Object.entries({
-      competitors: universalFilters.competitor_name || [],
-      locations: universalFilters.modstorage_location || [],
-      dimensions: universalFilters.unit_dimensions || [],
-      unit_categories: universalFilters.unit_category || [],
-      }).filter(([, values]) => Array.isArray(values) && values.length > 0)
-    ) as PipelineFiltersType
-  }, [universalFilters])
-
   /* ---------------- Render ---------------- */
   return (
     <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 space-y-4 sm:space-y-5">
@@ -529,9 +518,7 @@ export default function PipelinesPage() {
               }}
             />
             <PipelineSelector
-              currentFilters={{
-                ...saveFilters,
-              }}
+              currentFilters={{} as PipelineFiltersType}
               currentAdjusters={localAdjusters}
               currentSettings={{
                 rounding: {
