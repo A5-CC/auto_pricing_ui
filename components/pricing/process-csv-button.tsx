@@ -44,7 +44,7 @@ type ParsedCsv = {
   rows: string[][]
 }
 
-type CsvCellChange = {
+type CsvRateChange = {
   id: string
   rowIndex: number
   columnIndex: number
@@ -53,15 +53,33 @@ type CsvCellChange = {
   processedValue: string
 }
 
+type ReviewRow = {
+  id: string
+  rowIndex: number
+  facilityName: string
+  unitSize: string
+  currentWebRate: string
+  proposedWebRate: string
+  currentStandardRate: string
+  proposedStandardRate: string
+  webRateChange: CsvRateChange | null
+  standardRateChange: CsvRateChange | null
+}
+
 type ReviewData = {
   fileName: string
   headers: string[]
   originalRows: string[][]
   processedRows: string[][]
-  changes: CsvCellChange[]
+  changes: CsvRateChange[]
+  reviewRows: ReviewRow[]
 }
 
 const REVIEWABLE_RATE_COLUMNS = new Set(["newwebrate", "newstandardrate"])
+const CURRENT_WEB_RATE_COLUMNS = new Set(["currentwebrate"])
+const CURRENT_STANDARD_RATE_COLUMNS = new Set(["currentstandardrate"])
+const FACILITY_NAME_COLUMNS = new Set(["facilityname", "storagename", "propertyname", "sitename"])
+const UNIT_SIZE_COLUMNS = new Set(["size", "unitsize", "unitdimensions"])
 
 function normalizeColumnKey(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]/g, "")
@@ -69,6 +87,15 @@ function normalizeColumnKey(value: string): string {
 
 function isReviewableRateColumn(columnName: string): boolean {
   return REVIEWABLE_RATE_COLUMNS.has(normalizeColumnKey(columnName))
+}
+
+function findColumnIndex(headers: string[], candidates: Set<string>): number {
+  return headers.findIndex((header) => candidates.has(normalizeColumnKey(header)))
+}
+
+function getCellValue(row: string[] | undefined, index: number): string {
+  if (!row || index < 0) return ""
+  return row[index] ?? ""
 }
 
 function parseCsvText(text: string): string[][] {
@@ -168,12 +195,12 @@ function downloadCsv(content: Blob | string, filename: string) {
   window.URL.revokeObjectURL(url)
 }
 
-function buildChanges(original: ParsedCsv, processed: ParsedCsv): CsvCellChange[] {
+function buildChanges(original: ParsedCsv, processed: ParsedCsv): CsvRateChange[] {
   const headers = processed.headers.length ? processed.headers : original.headers
   const rowCount = Math.max(original.rows.length, processed.rows.length)
   const colCount = Math.max(original.headers.length, processed.headers.length)
 
-  const changes: CsvCellChange[] = []
+  const changes: CsvRateChange[] = []
   for (let rowIndex = 0; rowIndex < rowCount; rowIndex++) {
     const originalRow = original.rows[rowIndex] ?? []
     const processedRow = processed.rows[rowIndex] ?? []
@@ -198,6 +225,51 @@ function buildChanges(original: ParsedCsv, processed: ParsedCsv): CsvCellChange[
   }
 
   return changes
+}
+
+function buildReviewRows(original: ParsedCsv, processed: ParsedCsv, changes: CsvRateChange[]): ReviewRow[] {
+  const headers = processed.headers.length ? processed.headers : original.headers
+  const facilityNameIndex = findColumnIndex(headers, FACILITY_NAME_COLUMNS)
+  const unitSizeIndex = findColumnIndex(headers, UNIT_SIZE_COLUMNS)
+  const currentWebRateIndex = findColumnIndex(headers, CURRENT_WEB_RATE_COLUMNS)
+  const currentStandardRateIndex = findColumnIndex(headers, CURRENT_STANDARD_RATE_COLUMNS)
+  const newWebRateIndex = findColumnIndex(headers, new Set(["newwebrate"]))
+  const newStandardRateIndex = findColumnIndex(headers, new Set(["newstandardrate"]))
+
+  const byRow = new Map<number, ReviewRow>()
+
+  for (const change of changes) {
+    const originalRow = original.rows[change.rowIndex] ?? []
+    const processedRow = processed.rows[change.rowIndex] ?? []
+    const existing = byRow.get(change.rowIndex)
+
+    const baseRow: ReviewRow = existing ?? {
+      id: `row-${change.rowIndex}`,
+      rowIndex: change.rowIndex,
+      facilityName: getCellValue(originalRow, facilityNameIndex) || getCellValue(processedRow, facilityNameIndex),
+      unitSize: getCellValue(originalRow, unitSizeIndex) || getCellValue(processedRow, unitSizeIndex),
+      currentWebRate: getCellValue(originalRow, currentWebRateIndex),
+      proposedWebRate: getCellValue(processedRow, newWebRateIndex),
+      currentStandardRate: getCellValue(originalRow, currentStandardRateIndex),
+      proposedStandardRate: getCellValue(processedRow, newStandardRateIndex),
+      webRateChange: null,
+      standardRateChange: null,
+    }
+
+    if (normalizeColumnKey(change.columnName) === "newwebrate") {
+      baseRow.webRateChange = change
+      baseRow.proposedWebRate = change.processedValue
+    }
+
+    if (normalizeColumnKey(change.columnName) === "newstandardrate") {
+      baseRow.standardRateChange = change
+      baseRow.proposedStandardRate = change.processedValue
+    }
+
+    byRow.set(change.rowIndex, baseRow)
+  }
+
+  return Array.from(byRow.values()).sort((a, b) => a.rowIndex - b.rowIndex)
 }
 
 export function ProcessCsvButton({ snapshotId, filters, adjusters, combinatoric, rounding }: ProcessCsvButtonProps) {
@@ -260,12 +332,14 @@ export function ProcessCsvButton({ snapshotId, filters, adjusters, combinatoric,
 
       const headers = processed.headers.length ? processed.headers : original.headers
       const changes = buildChanges(original, processed)
+      const reviewRows = buildReviewRows(original, processed, changes)
       const nextReviewData: ReviewData = {
         fileName: file.name,
         headers,
         originalRows: original.rows,
         processedRows: processed.rows,
         changes,
+        reviewRows,
       }
 
       const approvals: Record<string, boolean> = {}
@@ -322,7 +396,7 @@ export function ProcessCsvButton({ snapshotId, filters, adjusters, combinatoric,
   }
 
   const approvedCount = reviewData
-    ? reviewData.changes.filter((c: CsvCellChange) => approvedChanges[c.id] === true).length
+    ? reviewData.changes.filter((c: CsvRateChange) => approvedChanges[c.id] === true).length
     : 0
 
   return (
@@ -359,7 +433,7 @@ export function ProcessCsvButton({ snapshotId, filters, adjusters, combinatoric,
                 <span className="text-xs text-muted-foreground mt-2 block">
                   Reviewing only New Web Rate / New Standard Rate changes.
                   <br />
-                  Total changes: {reviewData.changes.length.toLocaleString()} · Approved: {approvedCount.toLocaleString()}
+                  Rows changed: {reviewData.reviewRows.length.toLocaleString()} · Changes approved: {approvedCount.toLocaleString()} / {reviewData.changes.length.toLocaleString()}
                 </span>
               </>
             ) : (
@@ -369,7 +443,7 @@ export function ProcessCsvButton({ snapshotId, filters, adjusters, combinatoric,
                 <span className="text-xs text-muted-foreground mt-2 block">
                   Supported filters: modstorage_location, unit_dimensions.
                   <br />
-                  Ensure columns: &apos;Facility Name&apos;, &apos;Size&apos;, &apos;New Web Rate&apos;.
+                  Ensure columns: &apos;Facility Name&apos;, &apos;Size&apos;, &apos;Current Web Rate&apos;, &apos;Current Standard Rate&apos;, &apos;New Web Rate&apos;, &apos;New Standard Rate&apos;.
                 </span>
               </>
             )}
@@ -411,7 +485,7 @@ export function ProcessCsvButton({ snapshotId, filters, adjusters, combinatoric,
             </div>
 
             <div className="max-h-[48vh] overflow-auto rounded-md border">
-              {reviewData.changes.length === 0 ? (
+              {reviewData.reviewRows.length === 0 ? (
                 <div className="p-4 text-sm text-muted-foreground">
                   No changes were produced by pricing algorithms. You can still download the processed CSV.
                 </div>
@@ -419,46 +493,75 @@ export function ProcessCsvButton({ snapshotId, filters, adjusters, combinatoric,
                 <table className="w-full text-sm">
                   <thead className="sticky top-0 bg-background border-b">
                     <tr>
-                      <th className="px-3 py-2 text-left font-medium">Decision</th>
-                      <th className="px-3 py-2 text-left font-medium">Status</th>
                       <th className="px-3 py-2 text-left font-medium">Row</th>
-                      <th className="px-3 py-2 text-left font-medium">Column</th>
-                      <th className="px-3 py-2 text-left font-medium">Current</th>
-                      <th className="px-3 py-2 text-left font-medium">Algorithm</th>
+                      <th className="px-3 py-2 text-left font-medium">Facility</th>
+                      <th className="px-3 py-2 text-left font-medium">Unit</th>
+                      <th className="px-3 py-2 text-left font-medium">Current Web</th>
+                      <th className="px-3 py-2 text-left font-medium">New Web</th>
+                      <th className="px-3 py-2 text-left font-medium">Web Decision</th>
+                      <th className="px-3 py-2 text-left font-medium">Current Standard</th>
+                      <th className="px-3 py-2 text-left font-medium">New Standard</th>
+                      <th className="px-3 py-2 text-left font-medium">Standard Decision</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {reviewData.changes.map((change: CsvCellChange) => (
-                      <tr key={change.id} className="border-b last:border-b-0">
+                    {reviewData.reviewRows.map((row: ReviewRow) => (
+                      <tr key={row.id} className="border-b last:border-b-0">
+                        <td className="px-3 py-2 align-top">{row.rowIndex + 2}</td>
+                        <td className="px-3 py-2 align-top">{row.facilityName || "—"}</td>
+                        <td className="px-3 py-2 align-top">{row.unitSize || "—"}</td>
+                        <td className="px-3 py-2 align-top text-muted-foreground">{row.currentWebRate || "—"}</td>
+                        <td className="px-3 py-2 align-top">{row.proposedWebRate || "—"}</td>
                         <td className="px-3 py-2 align-top">
-                          <div className="flex items-center gap-2">
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant={approvedChanges[change.id] === true ? "default" : "outline"}
-                              onClick={() => setChangeApproval(change.id, true)}
-                              aria-label={`Approve change for row ${change.rowIndex + 2}, column ${change.columnName}`}
-                            >
-                              Approve
-                            </Button>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant={approvedChanges[change.id] === false ? "destructive" : "outline"}
-                              onClick={() => setChangeApproval(change.id, false)}
-                              aria-label={`Deny change for row ${change.rowIndex + 2}, column ${change.columnName}`}
-                            >
-                              Deny
-                            </Button>
-                          </div>
+                          {row.webRateChange ? (
+                            <div className="flex items-center gap-2">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant={approvedChanges[row.webRateChange.id] === true ? "default" : "outline"}
+                                onClick={() => setChangeApproval(row.webRateChange!.id, true)}
+                              >
+                                Approve
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant={approvedChanges[row.webRateChange.id] === false ? "destructive" : "outline"}
+                                onClick={() => setChangeApproval(row.webRateChange!.id, false)}
+                              >
+                                Deny
+                              </Button>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
                         </td>
+                        <td className="px-3 py-2 align-top text-muted-foreground">{row.currentStandardRate || "—"}</td>
+                        <td className="px-3 py-2 align-top">{row.proposedStandardRate || "—"}</td>
                         <td className="px-3 py-2 align-top">
-                          {approvedChanges[change.id] === true ? "Approved" : "Denied"}
+                          {row.standardRateChange ? (
+                            <div className="flex items-center gap-2">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant={approvedChanges[row.standardRateChange.id] === true ? "default" : "outline"}
+                                onClick={() => setChangeApproval(row.standardRateChange!.id, true)}
+                              >
+                                Approve
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant={approvedChanges[row.standardRateChange.id] === false ? "destructive" : "outline"}
+                                onClick={() => setChangeApproval(row.standardRateChange!.id, false)}
+                              >
+                                Deny
+                              </Button>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
                         </td>
-                        <td className="px-3 py-2 align-top">{change.rowIndex + 2}</td>
-                        <td className="px-3 py-2 align-top">{change.columnName}</td>
-                        <td className="px-3 py-2 align-top text-muted-foreground">{change.originalValue || "—"}</td>
-                        <td className="px-3 py-2 align-top">{change.processedValue || "—"}</td>
                       </tr>
                     ))}
                   </tbody>
