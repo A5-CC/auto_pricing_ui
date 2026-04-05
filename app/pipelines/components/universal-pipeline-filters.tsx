@@ -24,6 +24,11 @@ interface UniversalPipelineFiltersProps {
   setCombinatoricFlags: (next: Record<string, boolean>) => void
 }
 
+function getDisplayColumnId(columnKey: string): string {
+  if (columnKey === "modstorage_location") return "client_location"
+  return columnKey
+}
+
 export function UniversalPipelineFilters({ rows, pricingSchemas, selectedFilters, setSelectedFilters, combinatoricFlags, setCombinatoricFlags }: UniversalPipelineFiltersProps) {
   const schemaCols = useMemo(() => {
     const canonical = pricingSchemas?.canonical?.columns ?? {}
@@ -197,7 +202,7 @@ function FilterRow({ columnKey, rows, schemaCols, values, combinatoric, onChange
                     onMouseDown={(ev: MouseEvent) => { ev.preventDefault(); onChangeColumn(c.key); setOpen(false); setQuery("") }}
                   >
                     <div className="font-medium">{c.label}</div>
-                    <div className="text-xs text-muted-foreground">{c.key}</div>
+                    <div className="text-xs text-muted-foreground">{getDisplayColumnId(c.key)}</div>
                   </li>
                 ))
               )}

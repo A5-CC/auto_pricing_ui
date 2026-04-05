@@ -1,6 +1,7 @@
 import type { PricingSchemas } from "@/lib/api/types"
 
 const COLUMN_LABEL_OVERRIDES: Record<string, string> = {
+  modstorage_location: "Client Location",
   client_location: "Client Location",
 }
 
