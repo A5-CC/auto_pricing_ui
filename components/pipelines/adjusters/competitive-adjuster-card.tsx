@@ -1,5 +1,5 @@
-import { TrendingDown } from 'lucide-react'
 import type { CompetitivePriceAdjuster } from '@/lib/adjusters'
+import { TrendingDown } from 'lucide-react'
 import { AdjusterCardShell } from './adjuster-card-shell'
 
 interface CompetitiveAdjusterCardProps {
