@@ -16,6 +16,76 @@ import { useCallback, useEffect, useState } from "react";
 import { DeletePipelineDialog } from "./delete-pipeline-dialog";
 import { SavePipelineDialog } from "./save-pipeline-dialog";
 
+const LEGACY_TO_CANONICAL: Record<string, string> = {
+  competitors: "competitor_name",
+  locations: "modstorage_location",
+  dimensions: "unit_dimensions",
+  unit_categories: "unit_category",
+};
+
+function dedupeValues(values: string[] | undefined): string[] {
+  if (!Array.isArray(values)) return [];
+
+  const seen = new Set<string>();
+  const next: string[] = [];
+
+  for (const value of values) {
+    const normalized = String(value);
+    if (seen.has(normalized)) continue;
+    seen.add(normalized);
+    next.push(normalized);
+  }
+
+  return next;
+}
+
+function normalizeToCanonicalFilters(filters?: Record<string, string[]>): Record<string, string[]> {
+  const next: Record<string, string[]> = {};
+
+  for (const [key, values] of Object.entries(filters ?? {})) {
+    const normalizedValues = dedupeValues(values);
+    if (normalizedValues.length === 0) continue;
+
+    const resolvedKey = LEGACY_TO_CANONICAL[key] ?? key;
+    next[resolvedKey] = dedupeValues([...(next[resolvedKey] ?? []), ...normalizedValues]);
+  }
+
+  return next;
+}
+
+function normalizeFlagKeys(flags?: Record<string, boolean>): Record<string, boolean> {
+  const next: Record<string, boolean> = {};
+
+  for (const [key, value] of Object.entries(flags ?? {})) {
+    const resolvedKey = LEGACY_TO_CANONICAL[key] ?? key;
+    next[resolvedKey] = Boolean(value);
+  }
+
+  return next;
+}
+
+function normalizeModeKeys(modes?: Record<string, PipelineFilterMode>): Record<string, PipelineFilterMode> {
+  const next: Record<string, PipelineFilterMode> = {};
+
+  for (const [key, value] of Object.entries(modes ?? {})) {
+    const resolvedKey = LEGACY_TO_CANONICAL[key] ?? key;
+    next[resolvedKey] = value;
+  }
+
+  return next;
+}
+
+function buildLegacyFilters(filters?: Record<string, string[]>): PipelineFilters {
+  const canonicalFilters = normalizeToCanonicalFilters(filters);
+
+  return {
+    competitors: canonicalFilters.competitor_name ?? [],
+    locations: canonicalFilters.modstorage_location ?? [],
+    dimensions: canonicalFilters.unit_dimensions ?? [],
+    unit_categories: canonicalFilters.unit_category ?? [],
+  };
+}
+
 interface PipelineSelectorProps {
   currentFilters: PipelineFilters;
   currentAdjusters: Adjuster[];
@@ -58,23 +128,35 @@ export function PipelineSelector({
   }, []);
 
   const buildPersistedSettings = useCallback((
-    filters: PipelineFilters,
+    filters: Record<string, string[]>,
     settings?: PipelineSettings
   ): PipelineSettings | undefined => {
-    if (!settings) return undefined;
-
-    const activeKeys = Object.keys(filters).filter((key) => Array.isArray(filters[key]) && filters[key].length > 0);
+    const canonicalFilters = normalizeToCanonicalFilters(filters);
+    const activeKeys = Object.keys(canonicalFilters).filter(
+      (key) => Array.isArray(canonicalFilters[key]) && canonicalFilters[key].length > 0
+    );
+    const combinatoricFlagsByKey = normalizeFlagKeys(settings?.combinatoric_flags);
+    const filterModesByKey = normalizeModeKeys(settings?.filter_modes);
     const combinatoricFlags = Object.fromEntries(
-      activeKeys.map((key) => [key, Boolean(settings.combinatoric_flags?.[key])])
+      activeKeys.map((key) => {
+        const mode = filterModesByKey[key];
+        const value = mode === "combinatoric"
+          ? true
+          : mode === "subset"
+            ? false
+            : Boolean(combinatoricFlagsByKey[key]);
+
+        return [key, value];
+      })
     ) as Record<string, boolean>;
     const filterModes = Object.fromEntries(
       activeKeys.map((key) => [key, combinatoricFlags[key] ? "combinatoric" : "subset"])
     ) as Record<string, PipelineFilterMode>;
     const universalFilters = Object.fromEntries(
-      Object.entries(settings.universal_filters ?? {}).filter(
-        ([key, value]) => activeKeys.includes(key) && Array.isArray(value) && value.length > 0
-      )
+      activeKeys.map((key) => [key, canonicalFilters[key]])
     ) as Record<string, string[]>;
+
+    if (!settings && activeKeys.length === 0) return undefined;
 
     return {
       ...settings,
@@ -130,14 +212,12 @@ export function PipelineSelector({
 
   const handleSavePipeline = async (name: string) => {
     try {
-      const rawFilters = {
+      const canonicalFilters = normalizeToCanonicalFilters({
         ...currentFilters,
         ...(currentSettings?.universal_filters ?? {}),
-      };
-      const mergedFilters = Object.fromEntries(
-        Object.entries(rawFilters).filter(([, value]) => Array.isArray(value) && value.length > 0)
-      ) as PipelineFilters;
-      const persistedSettings = buildPersistedSettings(mergedFilters, currentSettings);
+      });
+      const mergedFilters = buildLegacyFilters(canonicalFilters);
+      const persistedSettings = buildPersistedSettings(canonicalFilters, currentSettings);
       const newPipeline = await createPipeline({
         name,
         filters: mergedFilters,

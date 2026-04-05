@@ -469,28 +469,11 @@ export default function PipelinesPage() {
   }
 
   const saveFilters = useMemo<PipelineFiltersType>(() => {
-    const legacyFromUniversal: Record<string, string[]> = {}
-    const columnToLegacy: Record<string, string> = {
-      competitor_name: 'competitors',
-      modstorage_location: 'locations',
-      unit_dimensions: 'dimensions',
-      unit_category: 'unit_categories',
-    }
-
-    for (const [key, vals] of Object.entries(universalFilters)) {
-      if (!Array.isArray(vals) || vals.length === 0) continue
-      const legacyKey = columnToLegacy[key]
-      if (legacyKey) {
-        legacyFromUniversal[legacyKey] = vals
-      }
-    }
-
     return {
-      competitors: legacyFromUniversal.competitors || [],
-      locations: legacyFromUniversal.locations || [],
-      dimensions: legacyFromUniversal.dimensions || [],
-      unit_categories: legacyFromUniversal.unit_categories || [],
-      ...universalFilters,
+      competitors: universalFilters.competitor_name || [],
+      locations: universalFilters.modstorage_location || [],
+      dimensions: universalFilters.unit_dimensions || [],
+      unit_categories: universalFilters.unit_category || [],
     }
   }, [universalFilters])
 
