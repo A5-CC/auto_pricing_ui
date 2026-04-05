@@ -162,7 +162,7 @@ export interface Pipeline {
   name: string
   created_at: string
   updated_at: string
-  filters: PipelineFilters
+  filters?: PipelineFilters
   adjusters: Adjuster[]  // E2 price adjusters (sequential pipeline)
   settings?: PipelineSettings
 }
@@ -172,7 +172,7 @@ export interface Pipeline {
  */
 export interface CreatePipelineRequest {
   name: string
-  filters: PipelineFilters
+  filters?: PipelineFilters
   adjusters?: Adjuster[]  // Optional, can be added later
   settings?: PipelineSettings
 }
@@ -182,7 +182,7 @@ export interface CreatePipelineRequest {
  */
 export interface UpdatePipelineRequest {
   name: string
-  filters: PipelineFilters
+  filters?: PipelineFilters
   adjusters?: Adjuster[]  // Optional, can be updated independently
   settings?: PipelineSettings
 }
