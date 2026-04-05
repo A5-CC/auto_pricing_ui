@@ -166,24 +166,52 @@ export function PipelineSelector({
     };
   }, []);
 
+  const normalizePipelineForUi = useCallback((
+    pipeline: Pipeline,
+    extra?: { filters: Record<string, string[]>; settings?: PipelineSettings }
+  ): Pipeline => {
+    const mergedSettings: PipelineSettings | undefined = extra?.settings || pipeline.settings
+      ? {
+          ...pipeline.settings,
+          ...extra?.settings,
+          universal_filters: {
+            ...(pipeline.settings?.universal_filters ?? {}),
+            ...(extra?.settings?.universal_filters ?? {}),
+          },
+          combinatoric_flags: {
+            ...(pipeline.settings?.combinatoric_flags ?? {}),
+            ...(extra?.settings?.combinatoric_flags ?? {}),
+          },
+          filter_modes: {
+            ...(pipeline.settings?.filter_modes ?? {}),
+            ...(extra?.settings?.filter_modes ?? {}),
+          },
+        }
+      : undefined;
+
+    const canonicalFilters = normalizeToCanonicalFilters({
+      ...pipeline.filters,
+      ...(mergedSettings?.universal_filters ?? {}),
+      ...(extra?.filters ?? {}),
+    });
+
+    return {
+      ...pipeline,
+      filters: buildLegacyFilters(canonicalFilters),
+      settings: buildPersistedSettings(canonicalFilters, mergedSettings),
+    };
+  }, [buildPersistedSettings]);
+
   const loadPipelines = useCallback(async () => {
     try {
       const data = await listPipelines();
       const extras = readLocalExtras();
-      const merged = data.map((pipeline) => {
-        const extra = extras[pipeline.id];
-        if (!extra) return pipeline;
-        return {
-          ...pipeline,
-          filters: { ...pipeline.filters, ...extra.filters },
-          settings: { ...pipeline.settings, ...extra.settings },
-        } as Pipeline;
-      });
+      const merged = data.map((pipeline) => normalizePipelineForUi(pipeline, extras[pipeline.id]));
       setPipelines(merged);
     } catch (error) {
       console.error("Failed to load pipelines:", error);
     }
-  }, [readLocalExtras]);
+  }, [normalizePipelineForUi, readLocalExtras]);
 
   useEffect(() => {
     loadPipelines();
@@ -227,7 +255,7 @@ export function PipelineSelector({
       const extras = readLocalExtras();
       extras[newPipeline.id] = { filters: mergedFilters, settings: persistedSettings };
       writeLocalExtras(extras);
-      setPipelines((prev) => [newPipeline, ...prev]);
+      setPipelines((prev) => [normalizePipelineForUi(newPipeline, extras[newPipeline.id]), ...prev]);
       setSelectedPipelineId(newPipeline.id);
     } catch (error) {
       console.error("Failed to save pipeline:", error);
