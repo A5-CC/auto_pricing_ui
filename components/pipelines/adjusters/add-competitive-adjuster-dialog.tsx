@@ -25,22 +25,27 @@ interface AddCompetitiveAdjusterDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onAdd: (adjuster: CompetitivePriceAdjuster) => void
+  availablePriceColumns?: string[]
 }
 
 export function AddCompetitiveAdjusterDialog({
   open,
   onOpenChange,
   onAdd,
+  availablePriceColumns,
 }: AddCompetitiveAdjusterDialogProps) {
+  const priceColumns = availablePriceColumns && availablePriceColumns.length > 0
+    ? availablePriceColumns
+    : DEFAULT_PRICE_FALLBACK_CHAIN
   const [aggregation, setAggregation] = useState<'min' | 'max' | 'avg'>('min')
   const [multiplier, setMultiplier] = useState('0.97')
-  const [priceColumn, setPriceColumn] = useState<string>(DEFAULT_PRICE_FALLBACK_CHAIN[0])
+  const [priceColumn, setPriceColumn] = useState<string>(priceColumns[0])
 
   const handleAdd = () => {
     const parsedMultiplier = parseFloat(multiplier)
     const adjuster: CompetitivePriceAdjuster = {
       type: 'competitive',
-      price_columns: priceColumn ? [priceColumn] : [DEFAULT_PRICE_FALLBACK_CHAIN[0]],
+      price_columns: priceColumn ? [priceColumn] : [priceColumns[0]],
       aggregation,
       multiplier: Number.isFinite(parsedMultiplier) && parsedMultiplier > 0 ? parsedMultiplier : 1,
     }
@@ -72,7 +77,7 @@ export function AddCompetitiveAdjusterDialog({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {DEFAULT_PRICE_FALLBACK_CHAIN.map((column) => (
+                  {priceColumns.map((column) => (
                   <SelectItem key={column} value={column}>{column}</SelectItem>
                 ))}
               </SelectContent>

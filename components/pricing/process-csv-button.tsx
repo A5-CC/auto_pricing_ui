@@ -912,6 +912,7 @@ export function ProcessCsvButton({ filters, calculatedRows = [], rounding, prici
         open={competitiveDialog.open}
         onOpenChange={competitiveDialog.setOpen}
         onAdd={handleAddPopupAdjuster}
+        availablePriceColumns={CSV_NUMERIC_PREFERRED_COLUMNS}
       />
       <AddFunctionAdjusterDialog
         open={functionDialog.open}
@@ -920,7 +921,6 @@ export function ProcessCsvButton({ filters, calculatedRows = [], rounding, prici
         availableVariables={Array.from(new Set([
           ...CSV_NUMERIC_PREFERRED_COLUMNS,
           ...csvNumericVariables,
-          ...(pricingContext?.availableVariables ?? []),
         ]))}
         competitorData={pricingContext?.competitorData ?? []}
         clientAvailableUnits={pricingContext?.clientAvailableUnits ?? 0}
