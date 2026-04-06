@@ -122,6 +122,14 @@ function normalizeDimensionValue(value: unknown): string {
   return normalizeMatchValue(value).replace(/\s+/g, "")
 }
 
+function applyConfiguredRounding(value: number, rounding?: { enabled: boolean; offset: number }): number {
+  if (!rounding?.enabled || !Number.isFinite(value)) return value
+  const offsetRaw = Number.isFinite(rounding.offset) ? rounding.offset : 0
+  const offset = Math.min(1, Math.max(0, offsetRaw))
+  const rounded = Math.round(value - offset) + offset
+  return Object.is(rounded, -0) ? 0 : rounded
+}
+
 function calculateBlueLineStandardRate(webRate: unknown): string {
   const x = Number(webRate)
   if (!Number.isFinite(x)) return String(webRate ?? "")
@@ -325,7 +333,11 @@ function buildReviewRows(original: ParsedCsv, processed: ParsedCsv, changes: Csv
   return Array.from(byRow.values()).sort((a, b) => a.rowIndex - b.rowIndex)
 }
 
-function applyCalculatedPricesToCsv(original: ParsedCsv, calculatedRows: CalculatedPriceRow[]): ParsedCsv {
+function applyCalculatedPricesToCsv(
+  original: ParsedCsv,
+  calculatedRows: CalculatedPriceRow[],
+  rounding?: { enabled: boolean; offset: number }
+): ParsedCsv {
   const headers = [...original.headers]
   const rows = original.rows.map((row) => [...row])
 
@@ -353,7 +365,8 @@ function applyCalculatedPricesToCsv(original: ParsedCsv, calculatedRows: Calcula
     )
     const dimension = normalizeDimensionValue(calculatedRow.comboMap.unit_dimensions)
     if (!location || !dimension) continue
-    const price = calculatedRow.price.toFixed(2)
+    const webPrice = applyConfiguredRounding(calculatedRow.price, rounding)
+    const price = rounding?.enabled ? webPrice.toFixed(2) : String(webPrice)
     priceLookup.set(`${location}__${dimension}`, price)
     if (city) {
       cityPriceLookup.set(`${city}__${dimension}`, price)
@@ -387,7 +400,7 @@ function applyCalculatedPricesToCsv(original: ParsedCsv, calculatedRows: Calcula
   return { headers, rows }
 }
 
-export function ProcessCsvButton({ filters, calculatedRows = [] }: ProcessCsvButtonProps) {
+export function ProcessCsvButton({ filters, calculatedRows = [], rounding }: ProcessCsvButtonProps) {
   const [open, setOpen] = useState(false)
   const [file, setFile] = useState<File | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
@@ -434,7 +447,7 @@ export function ProcessCsvButton({ filters, calculatedRows = [] }: ProcessCsvBut
     try {
       const originalText = await file.text()
       const original = toParsedCsv(originalText)
-      const processed = applyCalculatedPricesToCsv(original, calculatedRows)
+      const processed = applyCalculatedPricesToCsv(original, calculatedRows, rounding)
 
       if (original.headers.length === 0 || processed.headers.length === 0) {
         throw new Error("CSV appears empty or invalid. Please check the input file.")
