@@ -4,7 +4,7 @@
 import { AddCompetitiveAdjusterDialog } from "@/components/pipelines/adjusters/add-competitive-adjuster-dialog"
 import { AddFunctionAdjusterDialog } from "@/components/pipelines/adjusters/add-function-adjuster-dialog"
 import { useAdjusterDialog } from "@/components/pipelines/adjusters/use-adjuster-dialog"
-import { calculatePriceTable, type CalculatedPriceRow } from "@/components/pipelines/calculated-price"
+import type { CalculatedPriceRow } from "@/components/pipelines/calculated-price"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -19,9 +19,10 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import type { Adjuster } from '@/lib/adjusters'
+import { evaluateSafeFunction } from "@/lib/adjusters"
 import type { E1DataRow } from "@/lib/api/types"
 import { FileSpreadsheet, Info, Loader2, Plus, Trash2 } from "lucide-react"
-import { useMemo, useState, type ChangeEvent } from "react"
+import { useState, type ChangeEvent } from "react"
 import { toast } from "sonner"
 
 interface ProcessCsvButtonProps {
@@ -151,6 +152,47 @@ function calculateBlueLineStandardRate(webRate: unknown): string {
   const standardRate = x * multiplier
 
   return String(Math.round(standardRate))
+}
+
+function rowToRecord(headers: string[], row: string[]): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (let i = 0; i < headers.length; i++) {
+    out[headers[i]] = row[i] ?? ""
+  }
+  return out
+}
+
+function applyPopupAdjustersToWebRate(
+  baseWebRate: number,
+  csvRow: Record<string, string>,
+  popupAdjusters: Adjuster[]
+): number {
+  let factor = 1
+
+  for (const adjuster of popupAdjusters) {
+    if (adjuster.type === 'competitive') {
+      const next = Number((adjuster as { multiplier?: number }).multiplier ?? 1)
+      if (Number.isFinite(next) && next > 0) factor *= next
+      continue
+    }
+
+    if (adjuster.type === 'function') {
+      const fn = adjuster as { variable?: string; function_string?: string }
+      const variable = String(fn.variable ?? "")
+      const functionString = String(fn.function_string ?? "")
+      if (!variable || !functionString) continue
+
+      const x = Number(csvRow[variable])
+      if (!Number.isFinite(x)) continue
+      const evaluated = evaluateSafeFunction(functionString, x)
+      if (evaluated.success && typeof evaluated.value === 'number' && Number.isFinite(evaluated.value)) {
+        factor *= evaluated.value
+      }
+    }
+  }
+
+  const next = baseWebRate * factor
+  return Number.isFinite(next) ? next : baseWebRate
 }
 
 function normalizeCityValue(value: unknown): string {
@@ -348,7 +390,8 @@ function buildReviewRows(original: ParsedCsv, processed: ParsedCsv, changes: Csv
 function applyCalculatedPricesToCsv(
   original: ParsedCsv,
   calculatedRows: CalculatedPriceRow[],
-  rounding?: { enabled: boolean; offset: number }
+  rounding?: { enabled: boolean; offset: number },
+  popupAdjusters: Adjuster[] = []
 ): ParsedCsv {
   const headers = [...original.headers]
   const rows = original.rows.map((row) => [...row])
@@ -391,6 +434,7 @@ function applyCalculatedPricesToCsv(
 
   let matchedRows = 0
   for (const row of rows) {
+    const csvRow = rowToRecord(headers, row)
     const location = normalizeMatchValue(getCellValue(row, locationIndex))
     const city = normalizeCityValue(getCellValue(row, locationIndex))
     const dimension = normalizeDimensionValue(getCellValue(row, unitSizeIndex))
@@ -399,8 +443,13 @@ function applyCalculatedPricesToCsv(
       (city ? cityPriceLookup.get(`${city}__${dimension}`) : undefined)
     if (!mappedPrice) continue
 
-    const standardRate = calculateBlueLineStandardRate(mappedPrice)
-    row[newWebRateIndex] = mappedPrice
+    const baseWebRate = Number(mappedPrice)
+    const adjustedWebRate = applyPopupAdjustersToWebRate(baseWebRate, csvRow, popupAdjusters)
+    const roundedWebRate = applyConfiguredRounding(adjustedWebRate, rounding)
+    const finalWebRate = rounding?.enabled ? roundedWebRate.toFixed(2) : String(roundedWebRate)
+    const standardRate = calculateBlueLineStandardRate(finalWebRate)
+
+    row[newWebRateIndex] = finalWebRate
     row[newStandardRateIndex] = standardRate
     matchedRows += 1
   }
@@ -412,30 +461,17 @@ function applyCalculatedPricesToCsv(
   return { headers, rows }
 }
 
-export function ProcessCsvButton({ filters, adjusters = [], calculatedRows = [], rounding, pricingContext }: ProcessCsvButtonProps) {
+export function ProcessCsvButton({ filters, calculatedRows = [], rounding, pricingContext }: ProcessCsvButtonProps) {
   const [open, setOpen] = useState(false)
   const [file, setFile] = useState<File | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
   const [reviewData, setReviewData] = useState<ReviewData | null>(null)
   const [approvedChanges, setApprovedChanges] = useState<Record<string, boolean>>({})
-  const [popupAdjusters, setPopupAdjusters] = useState<Adjuster[]>(adjusters)
+  const [popupAdjusters, setPopupAdjusters] = useState<Adjuster[]>([])
+  const [originalParsed, setOriginalParsed] = useState<ParsedCsv | null>(null)
 
   const competitiveDialog = useAdjusterDialog()
   const functionDialog = useAdjusterDialog()
-
-  const effectiveCalculatedRows = useMemo(() => {
-    if (!pricingContext) return calculatedRows
-    if (!popupAdjusters || popupAdjusters.length === 0) return []
-
-    return calculatePriceTable({
-      competitorData: pricingContext.competitorData,
-      clientAvailableUnits: pricingContext.clientAvailableUnits,
-      adjusters: popupAdjusters,
-      currentDate: pricingContext.currentDate,
-      filters: pricingContext.filters,
-      combinatoricFlags: pricingContext.combinatoricFlags,
-    }).rows
-  }, [pricingContext, popupAdjusters, calculatedRows])
 
   // Validate allowed filters
   // Strictly Allowed:
@@ -468,21 +504,59 @@ export function ProcessCsvButton({ filters, adjusters = [], calculatedRows = [],
     setIsProcessing(false)
     setReviewData(null)
     setApprovedChanges({})
-    setPopupAdjusters(adjusters)
+    setPopupAdjusters([])
+    setOriginalParsed(null)
+  }
+
+  const buildDefaultApprovals = (changes: CsvRateChange[]) => {
+    const approvals: Record<string, boolean> = {}
+    for (const change of changes) approvals[change.id] = true
+    return approvals
+  }
+
+  const rebuildReviewFromOriginal = (original: ParsedCsv, nextAdjusters: Adjuster[]) => {
+    const processed = applyCalculatedPricesToCsv(original, calculatedRows, rounding, nextAdjusters)
+    const headers = processed.headers.length ? processed.headers : original.headers
+    const changes = buildChanges(original, processed)
+    const reviewRows = buildReviewRows(original, processed, changes)
+    const nextReviewData: ReviewData = {
+      fileName: file?.name ?? "client.csv",
+      headers,
+      originalRows: original.rows,
+      processedRows: processed.rows,
+      changes,
+      reviewRows,
+    }
+    setReviewData(nextReviewData)
+    setApprovedChanges(buildDefaultApprovals(changes))
   }
 
   const handleAddPopupAdjuster = (adjuster: Adjuster) => {
     setPopupAdjusters((prev: Adjuster[]) => {
-      if (adjuster.type !== 'competitive' && prev.length === 0) {
-        toast.error("Add a competitive adjuster first to establish base price.")
-        return prev
+      const next = [...prev, adjuster]
+      if (originalParsed) {
+        try {
+          rebuildReviewFromOriginal(originalParsed, next)
+        } catch (error) {
+          toast.error(error instanceof Error ? error.message : "Failed to apply popup adjuster")
+        }
       }
-      return [...prev, adjuster]
+      return next
     })
   }
 
   const handleRemovePopupAdjuster = (index: number) => {
-    setPopupAdjusters((prev: Adjuster[]) => prev.filter((_: Adjuster, i: number) => i !== index))
+    setPopupAdjusters((prev: Adjuster[]) => {
+      const next = prev.filter((_: Adjuster, i: number) => i !== index)
+      if (originalParsed) {
+        try {
+          rebuildReviewFromOriginal(originalParsed, next)
+        } catch (error) {
+          toast.error(error instanceof Error ? error.message : "Failed to apply popup adjuster")
+        }
+      }
+      return next
+    })
   }
 
   const handleProcess = async () => {
@@ -492,7 +566,8 @@ export function ProcessCsvButton({ filters, adjusters = [], calculatedRows = [],
     try {
       const originalText = await file.text()
       const original = toParsedCsv(originalText)
-      const processed = applyCalculatedPricesToCsv(original, effectiveCalculatedRows, rounding)
+      setOriginalParsed(original)
+      const processed = applyCalculatedPricesToCsv(original, calculatedRows, rounding, popupAdjusters)
 
       if (original.headers.length === 0 || processed.headers.length === 0) {
         throw new Error("CSV appears empty or invalid. Please check the input file.")
@@ -510,12 +585,7 @@ export function ProcessCsvButton({ filters, adjusters = [], calculatedRows = [],
         reviewRows,
       }
 
-      const approvals: Record<string, boolean> = {}
-      for (const change of changes) {
-        approvals[change.id] = true
-      }
-
-      setApprovedChanges(approvals)
+      setApprovedChanges(buildDefaultApprovals(changes))
       setReviewData(nextReviewData)
       toast.success("Current pipeline pricing applied in the browser. Review changes before download.")
     } catch (error) {
@@ -611,7 +681,7 @@ export function ProcessCsvButton({ filters, adjusters = [], calculatedRows = [],
                 <span className="text-xs text-muted-foreground mt-2 block">
                   Supported filters: client_location, unit_dimensions.
                   <br />
-                  Add Competitive/Function adjusters below to run this popup independently.
+                  Competitive/Function popup adjusters appear after upload in the review screen.
                   <br />
                   Uses the currently displayed pipeline price table in the browser.
                   <br />
@@ -633,43 +703,41 @@ export function ProcessCsvButton({ filters, adjusters = [], calculatedRows = [],
                 onChange={(e: ChangeEvent<HTMLInputElement>) => setFile(e.target.files?.[0] || null)}
               />
             </div>
-
-            <div className="rounded-md border p-3 space-y-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-sm font-medium">Popup Adjusters</span>
-                <Button type="button" size="sm" variant="outline" onClick={competitiveDialog.handleOpen}>
-                  <Plus className="mr-1 h-3.5 w-3.5" /> Competitive
-                </Button>
-                <Button type="button" size="sm" variant="outline" onClick={functionDialog.handleOpen}>
-                  <Plus className="mr-1 h-3.5 w-3.5" /> Function
-                </Button>
-              </div>
-
-              <div className="space-y-2">
-                {popupAdjusters.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">No popup adjusters configured.</p>
-                ) : (
-                  popupAdjusters.map((adj: Adjuster, idx: number) => (
-                    <div key={`${adj.type}-${idx}`} className="flex items-center justify-between rounded border px-2 py-1.5">
-                      <span className="text-xs capitalize">{idx + 1}. {adj.type}</span>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleRemovePopupAdjuster(idx)}
-                        className="h-7 px-2"
-                        aria-label="Remove adjuster"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
           </div>
         ) : (
           <div className="space-y-3 overflow-hidden">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm font-medium">Popup Adjusters</span>
+              <Button type="button" size="sm" variant="outline" onClick={competitiveDialog.handleOpen}>
+                <Plus className="mr-1 h-3.5 w-3.5" /> Competitive
+              </Button>
+              <Button type="button" size="sm" variant="outline" onClick={functionDialog.handleOpen}>
+                <Plus className="mr-1 h-3.5 w-3.5" /> Function
+              </Button>
+            </div>
+
+            <div className="rounded-md border p-3 space-y-2">
+              {popupAdjusters.length === 0 ? (
+                <p className="text-xs text-muted-foreground">No popup adjusters configured.</p>
+              ) : (
+                popupAdjusters.map((adj: Adjuster, idx: number) => (
+                  <div key={`${adj.type}-${idx}`} className="flex items-center justify-between rounded border px-2 py-1.5">
+                    <span className="text-xs capitalize">{idx + 1}. {adj.type}</span>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleRemovePopupAdjuster(idx)}
+                      className="h-7 px-2"
+                      aria-label="Remove adjuster"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                ))
+              )}
+            </div>
+
             <div className="flex flex-wrap items-center gap-2">
               <Button type="button" variant="outline" size="sm" onClick={() => setAllApprovals(true)}>
                 Approve all
@@ -806,7 +874,7 @@ export function ProcessCsvButton({ filters, adjusters = [], calculatedRows = [],
         open={functionDialog.open}
         onOpenChange={functionDialog.setOpen}
         onAdd={handleAddPopupAdjuster}
-        availableVariables={pricingContext?.availableVariables ?? []}
+        availableVariables={pricingContext?.availableVariables ?? ["Occupied", "Available", "Vacancy"]}
         competitorData={pricingContext?.competitorData ?? []}
         clientAvailableUnits={pricingContext?.clientAvailableUnits ?? 0}
       />
