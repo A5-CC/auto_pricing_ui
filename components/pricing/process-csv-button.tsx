@@ -93,6 +93,7 @@ const CURRENT_WEB_RATE_COLUMNS = new Set(["currentwebrate"])
 const CURRENT_STANDARD_RATE_COLUMNS = new Set(["currentstandardrate"])
 const FACILITY_NAME_COLUMNS = new Set(["facilityname", "storagename", "propertyname", "sitename"])
 const UNIT_SIZE_COLUMNS = new Set(["size", "unitsize", "unitdimensions"])
+const UNIT_TYPE_COLUMNS = new Set(["unittype", "unittypecode", "unittypecategory"])
 const LOCATION_COLUMNS = new Set(["facilityname", "storagename", "propertyname", "sitename", "location", "address", "clientlocation", "modstoragelocation"])
 const NEW_WEB_RATE_COLUMNS = new Set(["newwebrate"])
 const NEW_STANDARD_RATE_COLUMNS = new Set(["newstandardrate"])
@@ -138,6 +139,27 @@ function normalizeDimensionValue(value: unknown): string {
   const leadingPair = extractLeadingDimensionPair(value)
   if (leadingPair) return leadingPair
   return normalizeMatchValue(value).replace(/\s+/g, "")
+}
+
+function normalizeDriveUpAccessValue(value: unknown): "true" | "false" | "" {
+  if (typeof value === "boolean") return value ? "true" : "false"
+
+  const normalized = normalizeMatchValue(value)
+  if (!normalized) return ""
+
+  if (normalized.includes("drive up") || normalized.includes("drive-up") || normalized.includes("driveup")) {
+    return "true"
+  }
+
+  if (["true", "yes", "y", "1"].includes(normalized)) return "true"
+  if (["false", "no", "n", "0"].includes(normalized)) return "false"
+
+  return "false"
+}
+
+function buildPriceLookupKey(location: string, dimension: string, driveUpAccess?: string): string {
+  const driveUpPart = driveUpAccess ? `__${driveUpAccess}` : ""
+  return `${location}__${dimension}${driveUpPart}`
 }
 
 function applyConfiguredRounding(value: number, rounding?: { enabled: boolean; offset: number }): number {
@@ -452,6 +474,7 @@ function applyCalculatedPricesToCsv(
 
   const locationIndex = findColumnIndex(headers, LOCATION_COLUMNS)
   const unitSizeIndex = findColumnIndex(headers, UNIT_SIZE_COLUMNS)
+  const unitTypeIndex = findColumnIndex(headers, UNIT_TYPE_COLUMNS)
   const newWebRateIndex = findColumnIndex(headers, NEW_WEB_RATE_COLUMNS)
   const newStandardRateIndex = findColumnIndex(headers, NEW_STANDARD_RATE_COLUMNS)
 
@@ -473,12 +496,13 @@ function applyCalculatedPricesToCsv(
       calculatedRow.comboMap.client_location ?? calculatedRow.comboMap.modstorage_location
     )
     const dimension = normalizeDimensionValue(calculatedRow.comboMap.unit_dimensions)
+    const driveUpAccess = normalizeDriveUpAccessValue(calculatedRow.comboMap.has_drive_up_access)
     if (!location || !dimension) continue
     const webPrice = applyConfiguredRounding(calculatedRow.price, rounding)
     const price = webPrice
-    priceLookup.set(`${location}__${dimension}`, price)
+    priceLookup.set(buildPriceLookupKey(location, dimension, driveUpAccess), price)
     if (city) {
-      cityPriceLookup.set(`${city}__${dimension}`, price)
+      cityPriceLookup.set(buildPriceLookupKey(city, dimension, driveUpAccess), price)
     }
   }
 
@@ -492,9 +516,12 @@ function applyCalculatedPricesToCsv(
     const location = normalizeMatchValue(getCellValue(row, locationIndex))
     const city = normalizeCityValue(getCellValue(row, locationIndex))
     const dimension = normalizeDimensionValue(getCellValue(row, unitSizeIndex))
+    const driveUpAccess = unitTypeIndex >= 0 ? normalizeDriveUpAccessValue(getCellValue(row, unitTypeIndex)) : ""
     const mappedPrice =
-      priceLookup.get(`${location}__${dimension}`) ??
-      (city ? cityPriceLookup.get(`${city}__${dimension}`) : undefined)
+      (driveUpAccess ? priceLookup.get(buildPriceLookupKey(location, dimension, driveUpAccess)) : undefined) ??
+      priceLookup.get(buildPriceLookupKey(location, dimension)) ??
+      (driveUpAccess && city ? cityPriceLookup.get(buildPriceLookupKey(city, dimension, driveUpAccess)) : undefined) ??
+      (city ? cityPriceLookup.get(buildPriceLookupKey(city, dimension)) : undefined)
     if (!mappedPrice) continue
 
     const baseWebRate = mappedPrice
