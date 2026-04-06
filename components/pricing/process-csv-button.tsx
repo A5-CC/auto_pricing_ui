@@ -195,6 +195,63 @@ function downloadCsv(content: Blob | string, filename: string) {
   window.URL.revokeObjectURL(url)
 }
 
+function logParsedCsv(label: string, parsed: ParsedCsv) {
+  try {
+    console.group(`[Process CSV] ${label}`)
+    console.log("Headers:", parsed.headers)
+    console.log("Row count:", parsed.rows.length)
+
+    const tableRows = parsed.rows.map((row, rowIdx) => {
+      const entry: Record<string, string | number> = { __row: rowIdx + 2 }
+      for (let i = 0; i < parsed.headers.length; i++) {
+        const header = parsed.headers[i] || `column_${i + 1}`
+        entry[header] = row[i] ?? ""
+      }
+      return entry
+    })
+
+    console.table(tableRows)
+    console.groupEnd()
+  } catch (e) {
+    console.warn("[Process CSV] Failed to log parsed CSV", e)
+  }
+}
+
+function logDiffSummary(original: ParsedCsv, processed: ParsedCsv) {
+  const headers = processed.headers.length ? processed.headers : original.headers
+  const rowCount = Math.max(original.rows.length, processed.rows.length)
+  const colCount = Math.max(original.headers.length, processed.headers.length)
+
+  let totalChangedCells = 0
+  let reviewableChangedCells = 0
+  const nonReviewableColumns = new Set<string>()
+
+  for (let rowIndex = 0; rowIndex < rowCount; rowIndex++) {
+    const originalRow = original.rows[rowIndex] ?? []
+    const processedRow = processed.rows[rowIndex] ?? []
+
+    for (let columnIndex = 0; columnIndex < colCount; columnIndex++) {
+      const originalValue = originalRow[columnIndex] ?? ""
+      const processedValue = processedRow[columnIndex] ?? ""
+      if (originalValue === processedValue) continue
+      totalChangedCells += 1
+
+      const columnName = headers[columnIndex] ?? `Column ${columnIndex + 1}`
+      if (isReviewableRateColumn(columnName)) {
+        reviewableChangedCells += 1
+      } else {
+        nonReviewableColumns.add(columnName)
+      }
+    }
+  }
+
+  console.group("[Process CSV] Diff summary")
+  console.log("Total changed cells:", totalChangedCells)
+  console.log("Reviewable changed cells (newwebrate/newstandardrate):", reviewableChangedCells)
+  console.log("Changed non-reviewable columns:", Array.from(nonReviewableColumns))
+  console.groupEnd()
+}
+
 function buildChanges(original: ParsedCsv, processed: ParsedCsv): CsvRateChange[] {
   const headers = processed.headers.length ? processed.headers : original.headers
   const rowCount = Math.max(original.rows.length, processed.rows.length)
@@ -331,6 +388,20 @@ export function ProcessCsvButton({ snapshotId, filters, adjusters, combinatoric,
 
     setIsProcessing(true)
     try {
+      const originalText = await file.text()
+      const original = toParsedCsv(originalText)
+
+      console.group("[Process CSV] Request payload")
+      console.log("snapshot_id:", snapshotId)
+      console.log("filters:", normalizedFilters)
+      console.log("adjusters:", adjusters ?? [])
+      console.log("combinatoric:", normalizedCombinatoric)
+      console.log("rounding:", rounding ?? null)
+      console.log("file:", { name: file.name, size: file.size, type: file.type })
+      console.groupEnd()
+
+      logParsedCsv("Original CSV (before backend)", original)
+
       const processedBlob = await processClientCSV(
         file,
         snapshotId,
@@ -339,13 +410,11 @@ export function ProcessCsvButton({ snapshotId, filters, adjusters, combinatoric,
         normalizedCombinatoric,
         rounding
       )
-      const [originalText, processedText] = await Promise.all([
-        file.text(),
-        processedBlob.text(),
-      ])
-
-      const original = toParsedCsv(originalText)
+      const processedText = await processedBlob.text()
       const processed = toParsedCsv(processedText)
+
+      logParsedCsv("Processed CSV (from backend)", processed)
+      logDiffSummary(original, processed)
 
       if (original.headers.length === 0 || processed.headers.length === 0) {
         throw new Error("CSV appears empty or invalid. Please check the input file.")
