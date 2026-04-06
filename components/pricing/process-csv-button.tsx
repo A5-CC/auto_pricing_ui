@@ -1,20 +1,20 @@
 
 "use client"
 
+import type { CalculatedPriceRow } from "@/components/pipelines/calculated-price"
 import { Button } from "@/components/ui/button"
 import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import type { CalculatedPriceRow } from "@/components/pipelines/calculated-price"
 import type { Adjuster } from '@/lib/adjusters'
 import { FileSpreadsheet, Info, Loader2 } from "lucide-react"
 import { type ChangeEvent, useState } from "react"
