@@ -5,7 +5,7 @@ import { AddCompetitiveAdjusterDialog } from "@/components/pipelines/adjusters/a
 import { AddFunctionAdjusterDialog } from "@/components/pipelines/adjusters/add-function-adjuster-dialog";
 import { AddTemporalAdjusterDialog } from "@/components/pipelines/adjusters/add-temporal-adjuster-dialog";
 import { useAdjusterDialog } from "@/components/pipelines/adjusters/use-adjuster-dialog";
-import { calculatePriceTable, CalculatedPrice } from "@/components/pipelines/calculated-price";
+import { CalculatedPrice, calculatePriceTable } from "@/components/pipelines/calculated-price";
 import { PipelineSelector } from "@/components/pipelines/pipeline-selector";
 import { PriceDataWarning } from "@/components/pipelines/price-data-warning";
 import { ProcessCsvButton } from "@/components/pricing/process-csv-button";
