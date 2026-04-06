@@ -14,8 +14,8 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import type { CalculatedPriceRow } from "@/components/pipelines/calculated-price"
 import type { Adjuster } from '@/lib/adjusters'
-import { processClientCSV } from "@/lib/api/client/pricing"
 import { FileSpreadsheet, Info, Loader2 } from "lucide-react"
 import { type ChangeEvent, useState } from "react"
 import { toast } from "sonner"
@@ -37,6 +37,7 @@ interface ProcessCsvButtonProps {
     enabled: boolean
     offset: number
   }
+  calculatedRows?: CalculatedPriceRow[]
 }
 
 type ParsedCsv = {
@@ -80,6 +81,9 @@ const CURRENT_WEB_RATE_COLUMNS = new Set(["currentwebrate"])
 const CURRENT_STANDARD_RATE_COLUMNS = new Set(["currentstandardrate"])
 const FACILITY_NAME_COLUMNS = new Set(["facilityname", "storagename", "propertyname", "sitename"])
 const UNIT_SIZE_COLUMNS = new Set(["size", "unitsize", "unitdimensions"])
+const LOCATION_COLUMNS = new Set(["facilityname", "storagename", "propertyname", "sitename", "location", "address", "modstoragelocation"])
+const NEW_WEB_RATE_COLUMNS = new Set(["newwebrate"])
+const NEW_STANDARD_RATE_COLUMNS = new Set(["newstandardrate"])
 
 function normalizeColumnKey(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]/g, "")
@@ -96,6 +100,17 @@ function findColumnIndex(headers: string[], candidates: Set<string>): number {
 function getCellValue(row: string[] | undefined, index: number): string {
   if (!row || index < 0) return ""
   return row[index] ?? ""
+}
+
+function normalizeMatchValue(value: unknown): string {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+}
+
+function normalizeDimensionValue(value: unknown): string {
+  return normalizeMatchValue(value).replace(/\s+/g, "")
 }
 
 function parseCsvText(text: string): string[][] {
@@ -233,8 +248,8 @@ function buildReviewRows(original: ParsedCsv, processed: ParsedCsv, changes: Csv
   const unitSizeIndex = findColumnIndex(headers, UNIT_SIZE_COLUMNS)
   const currentWebRateIndex = findColumnIndex(headers, CURRENT_WEB_RATE_COLUMNS)
   const currentStandardRateIndex = findColumnIndex(headers, CURRENT_STANDARD_RATE_COLUMNS)
-  const newWebRateIndex = findColumnIndex(headers, new Set(["newwebrate"]))
-  const newStandardRateIndex = findColumnIndex(headers, new Set(["newstandardrate"]))
+  const newWebRateIndex = findColumnIndex(headers, NEW_WEB_RATE_COLUMNS)
+  const newStandardRateIndex = findColumnIndex(headers, NEW_STANDARD_RATE_COLUMNS)
 
   const byRow = new Map<number, ReviewRow>()
 
@@ -272,7 +287,54 @@ function buildReviewRows(original: ParsedCsv, processed: ParsedCsv, changes: Csv
   return Array.from(byRow.values()).sort((a, b) => a.rowIndex - b.rowIndex)
 }
 
-export function ProcessCsvButton({ snapshotId, filters, adjusters, combinatoric, rounding }: ProcessCsvButtonProps) {
+function applyCalculatedPricesToCsv(original: ParsedCsv, calculatedRows: CalculatedPriceRow[]): ParsedCsv {
+  const headers = [...original.headers]
+  const rows = original.rows.map((row) => [...row])
+
+  const locationIndex = findColumnIndex(headers, LOCATION_COLUMNS)
+  const unitSizeIndex = findColumnIndex(headers, UNIT_SIZE_COLUMNS)
+  const newWebRateIndex = findColumnIndex(headers, NEW_WEB_RATE_COLUMNS)
+  const newStandardRateIndex = findColumnIndex(headers, NEW_STANDARD_RATE_COLUMNS)
+
+  if (locationIndex < 0 || unitSizeIndex < 0) {
+    throw new Error("CSV must include facility/location and size columns to map frontend pricing.")
+  }
+  if (newWebRateIndex < 0 || newStandardRateIndex < 0) {
+    throw new Error("CSV must include New Web Rate and New Standard Rate columns.")
+  }
+
+  const priceLookup = new Map<string, string>()
+  for (const calculatedRow of calculatedRows) {
+    if (typeof calculatedRow.price !== "number" || Number.isNaN(calculatedRow.price)) continue
+    const location = normalizeMatchValue(calculatedRow.comboMap.modstorage_location)
+    const dimension = normalizeDimensionValue(calculatedRow.comboMap.unit_dimensions)
+    if (!location || !dimension) continue
+    priceLookup.set(`${location}__${dimension}`, calculatedRow.price.toFixed(2))
+  }
+
+  if (priceLookup.size === 0) {
+    throw new Error("No frontend price rows available. Make sure location and unit dimensions are combinatoric in the pipeline table.")
+  }
+
+  let matchedRows = 0
+  for (const row of rows) {
+    const location = normalizeMatchValue(getCellValue(row, locationIndex))
+    const dimension = normalizeDimensionValue(getCellValue(row, unitSizeIndex))
+    const mappedPrice = priceLookup.get(`${location}__${dimension}`)
+    if (!mappedPrice) continue
+    row[newWebRateIndex] = mappedPrice
+    row[newStandardRateIndex] = mappedPrice
+    matchedRows += 1
+  }
+
+  if (matchedRows === 0) {
+    throw new Error("No uploaded CSV rows matched the current pipeline table by location + size.")
+  }
+
+  return { headers, rows }
+}
+
+export function ProcessCsvButton({ snapshotId, filters, adjusters, combinatoric, rounding, calculatedRows = [] }: ProcessCsvButtonProps) {
   const [open, setOpen] = useState(false)
   const [file, setFile] = useState<File | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
@@ -317,14 +379,9 @@ export function ProcessCsvButton({ snapshotId, filters, adjusters, combinatoric,
 
     setIsProcessing(true)
     try {
-      const processedBlob = await processClientCSV(file, snapshotId, filters, adjusters, combinatoric, rounding)
-      const [originalText, processedText] = await Promise.all([
-        file.text(),
-        processedBlob.text(),
-      ])
-
+      const originalText = await file.text()
       const original = toParsedCsv(originalText)
-      const processed = toParsedCsv(processedText)
+      const processed = applyCalculatedPricesToCsv(original, calculatedRows)
 
       if (original.headers.length === 0 || processed.headers.length === 0) {
         throw new Error("CSV appears empty or invalid. Please check the input file.")
@@ -349,7 +406,7 @@ export function ProcessCsvButton({ snapshotId, filters, adjusters, combinatoric,
 
       setApprovedChanges(approvals)
       setReviewData(nextReviewData)
-      toast.success("Pricing algorithms applied. Review changes before download.")
+      toast.success("Current pipeline pricing applied in the browser. Review changes before download.")
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to process CSV")
     } finally {
@@ -442,6 +499,8 @@ export function ProcessCsvButton({ snapshotId, filters, adjusters, combinatoric,
                 <br />
                 <span className="text-xs text-muted-foreground mt-2 block">
                   Supported filters: modstorage_location, unit_dimensions.
+                  <br />
+                  Uses the currently displayed pipeline price table in the browser.
                   <br />
                   Ensure columns: &apos;Facility Name&apos;, &apos;Size&apos;, &apos;Current Web Rate&apos;, &apos;Current Standard Rate&apos;, &apos;New Web Rate&apos;, &apos;New Standard Rate&apos;.
                 </span>
