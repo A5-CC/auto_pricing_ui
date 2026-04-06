@@ -279,30 +279,44 @@ export function ProcessCsvButton({ snapshotId, filters, adjusters, combinatoric,
   const [reviewData, setReviewData] = useState<ReviewData | null>(null)
   const [approvedChanges, setApprovedChanges] = useState<Record<string, boolean>>({})
 
+  const normalizeFilterKey = (key: string): string => {
+    if (key === "modstorage_location" || key === "locations") return "client_location"
+    if (key === "dimensions") return "unit_dimensions"
+    if (key === "competitors") return "competitor_name"
+    return key
+  }
+
+  const normalizedFilters = Object.entries(filters).reduce((acc, [key, values]) => {
+    if (!Array.isArray(values) || values.length === 0) return acc
+    const normalizedKey = normalizeFilterKey(key)
+    const merged = [...(acc[normalizedKey] ?? []), ...values.map(String)]
+    acc[normalizedKey] = Array.from(new Set(merged))
+    return acc
+  }, {} as Record<string, string[]>)
+
+  const normalizedCombinatoric = Object.entries(combinatoric ?? {}).reduce((acc, [key, value]) => {
+    acc[normalizeFilterKey(key)] = Boolean(value)
+    return acc
+  }, {} as Record<string, boolean>)
+
   // Validate allowed filters
   // Strictly Allowed:
   // - unit_dimensions: "Unit Dimensions"
-  // - modstorage_location: "Facility Location"
+  // - client_location: "Client Location"
   // - competitor_name: "Competitor Name"
   // All other filters must be empty.
-  
-  const allowedKeys = new Set(["unit_dimensions", "modstorage_location", "competitor_name"]);
-  
-  // NOTE: 'competitors', 'locations', 'unitCategories' are standard legacy keys.
-  // 'locations' is legacy modstorage_location.
-  // 'modstorage_location' is expected to be passed if used.
-  
-  const hasInvalidFilters = Object.entries(filters).some(([key, values]) => {
-      // If values is empty, it's fine (filter not active)
-      if (!Array.isArray(values) || values.length === 0) return false;
-      
-      // If active, it must be in allowedKeys
-      // Exceptions: 
-      // - "locations" maps to legacy logic, but usually we prefer facility_location_city now.
-      // - "competitors" usually filtered out for CSV logic unless explicit requirement.
-      // User said: "Utilicen filtros (columnas) que no estén en el csv del cliente" -> only City and Dimensions match CSV schema.
-      return !allowedKeys.has(key);
-  });
+  const allowedKeys = new Set(["unit_dimensions", "client_location", "competitor_name"])
+
+  const hasInvalidFilters = Object.entries(normalizedFilters).some(([key, values]) => {
+    if (!Array.isArray(values) || values.length === 0) return false
+    return !allowedKeys.has(key)
+  })
+
+  const hasRequiredFilters =
+    Array.isArray(normalizedFilters.client_location) && normalizedFilters.client_location.length > 0 &&
+    Array.isArray(normalizedFilters.unit_dimensions) && normalizedFilters.unit_dimensions.length > 0
+
+  const processDisabled = hasInvalidFilters || !hasRequiredFilters
 
   const resetDialogState = () => {
     setOpen(false)
@@ -317,7 +331,14 @@ export function ProcessCsvButton({ snapshotId, filters, adjusters, combinatoric,
 
     setIsProcessing(true)
     try {
-      const processedBlob = await processClientCSV(file, snapshotId, filters, adjusters, combinatoric, rounding)
+      const processedBlob = await processClientCSV(
+        file,
+        snapshotId,
+        normalizedFilters,
+        adjusters,
+        normalizedCombinatoric,
+        rounding
+      )
       const [originalText, processedText] = await Promise.all([
         file.text(),
         processedBlob.text(),
@@ -415,8 +436,14 @@ export function ProcessCsvButton({ snapshotId, filters, adjusters, combinatoric,
           <Button 
             variant="outline" 
             size="sm"
-            disabled={hasInvalidFilters}
-            title={hasInvalidFilters ? "Only Location and Dimension filters are supported for pricing effect" : "Effect Pricing"}
+            disabled={processDisabled}
+            title={
+              hasInvalidFilters
+                ? "Only Client Location and Unit Dimensions filters are supported for Effect Pricing"
+                : !hasRequiredFilters
+                  ? "Effect Pricing requires active client_location and unit_dimensions filters"
+                  : "Effect Pricing"
+            }
           >
             <FileSpreadsheet className="mr-2 h-4 w-4" />
             Effect Pricing
@@ -441,7 +468,7 @@ export function ProcessCsvButton({ snapshotId, filters, adjusters, combinatoric,
                 Upload a client CSV and apply pricing algorithms.
                 <br />
                 <span className="text-xs text-muted-foreground mt-2 block">
-                  Supported filters: modstorage_location, unit_dimensions.
+                  Supported filters: client_location, unit_dimensions.
                   <br />
                   Ensure columns: &apos;Facility Name&apos;, &apos;Size&apos;, &apos;Current Web Rate&apos;, &apos;Current Standard Rate&apos;, &apos;New Web Rate&apos;, &apos;New Standard Rate&apos;.
                 </span>
@@ -603,7 +630,7 @@ export function ProcessCsvButton({ snapshotId, filters, adjusters, combinatoric,
         <TooltipContent side="bottom" className="max-w-xs">
           <div className="text-xs">
             Use this for pricing CSVs. Requires combinatoric filters on
-            <strong> modstorage_location</strong> and <strong>unit_dimensions</strong>.
+            <strong> client_location</strong> and <strong>unit_dimensions</strong>.
             Additional filters must be non-combinatoric. 
           </div>
         </TooltipContent>

@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/multi-select"
 import { SectionLabel } from "@/components/ui/section-label"
 import { useUniversalFilter } from "@/hooks/useUniversalFilter"
+import { getCanonicalLabel } from "@/lib/pricing/column-labels"
 import { useMemo, useState, useRef } from "react"
 import type { PricingSchemas, PricingDataRow } from "@/lib/api/types"
 
@@ -18,6 +19,11 @@ interface PricingFiltersProps {
   selectedFilters: Record<string, string[]>
   setSelectedFilters: (next: Record<string, string[]>) => void
   extraColumns?: string[]
+}
+
+function getDisplayColumnId(columnKey: string): string {
+  if (columnKey === "modstorage_location") return "client_location"
+  return columnKey
 }
 
 export function PricingFilters({
@@ -36,10 +42,10 @@ export function PricingFilters({
     for (const s of spine) keySet.add(s.id)
     ;(extraColumns ?? []).forEach((k) => keySet.add(k))
 
-    const cols = Array.from(keySet).map((key) => {
-      const label = canonical[key]?.label ?? spine.find((s) => s.id === key)?.label ?? key
-      return { key, label }
-    })
+    const cols = Array.from(keySet).map((key) => ({
+      key,
+      label: getCanonicalLabel(key, pricingSchemas ?? null),
+    }))
 
     cols.sort((a, b) => a.label.localeCompare(b.label))
     return cols
@@ -161,7 +167,7 @@ function FilterRow({ columnKey, rows, schemaCols, values, onChange, onRemove, on
                     }}
                   >
                     <div className="font-medium">{c.label}</div>
-                    <div className="text-xs text-muted-foreground">{c.key}</div>
+                    <div className="text-xs text-muted-foreground">{getDisplayColumnId(c.key)}</div>
                   </li>
                 ))
               )}
