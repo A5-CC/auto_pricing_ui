@@ -142,8 +142,23 @@ export async function getE1ClientStatistics(
  */
 
 export async function listPipelines(): Promise<Pipeline[]> {
-  const response = await fetchWithError(`${API_BASE_URL}/pipelines`)
-  return response.json()
+  return cachedFetch(
+    'pipelines-list',
+    async () => {
+      const response = await fetchWithError(`${API_BASE_URL}/pipelines`)
+      return response.json() as Promise<Pipeline[]>
+    },
+    { persist: true }
+  )
+}
+
+export function invalidatePipelinesListCache(): void {
+  import('../cache').then(({ apiCache }) => {
+    apiCache.clear('pipelines-list')
+    if (typeof window !== 'undefined') {
+      try { window.localStorage.removeItem('__apu_cache__pipelines-list') } catch { /* ignore */ }
+    }
+  })
 }
 
 export async function getPipeline(pipelineId: string): Promise<Pipeline> {

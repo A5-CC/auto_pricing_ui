@@ -108,7 +108,19 @@ export function PipelineSelector({
   onPipelineChange,
 }: PipelineSelectorProps) {
   const LOCAL_STORAGE_KEY = "auto_pricing_pipeline_extras";
-  const [pipelines, setPipelines] = useState<Pipeline[]>([]);
+  const [pipelines, setPipelines] = useState<Pipeline[]>(() => {
+    // Seed immediately from localStorage so the dropdown shows on first paint
+    if (typeof window === 'undefined') return []
+    try {
+      const raw = window.localStorage.getItem('__apu_cache__pipelines-list')
+      if (!raw) return []
+      const { data, ts } = JSON.parse(raw) as { data: Pipeline[]; ts: number }
+      if (Date.now() - ts > 30 * 60 * 1000) return []
+      return Array.isArray(data) ? data : []
+    } catch {
+      return []
+    }
+  });
   const [selectedPipelineId, setSelectedPipelineId] = useState<string | null>(null);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -232,6 +244,7 @@ export function PipelineSelector({
       setPipelines(merged);
     } catch (error) {
       console.error("Failed to load pipelines:", error);
+      // Keep whatever stale pipelines were already seeded from localStorage
     }
   }, [normalizePipelineForUi, readLocalExtras]);
 
@@ -324,7 +337,7 @@ export function PipelineSelector({
           <SelectItem value="none">
             <span className="text-muted-foreground">No pipeline</span>
           </SelectItem>
-          {pipelines.map((pipeline) => (
+          {pipelines.map((pipeline: Pipeline) => (
             <SelectItem key={pipeline.id} value={pipeline.id}>
               {pipeline.name}
             </SelectItem>
