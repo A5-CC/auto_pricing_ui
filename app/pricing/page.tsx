@@ -38,6 +38,7 @@ export default function PricingPage() {
   const [snapshots, setSnapshots] = useState<PricingSnapshot[]>([]);
   const [selectedSnapshot, setSelectedSnapshot] = useState<string>("latest");
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   
@@ -54,6 +55,7 @@ export default function PricingPage() {
   const [showSparseColumns, setShowSparseColumns] = useState(false);
   const sparseThreshold = 85; // 85% fill-rate (backend returns 0-100, not 0-1)
   const activeLoadRef = useRef(0)
+  const hasLoadedDataRef = useRef(false)
 
   const [selectedFilters, setSelectedFilters] = useState<Record<string, string[]>>({})
 
@@ -162,15 +164,20 @@ export default function PricingPage() {
 
   const loadData = useCallback(async () => {
     const loadId = ++activeLoadRef.current
-    setLoading(true);
     setError(null);
     setColumnsStats({})
+    if (hasLoadedDataRef.current) {
+      setIsRefreshing(true)
+    } else {
+      setLoading(true)
+    }
     try {
       // Stage 1: fetch a smaller slice so the table renders quickly.
       const initialRes = await getPricingData(selectedSnapshot, { limit: INITIAL_LOAD_LIMIT });
       if (loadId !== activeLoadRef.current) return
 
       setDataResponse(initialRes);
+      hasLoadedDataRef.current = true
       if (initialRes.columns?.length) {
         const fixedColumns = [
           "competitor_name",
@@ -186,6 +193,7 @@ export default function PricingPage() {
       }
 
       setLoading(false);
+      setIsRefreshing(false)
 
       // Stage 2: hydrate full data + stats in background.
       void (async () => {
@@ -221,6 +229,7 @@ export default function PricingPage() {
       if (loadId !== activeLoadRef.current) return
       setError("Failed to load pricing data");
       setLoading(false);
+      setIsRefreshing(false)
     }
   }, [selectedSnapshot]);
 
@@ -252,6 +261,12 @@ export default function PricingPage() {
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 space-y-4 sm:space-y-5">
+      {isRefreshing && (
+        <div className="flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
+          <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-blue-400 border-t-transparent" />
+          Refreshing competitor pricing data…
+        </div>
+      )}
       <header>
         <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
           <div className="flex items-center gap-2">

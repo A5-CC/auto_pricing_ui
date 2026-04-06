@@ -16,7 +16,8 @@ export async function getPricingSchemas(): Promise<PricingSchemas> {
     async () => {
       const response = await fetchWithError(`${API_BASE_URL}/competitors/pricing-schemas`)
       return (await response.json()) as PricingSchemas
-    }
+    },
+    { persist: true }
   )
 }
 
@@ -26,7 +27,8 @@ export async function getSchemaStats(): Promise<SchemaStats> {
     async () => {
       const response = await fetchWithError(`${API_BASE_URL}/competitors/pricing-schemas/columns/stats`)
       return (await response.json()) as SchemaStats
-    }
+    },
+    { persist: true }
   )
 }
 
@@ -36,7 +38,8 @@ export async function getPricingSnapshots(): Promise<PricingSnapshot[]> {
     async () => {
       const response = await fetchWithError(`${API_BASE_URL}/competitors/pricing-data/snapshots`)
       return (await response.json()) as PricingSnapshot[]
-    }
+    },
+    { persist: true }
   )
 }
 
@@ -115,7 +118,8 @@ export async function getColumnStatistics(
       const url = `${API_BASE_URL}/competitors/pricing-data/${encodeURIComponent(snapshot)}/statistics${queryParams}`
       const response = await fetchWithError(url)
       return (await response.json()) as ColumnStatistics[]
-    }
+    },
+    { persist: true }
   )
 }
 
