@@ -3,13 +3,13 @@
 
 import { Button } from "@/components/ui/button"
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -195,63 +195,6 @@ function downloadCsv(content: Blob | string, filename: string) {
   window.URL.revokeObjectURL(url)
 }
 
-function logParsedCsv(label: string, parsed: ParsedCsv) {
-  try {
-    console.group(`[Process CSV] ${label}`)
-    console.log("Headers:", parsed.headers)
-    console.log("Row count:", parsed.rows.length)
-
-    const tableRows = parsed.rows.map((row, rowIdx) => {
-      const entry: Record<string, string | number> = { __row: rowIdx + 2 }
-      for (let i = 0; i < parsed.headers.length; i++) {
-        const header = parsed.headers[i] || `column_${i + 1}`
-        entry[header] = row[i] ?? ""
-      }
-      return entry
-    })
-
-    console.table(tableRows)
-    console.groupEnd()
-  } catch (e) {
-    console.warn("[Process CSV] Failed to log parsed CSV", e)
-  }
-}
-
-function logDiffSummary(original: ParsedCsv, processed: ParsedCsv) {
-  const headers = processed.headers.length ? processed.headers : original.headers
-  const rowCount = Math.max(original.rows.length, processed.rows.length)
-  const colCount = Math.max(original.headers.length, processed.headers.length)
-
-  let totalChangedCells = 0
-  let reviewableChangedCells = 0
-  const nonReviewableColumns = new Set<string>()
-
-  for (let rowIndex = 0; rowIndex < rowCount; rowIndex++) {
-    const originalRow = original.rows[rowIndex] ?? []
-    const processedRow = processed.rows[rowIndex] ?? []
-
-    for (let columnIndex = 0; columnIndex < colCount; columnIndex++) {
-      const originalValue = originalRow[columnIndex] ?? ""
-      const processedValue = processedRow[columnIndex] ?? ""
-      if (originalValue === processedValue) continue
-      totalChangedCells += 1
-
-      const columnName = headers[columnIndex] ?? `Column ${columnIndex + 1}`
-      if (isReviewableRateColumn(columnName)) {
-        reviewableChangedCells += 1
-      } else {
-        nonReviewableColumns.add(columnName)
-      }
-    }
-  }
-
-  console.group("[Process CSV] Diff summary")
-  console.log("Total changed cells:", totalChangedCells)
-  console.log("Reviewable changed cells (newwebrate/newstandardrate):", reviewableChangedCells)
-  console.log("Changed non-reviewable columns:", Array.from(nonReviewableColumns))
-  console.groupEnd()
-}
-
 function buildChanges(original: ParsedCsv, processed: ParsedCsv): CsvRateChange[] {
   const headers = processed.headers.length ? processed.headers : original.headers
   const rowCount = Math.max(original.rows.length, processed.rows.length)
@@ -336,44 +279,30 @@ export function ProcessCsvButton({ snapshotId, filters, adjusters, combinatoric,
   const [reviewData, setReviewData] = useState<ReviewData | null>(null)
   const [approvedChanges, setApprovedChanges] = useState<Record<string, boolean>>({})
 
-  const normalizeFilterKey = (key: string): string => {
-    if (key === "modstorage_location" || key === "locations") return "client_location"
-    if (key === "dimensions") return "unit_dimensions"
-    if (key === "competitors") return "competitor_name"
-    return key
-  }
-
-  const normalizedFilters = Object.entries(filters).reduce((acc, [key, values]) => {
-    if (!Array.isArray(values) || values.length === 0) return acc
-    const normalizedKey = normalizeFilterKey(key)
-    const merged = [...(acc[normalizedKey] ?? []), ...values.map(String)]
-    acc[normalizedKey] = Array.from(new Set(merged))
-    return acc
-  }, {} as Record<string, string[]>)
-
-  const normalizedCombinatoric = Object.entries(combinatoric ?? {}).reduce((acc, [key, value]) => {
-    acc[normalizeFilterKey(key)] = Boolean(value)
-    return acc
-  }, {} as Record<string, boolean>)
-
   // Validate allowed filters
   // Strictly Allowed:
   // - unit_dimensions: "Unit Dimensions"
-  // - client_location: "Client Location"
+  // - modstorage_location: "Facility Location"
   // - competitor_name: "Competitor Name"
   // All other filters must be empty.
-  const allowedKeys = new Set(["unit_dimensions", "client_location", "competitor_name"])
-
-  const hasInvalidFilters = Object.entries(normalizedFilters).some(([key, values]) => {
-    if (!Array.isArray(values) || values.length === 0) return false
-    return !allowedKeys.has(key)
-  })
-
-  const hasRequiredFilters =
-    Array.isArray(normalizedFilters.client_location) && normalizedFilters.client_location.length > 0 &&
-    Array.isArray(normalizedFilters.unit_dimensions) && normalizedFilters.unit_dimensions.length > 0
-
-  const processDisabled = hasInvalidFilters || !hasRequiredFilters
+  
+  const allowedKeys = new Set(["unit_dimensions", "modstorage_location", "competitor_name"]);
+  
+  // NOTE: 'competitors', 'locations', 'unitCategories' are standard legacy keys.
+  // 'locations' is legacy modstorage_location.
+  // 'modstorage_location' is expected to be passed if used.
+  
+  const hasInvalidFilters = Object.entries(filters).some(([key, values]) => {
+      // If values is empty, it's fine (filter not active)
+      if (!Array.isArray(values) || values.length === 0) return false;
+      
+      // If active, it must be in allowedKeys
+      // Exceptions: 
+      // - "locations" maps to legacy logic, but usually we prefer facility_location_city now.
+      // - "competitors" usually filtered out for CSV logic unless explicit requirement.
+      // User said: "Utilicen filtros (columnas) que no estén en el csv del cliente" -> only City and Dimensions match CSV schema.
+      return !allowedKeys.has(key);
+  });
 
   const resetDialogState = () => {
     setOpen(false)
@@ -388,33 +317,14 @@ export function ProcessCsvButton({ snapshotId, filters, adjusters, combinatoric,
 
     setIsProcessing(true)
     try {
-      const originalText = await file.text()
+      const processedBlob = await processClientCSV(file, snapshotId, filters, adjusters, combinatoric, rounding)
+      const [originalText, processedText] = await Promise.all([
+        file.text(),
+        processedBlob.text(),
+      ])
+
       const original = toParsedCsv(originalText)
-
-      console.group("[Process CSV] Request payload")
-      console.log("snapshot_id:", snapshotId)
-      console.log("filters:", normalizedFilters)
-      console.log("adjusters:", adjusters ?? [])
-      console.log("combinatoric:", normalizedCombinatoric)
-      console.log("rounding:", rounding ?? null)
-      console.log("file:", { name: file.name, size: file.size, type: file.type })
-      console.groupEnd()
-
-      logParsedCsv("Original CSV (before backend)", original)
-
-      const processedBlob = await processClientCSV(
-        file,
-        snapshotId,
-        normalizedFilters,
-        adjusters,
-        normalizedCombinatoric,
-        rounding
-      )
-      const processedText = await processedBlob.text()
       const processed = toParsedCsv(processedText)
-
-      logParsedCsv("Processed CSV (from backend)", processed)
-      logDiffSummary(original, processed)
 
       if (original.headers.length === 0 || processed.headers.length === 0) {
         throw new Error("CSV appears empty or invalid. Please check the input file.")
@@ -505,14 +415,8 @@ export function ProcessCsvButton({ snapshotId, filters, adjusters, combinatoric,
           <Button 
             variant="outline" 
             size="sm"
-            disabled={processDisabled}
-            title={
-              hasInvalidFilters
-                ? "Only Client Location and Unit Dimensions filters are supported for Effect Pricing"
-                : !hasRequiredFilters
-                  ? "Effect Pricing requires active client_location and unit_dimensions filters"
-                  : "Effect Pricing"
-            }
+            disabled={hasInvalidFilters}
+            title={hasInvalidFilters ? "Only Location and Dimension filters are supported for pricing effect" : "Effect Pricing"}
           >
             <FileSpreadsheet className="mr-2 h-4 w-4" />
             Effect Pricing
@@ -537,7 +441,7 @@ export function ProcessCsvButton({ snapshotId, filters, adjusters, combinatoric,
                 Upload a client CSV and apply pricing algorithms.
                 <br />
                 <span className="text-xs text-muted-foreground mt-2 block">
-                  Supported filters: client_location, unit_dimensions.
+                  Supported filters: modstorage_location, unit_dimensions.
                   <br />
                   Ensure columns: &apos;Facility Name&apos;, &apos;Size&apos;, &apos;Current Web Rate&apos;, &apos;Current Standard Rate&apos;, &apos;New Web Rate&apos;, &apos;New Standard Rate&apos;.
                 </span>
@@ -699,7 +603,7 @@ export function ProcessCsvButton({ snapshotId, filters, adjusters, combinatoric,
         <TooltipContent side="bottom" className="max-w-xs">
           <div className="text-xs">
             Use this for pricing CSVs. Requires combinatoric filters on
-            <strong> client_location</strong> and <strong>unit_dimensions</strong>.
+            <strong> modstorage_location</strong> and <strong>unit_dimensions</strong>.
             Additional filters must be non-combinatoric. 
           </div>
         </TooltipContent>

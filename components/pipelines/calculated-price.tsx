@@ -6,9 +6,23 @@ import { useMemo } from 'react'
 
 type FilterValue = string | number | boolean
 
-type ResultRow = {
+export type CalculatedPriceRow = {
   comboMap: Record<string, FilterValue>
   price: number | null
+}
+
+export interface CalculatePriceTableParams {
+  competitorData: E1DataRow[]
+  clientAvailableUnits: number
+  adjusters: Adjuster[]
+  currentDate: Date
+  filters?: Record<string, FilterSelection>
+  combinatoricFlags?: Record<string, boolean>
+}
+
+export interface CalculatedPriceTableResult {
+  rows: CalculatedPriceRow[]
+  headers: string[]
 }
 
 function rowMatchesValue(cell: unknown, selected: FilterValue): boolean {
@@ -39,6 +53,138 @@ interface CalculatedPriceProps {
   combinatoricFlags?: Record<string, boolean>
   roundingEnabled?: boolean
   roundingOffset?: number
+}
+
+export function calculatePriceTable({
+  competitorData,
+  clientAvailableUnits,
+  adjusters,
+  currentDate,
+  filters = {},
+  combinatoricFlags = {},
+}: CalculatePriceTableParams): CalculatedPriceTableResult {
+  if (!adjusters || adjusters.length === 0) {
+    return { rows: [], headers: ['Price'] }
+  }
+
+  const arrays: FilterValue[][] = []
+  const humanKeys: string[] = []
+  const columnNames: string[] = []
+  const FILTER_KEY_TO_COLUMN: Record<string, string> = {
+    competitors: 'competitor_name',
+    locations: 'modstorage_location',
+    dimensions: 'unit_dimensions',
+    unit_categories: 'unit_category',
+  }
+
+  const combinatoric: Array<{ key: string; values: FilterValue[]; column: string }> = []
+  const preFilters: Array<{ column: string; values: FilterValue[] }> = []
+
+  for (const [key, filter] of Object.entries(filters)) {
+    if (!filter) continue
+    if (filter.mode === 'subset') {
+      const vals = (filter as { mode: 'subset'; values: FilterValue[] }).values ?? []
+      if (!vals || vals.length === 0) continue
+      const column = FILTER_KEY_TO_COLUMN[key] ?? key
+      const isCombinatoric = combinatoricFlags ? Boolean(combinatoricFlags[key]) : true
+      if (isCombinatoric) {
+        combinatoric.push({ key, values: vals, column })
+      } else {
+        preFilters.push({ column, values: vals })
+      }
+    }
+  }
+
+  const applyPreFilters = (inputRows: E1DataRow[]): E1DataRow[] => {
+    if (preFilters.length === 0) return inputRows
+    let pool = inputRows
+    for (const pf of preFilters) {
+      const set = new Set(pf.values.map(String))
+      pool = pool.filter((row) => {
+        const val = (row as Record<string, unknown>)[pf.column]
+        if (val === null || val === undefined) return false
+        if (Array.isArray(val)) return val.some((item) => set.has(String(item)))
+        return set.has(String(val))
+      })
+    }
+    return pool
+  }
+
+  for (const c of combinatoric) {
+    arrays.push(c.values)
+    humanKeys.push(c.column)
+    columnNames.push(c.column)
+  }
+
+  if (arrays.length === 0) {
+    const pool = applyPreFilters(competitorData)
+
+    let price: number | null = null
+    try {
+      const result = calculatePrice({
+        competitorData: pool,
+        clientUnit: { available_units: clientAvailableUnits },
+        adjusters,
+        currentDate,
+      })
+      if (result && typeof result.price === 'number' && !Number.isNaN(result.price)) {
+        price = result.price
+      }
+    } catch (e) {
+      console.error('[CalculatedPrice] Error for aggregate dataset (no combinatoric filters):', e)
+    }
+
+    if (price === null) {
+      return { rows: [], headers: ['Price'] }
+    }
+
+    return {
+      rows: [{ comboMap: {}, price }],
+      headers: ['Price'],
+    }
+  }
+
+  const combinations = cartesianProduct<FilterValue>(arrays)
+
+  const resultRows = combinations
+    .map((combo): CalculatedPriceRow => {
+      let pool = competitorData
+      pool = applyPreFilters(pool)
+
+      const subset = pool.filter((row) =>
+        columnNames.every((col, i) => rowMatchesValue((row as Record<string, unknown>)[col], combo[i]))
+      )
+
+      const comboMap = humanKeys.reduce<Record<string, FilterValue>>((acc, k, i) => {
+        acc[k] = combo[i]
+        return acc
+      }, {})
+
+      if (subset.length === 0) return { comboMap, price: null }
+
+      let price: number | null = null
+      try {
+        const result = calculatePrice({
+          competitorData: subset,
+          clientUnit: { available_units: clientAvailableUnits },
+          adjusters,
+          currentDate,
+        })
+        if (result && typeof result.price === 'number' && !Number.isNaN(result.price)) {
+          price = result.price
+        }
+      } catch (e) {
+        console.error('[CalculatedPrice] Error for combo:', combo, e)
+      }
+
+      return { comboMap, price }
+    })
+    .filter((r) => r.price !== null)
+
+  return {
+    rows: resultRows,
+    headers: [...humanKeys, 'Price'],
+  }
 }
 
 export function CalculatedPrice({
@@ -73,142 +219,17 @@ export function CalculatedPrice({
     return String(value)
   }
 
-  const { rows, headers } = useMemo<{
-    rows: ResultRow[]
-    headers: string[]
-  }>(() => {
-    if (!adjusters || adjusters.length === 0) {
-      return { rows: [], headers: ['Price'] }
-    }
-
-    const arrays: FilterValue[][] = []
-    const humanKeys: string[] = []
-    const columnNames: string[] = []
-    const FILTER_KEY_TO_COLUMN: Record<string, string> = {
-      competitors: 'competitor_name',
-      locations: 'modstorage_location',
-      dimensions: 'unit_dimensions',
-      unit_categories: 'unit_category',
-    }
-
-    // Separate filters into combinatoric filters (contribute to cartesian product)
-    // and non-combinatoric filters (used to pre-filter the competitorData input).
-    const combinatoric: Array<{ key: string; values: FilterValue[]; column: string }> = []
-    const preFilters: Array<{ column: string; values: FilterValue[] }> = []
-
-    for (const [key, filter] of Object.entries(filters)) {
-      if (!filter) continue
-      if (filter.mode === 'subset') {
-        const vals = (filter as { mode: 'subset'; values: FilterValue[] }).values ?? []
-        if (!vals || vals.length === 0) continue
-        const column = FILTER_KEY_TO_COLUMN[key] ?? key
-        const isCombinatoric = combinatoricFlags ? Boolean(combinatoricFlags[key]) : true
-        if (isCombinatoric) {
-          combinatoric.push({ key, values: vals, column })
-        } else {
-          preFilters.push({ column, values: vals })
-        }
-      }
-    }
-
-    // Helper to apply non-combinatoric subset filters to a dataset
-    const applyPreFilters = (inputRows: E1DataRow[]): E1DataRow[] => {
-      if (preFilters.length === 0) return inputRows
-      let pool = inputRows
-      for (const pf of preFilters) {
-        const set = new Set(pf.values.map(String))
-        pool = pool.filter((row) => {
-          const val = (row as Record<string, unknown>)[pf.column]
-          if (val === null || val === undefined) return false
-          if (Array.isArray(val)) return val.some((item) => set.has(String(item)))
-          return set.has(String(val))
-        })
-      }
-      return pool
-    }
-    
-    // Build arrays and metadata from combinatoric filters
-    for (const c of combinatoric) {
-      arrays.push(c.values)
-      // Display headers as the actual data columns.
-      // For built-in keys (competitors/locations/...), this avoids showing the human alias.
-      humanKeys.push(c.column)
-      columnNames.push(c.column)
-    }
-
-    // Case 1: no combinatoric filters selected → single aggregate row
-    if (arrays.length === 0) {
-      const pool = applyPreFilters(competitorData)
-      
-      let price: number | null = null
-      try {
-        const result = calculatePrice({
-          competitorData: pool,
-          clientUnit: { available_units: clientAvailableUnits },
-          adjusters,
-          currentDate
-        })
-        if (result && typeof result.price === 'number' && !Number.isNaN(result.price)) {
-          price = result.price
-        }
-      } catch (e) {
-        console.error('[CalculatedPrice] Error for aggregate dataset (no combinatoric filters):', e)
-      }
-
-      if (price === null) {
-        return { rows: [], headers: ['Price'] }
-      }
-
-      return {
-        rows: [{ comboMap: {}, price }],
-        headers: ['Price'],
-      }
-    }
-
-    // Case 2: at least one combinatoric filter → Cartesian combinations
-    const combinations = cartesianProduct<FilterValue>(arrays)
-
-    const resultRows = combinations
-      .map((combo): ResultRow => {
-      // Apply pre-filters (non-combinatoric) first to the competitor data
-      let pool = competitorData
-      pool = applyPreFilters(pool)
-
-      const subset = pool.filter((row) =>
-        columnNames.every((col, i) => rowMatchesValue((row as Record<string, unknown>)[col], combo[i]))
-      )
-
-      const comboMap = humanKeys.reduce<Record<string, FilterValue>>((acc, k, i) => {
-        acc[k] = combo[i]
-        return acc
-      }, {})
-
-      if (subset.length === 0) return { comboMap, price: null }
-
-      let price: number | null = null
-      try {
-        const result = calculatePrice({
-          competitorData: subset,
-          clientUnit: { available_units: clientAvailableUnits },
-          adjusters,
-          currentDate
-        })
-        if (result && typeof result.price === 'number' && !Number.isNaN(result.price)) {
-          price = result.price
-        }
-      } catch (e) {
-        console.error('[CalculatedPrice] Error for combo:', combo, e)
-      }
-
-      return { comboMap, price }
-    })
-      .filter((r) => r.price !== null)
-
-    return {
-      rows: resultRows,
-      headers: [...humanKeys, 'Price'],
-    }
-  }, [noCompetitorData, competitorData, clientAvailableUnits, adjusters, currentDate, filters, combinatoricFlags])
+  const { rows, headers } = useMemo(
+    () => calculatePriceTable({
+      competitorData,
+      clientAvailableUnits,
+      adjusters,
+      currentDate,
+      filters,
+      combinatoricFlags,
+    }),
+    [noCompetitorData, competitorData, clientAvailableUnits, adjusters, currentDate, filters, combinatoricFlags]
+  )
 
   if (!adjusters || adjusters.length === 0) {
     return <p className="text-muted-foreground">Add adjusters to calculate prices</p>

@@ -5,7 +5,7 @@ import { AddCompetitiveAdjusterDialog } from "@/components/pipelines/adjusters/a
 import { AddFunctionAdjusterDialog } from "@/components/pipelines/adjusters/add-function-adjuster-dialog";
 import { AddTemporalAdjusterDialog } from "@/components/pipelines/adjusters/add-temporal-adjuster-dialog";
 import { useAdjusterDialog } from "@/components/pipelines/adjusters/use-adjuster-dialog";
-import { CalculatedPrice } from "@/components/pipelines/calculated-price";
+import { calculatePriceTable, CalculatedPrice } from "@/components/pipelines/calculated-price";
 import { PipelineSelector } from "@/components/pipelines/pipeline-selector";
 import { PriceDataWarning } from "@/components/pipelines/price-data-warning";
 import { ProcessCsvButton } from "@/components/pricing/process-csv-button";
@@ -450,6 +450,18 @@ export default function PipelinesPage() {
     [subsetFilteredRows]
   );
 
+  const calculatedPriceTable = useMemo(
+    () => calculatePriceTable({
+      competitorData: subsetFilteredRows,
+      clientAvailableUnits: clientDataResponse?.data.length || 0,
+      adjusters: localAdjusters,
+      currentDate,
+      filters: mergedFilters,
+      combinatoricFlags: mergedCombinatoricFlags,
+    }),
+    [subsetFilteredRows, clientDataResponse?.data.length, localAdjusters, currentDate, mergedFilters, mergedCombinatoricFlags]
+  )
+
   const hasActiveFilterSelections = useMemo(() => {
     // Only consider filters “active” when they have selected values.
     return Object.values(universalFilters).some((vals) => Array.isArray(vals) && vals.length > 0)
@@ -516,6 +528,7 @@ export default function PipelinesPage() {
                 enabled: roundingEnabled,
                 offset: roundingOffset,
               }}
+              calculatedRows={calculatedPriceTable.rows}
             />
             <PipelineSelector
               currentFilters={{} as PipelineFiltersType}
