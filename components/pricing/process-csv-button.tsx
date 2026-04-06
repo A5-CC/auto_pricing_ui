@@ -89,6 +89,17 @@ type ReviewData = {
   reviewRows: ReviewRow[]
 }
 
+const CSV_NUMERIC_PREFERRED_COLUMNS = [
+  "Area",
+  "Total Units",
+  "Occupied",
+  "Available",
+  "Vacancy",
+  "Occupancy",
+  "Days Since Last Move-In",
+  "Average Rent",
+]
+
 const REVIEWABLE_RATE_COLUMNS = new Set(["newwebrate", "newstandardrate"])
 const CURRENT_WEB_RATE_COLUMNS = new Set(["currentwebrate"])
 const CURRENT_STANDARD_RATE_COLUMNS = new Set(["currentstandardrate"])
@@ -267,6 +278,35 @@ function parseCsvText(text: string): string[][] {
   }
 
   return rows
+}
+
+function detectNumericCsvColumns(parsed: ParsedCsv): string[] {
+  if (!parsed.headers.length || !parsed.rows.length) return []
+
+  const numericHeaders: string[] = []
+  for (let col = 0; col < parsed.headers.length; col++) {
+    const header = parsed.headers[col]
+    let seen = 0
+    let numeric = 0
+
+    for (const row of parsed.rows) {
+      const raw = String(row[col] ?? "").trim()
+      if (!raw) continue
+      seen += 1
+
+      const cleaned = raw.replace(/[$,%\s,]/g, "")
+      const n = Number(cleaned)
+      if (Number.isFinite(n)) numeric += 1
+
+      if (seen >= 50) break
+    }
+
+    if (seen > 0 && numeric / seen >= 0.7) {
+      numericHeaders.push(header)
+    }
+  }
+
+  return numericHeaders
 }
 
 function toParsedCsv(text: string): ParsedCsv {
@@ -469,6 +509,7 @@ export function ProcessCsvButton({ filters, calculatedRows = [], rounding, prici
   const [approvedChanges, setApprovedChanges] = useState<Record<string, boolean>>({})
   const [popupAdjusters, setPopupAdjusters] = useState<Adjuster[]>([])
   const [originalParsed, setOriginalParsed] = useState<ParsedCsv | null>(null)
+  const [csvNumericVariables, setCsvNumericVariables] = useState<string[]>([])
 
   const competitiveDialog = useAdjusterDialog()
   const functionDialog = useAdjusterDialog()
@@ -506,6 +547,7 @@ export function ProcessCsvButton({ filters, calculatedRows = [], rounding, prici
     setApprovedChanges({})
     setPopupAdjusters([])
     setOriginalParsed(null)
+    setCsvNumericVariables([])
   }
 
   const buildDefaultApprovals = (changes: CsvRateChange[]) => {
@@ -567,6 +609,7 @@ export function ProcessCsvButton({ filters, calculatedRows = [], rounding, prici
       const originalText = await file.text()
       const original = toParsedCsv(originalText)
       setOriginalParsed(original)
+      setCsvNumericVariables(detectNumericCsvColumns(original))
       const processed = applyCalculatedPricesToCsv(original, calculatedRows, rounding, popupAdjusters)
 
       if (original.headers.length === 0 || processed.headers.length === 0) {
@@ -874,7 +917,11 @@ export function ProcessCsvButton({ filters, calculatedRows = [], rounding, prici
         open={functionDialog.open}
         onOpenChange={functionDialog.setOpen}
         onAdd={handleAddPopupAdjuster}
-        availableVariables={pricingContext?.availableVariables ?? ["Occupied", "Available", "Vacancy"]}
+        availableVariables={Array.from(new Set([
+          ...CSV_NUMERIC_PREFERRED_COLUMNS,
+          ...csvNumericVariables,
+          ...(pricingContext?.availableVariables ?? []),
+        ]))}
         competitorData={pricingContext?.competitorData ?? []}
         clientAvailableUnits={pricingContext?.clientAvailableUnits ?? 0}
       />
