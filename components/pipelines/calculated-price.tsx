@@ -1,6 +1,7 @@
 import type { Adjuster } from '@/lib/adjusters'
 import { calculatePrice } from '@/lib/adjusters'
 import type { E1DataRow } from '@/lib/api/types'
+import { getColumnLabel } from '@/lib/pricing/column-labels'
 import { useMemo } from 'react'
 
 type FilterValue = string | number | boolean
@@ -235,7 +236,7 @@ export function CalculatedPrice({
           <tr>
             {headers.map((h) => (
               <th key={h} className="border px-3 py-2 text-left text-sm font-semibold">
-                {h}
+                {h === 'Price' ? 'Price' : getColumnLabel(h, null)}
               </th>
             ))}
           </tr>
