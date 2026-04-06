@@ -813,11 +813,7 @@ export function ProcessCsvButton({ filters, calculatedRows = [], rounding, prici
                       <th className="px-3 py-2 text-left font-medium">Row</th>
                       <th className="px-3 py-2 text-left font-medium">Facility</th>
                       <th className="px-3 py-2 text-left font-medium">Unit</th>
-                      <th className="px-3 py-2 text-left font-medium">Current Web</th>
-                      <th className="px-3 py-2 text-left font-medium">New Web</th>
                       <th className="px-3 py-2 text-left font-medium">Web Decision</th>
-                      <th className="px-3 py-2 text-left font-medium">Current Standard</th>
-                      <th className="px-3 py-2 text-left font-medium">New Standard</th>
                       <th className="px-3 py-2 text-left font-medium">Standard Decision</th>
                     </tr>
                   </thead>
@@ -827,8 +823,6 @@ export function ProcessCsvButton({ filters, calculatedRows = [], rounding, prici
                         <td className="px-3 py-2 align-top">{row.rowIndex + 2}</td>
                         <td className="px-3 py-2 align-top">{row.facilityName || "—"}</td>
                         <td className="px-3 py-2 align-top">{row.unitSize || "—"}</td>
-                        <td className="px-3 py-2 align-top text-muted-foreground">{row.currentWebRate || "—"}</td>
-                        <td className="px-3 py-2 align-top">{row.proposedWebRate || "—"}</td>
                         <td className="px-3 py-2 align-top">
                           {row.webRateChange ? (
                             <div className="flex items-center gap-2">
@@ -853,8 +847,6 @@ export function ProcessCsvButton({ filters, calculatedRows = [], rounding, prici
                             <span className="text-muted-foreground">—</span>
                           )}
                         </td>
-                        <td className="px-3 py-2 align-top text-muted-foreground">{row.currentStandardRate || "—"}</td>
-                        <td className="px-3 py-2 align-top">{row.proposedStandardRate || "—"}</td>
                         <td className="px-3 py-2 align-top">
                           {row.standardRateChange ? (
                             <div className="flex items-center gap-2">
@@ -924,6 +916,7 @@ export function ProcessCsvButton({ filters, calculatedRows = [], rounding, prici
         ]))}
         competitorData={pricingContext?.competitorData ?? []}
         clientAvailableUnits={pricingContext?.clientAvailableUnits ?? 0}
+        includeAvailableUnits={false}
       />
 
       <Tooltip>

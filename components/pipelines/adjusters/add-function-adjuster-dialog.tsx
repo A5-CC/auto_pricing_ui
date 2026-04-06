@@ -32,6 +32,7 @@ interface AddFunctionAdjusterDialogProps {
   availableVariables?: string[]
   competitorData?: E1DataRow[]
   clientAvailableUnits?: number
+  includeAvailableUnits?: boolean
 }
 
 function formatVariableName(name: string): string {
@@ -48,8 +49,12 @@ export function AddFunctionAdjusterDialog({
   availableVariables = [],
   competitorData = [],
   clientAvailableUnits = 0,
+  includeAvailableUnits = true,
 }: AddFunctionAdjusterDialogProps) {
-  const [variable, setVariable] = useState('available_units')
+  const [variable, setVariable] = useState(() => {
+    if (includeAvailableUnits) return 'available_units'
+    return availableVariables[0] || 'available_units'
+  })
   const [functionString, setFunctionString] = useState('1.0 - 0.005*x')
   const [committedFunction, setCommittedFunction] = useState('1.0 - 0.005*x')
   const [domainMin, setDomainMin] = useState('0')
@@ -57,13 +62,19 @@ export function AddFunctionAdjusterDialog({
 
   // Auto-detect domain min/max from dataset when variable changes
   useEffect(() => {
+    if (!includeAvailableUnits && availableVariables.length > 0 && !availableVariables.includes(variable)) {
+      setVariable(availableVariables[0])
+    }
+  }, [includeAvailableUnits, availableVariables, variable])
+
+  useEffect(() => {
     if (!variable) return
 
     let min: number | null = null
     let max: number | null = null
 
     // Special case: available_units from client data
-    if (variable === 'available_units') {
+    if (includeAvailableUnits && variable === 'available_units') {
       min = 0
       max = clientAvailableUnits || 100
     } else {
@@ -228,9 +239,11 @@ export function AddFunctionAdjusterDialog({
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="available_units">
-                  Available Units
-                </SelectItem>
+                  {includeAvailableUnits && (
+                    <SelectItem value="available_units">
+                      Available Units
+                    </SelectItem>
+                  )}
                 {availableVariables.length > 0 && (
                   <>
                     {availableVariables.map((col) => (
