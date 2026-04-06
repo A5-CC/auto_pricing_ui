@@ -81,7 +81,7 @@ const CURRENT_WEB_RATE_COLUMNS = new Set(["currentwebrate"])
 const CURRENT_STANDARD_RATE_COLUMNS = new Set(["currentstandardrate"])
 const FACILITY_NAME_COLUMNS = new Set(["facilityname", "storagename", "propertyname", "sitename"])
 const UNIT_SIZE_COLUMNS = new Set(["size", "unitsize", "unitdimensions"])
-const LOCATION_COLUMNS = new Set(["facilityname", "storagename", "propertyname", "sitename", "location", "address", "modstoragelocation"])
+const LOCATION_COLUMNS = new Set(["facilityname", "storagename", "propertyname", "sitename", "location", "address", "clientlocation", "modstoragelocation"])
 const NEW_WEB_RATE_COLUMNS = new Set(["newwebrate"])
 const NEW_STANDARD_RATE_COLUMNS = new Set(["newstandardrate"])
 
@@ -306,7 +306,7 @@ function applyCalculatedPricesToCsv(original: ParsedCsv, calculatedRows: Calcula
   const priceLookup = new Map<string, string>()
   for (const calculatedRow of calculatedRows) {
     if (typeof calculatedRow.price !== "number" || Number.isNaN(calculatedRow.price)) continue
-    const location = normalizeMatchValue(calculatedRow.comboMap.modstorage_location)
+    const location = normalizeMatchValue(calculatedRow.comboMap.client_location)
     const dimension = normalizeDimensionValue(calculatedRow.comboMap.unit_dimensions)
     if (!location || !dimension) continue
     priceLookup.set(`${location}__${dimension}`, calculatedRow.price.toFixed(2))
@@ -344,15 +344,15 @@ export function ProcessCsvButton({ filters, calculatedRows = [] }: ProcessCsvBut
   // Validate allowed filters
   // Strictly Allowed:
   // - unit_dimensions: "Unit Dimensions"
-  // - modstorage_location: "Facility Location"
+  // - client_location: "Facility Location"
   // - competitor_name: "Competitor Name"
   // All other filters must be empty.
   
-  const allowedKeys = new Set(["unit_dimensions", "modstorage_location", "competitor_name"]);
+  const allowedKeys = new Set(["unit_dimensions", "client_location", "competitor_name"]);
   
   // NOTE: 'competitors', 'locations', 'unitCategories' are standard legacy keys.
-  // 'locations' is legacy modstorage_location.
-  // 'modstorage_location' is expected to be passed if used.
+  // 'locations' is legacy client_location.
+  // 'client_location' is expected to be passed if used.
   
   const hasInvalidFilters = Object.entries(filters).some(([key, values]) => {
       // If values is empty, it's fine (filter not active)
@@ -498,7 +498,7 @@ export function ProcessCsvButton({ filters, calculatedRows = [] }: ProcessCsvBut
                 Upload a client CSV and apply pricing algorithms.
                 <br />
                 <span className="text-xs text-muted-foreground mt-2 block">
-                  Supported filters: modstorage_location, unit_dimensions.
+                  Supported filters: client_location, unit_dimensions.
                   <br />
                   Uses the currently displayed pipeline price table in the browser.
                   <br />
@@ -662,7 +662,7 @@ export function ProcessCsvButton({ filters, calculatedRows = [] }: ProcessCsvBut
         <TooltipContent side="bottom" className="max-w-xs">
           <div className="text-xs">
             Use this for pricing CSVs. Requires combinatoric filters on
-            <strong> modstorage_location</strong> and <strong>unit_dimensions</strong>.
+            <strong> client_location</strong> and <strong>unit_dimensions</strong>.
             Additional filters must be non-combinatoric. 
           </div>
         </TooltipContent>
