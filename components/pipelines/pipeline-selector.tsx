@@ -2,11 +2,11 @@
 
 import { Button } from "@/components/ui/button";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
 } from "@/components/ui/select";
 import type { Adjuster } from "@/lib/adjusters";
 import { createPipeline, deletePipeline, listPipelines } from "@/lib/api/client/pipelines";
