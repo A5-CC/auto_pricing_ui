@@ -775,9 +775,17 @@ export function ProcessCsvButton({ filters, calculatedRows = [], rounding, prici
               {popupAdjusters.length === 0 ? (
                 <p className="text-xs text-muted-foreground">No popup adjusters configured.</p>
               ) : (
-                popupAdjusters.map((adj: Adjuster, idx: number) => (
-                  <div key={`${adj.type}-${idx}`} className="flex items-center justify-between rounded border px-2 py-1.5">
-                    <span className="text-xs capitalize">{idx + 1}. {adj.type}</span>
+                popupAdjusters.map((adj: Adjuster, idx: number) => {
+                  const fn = adj as { variable?: string; function_string?: string }
+                  const summary = adj.type === 'function' && fn.variable && fn.function_string
+                    ? `f(${fn.variable}) = ${fn.function_string}`
+                    : adj.type
+                  return (
+                  <div key={`${adj.type}-${idx}`} className="flex items-center justify-between rounded border px-2 py-1.5 gap-3">
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-xs font-medium capitalize">{idx + 1}. Function adjuster</span>
+                      <span className="text-xs text-muted-foreground font-mono truncate">{summary}</span>
+                    </div>
                     <Button
                       type="button"
                       size="sm"
@@ -789,7 +797,8 @@ export function ProcessCsvButton({ filters, calculatedRows = [], rounding, prici
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
-                ))
+                  )
+                })
               )}
             </div>
 
