@@ -109,8 +109,35 @@ function normalizeMatchValue(value: unknown): string {
     .replace(/\s+/g, " ")
 }
 
+function extractLeadingDimensionPair(value: unknown): string {
+  const raw = String(value ?? "").toLowerCase().replace(/×/g, "x")
+  const match = raw.match(/(\d+(?:\.\d+)?)\s*x\s*(\d+(?:\.\d+)?)/)
+  if (!match) return ""
+  return `${match[1]}x${match[2]}`
+}
+
 function normalizeDimensionValue(value: unknown): string {
+  const leadingPair = extractLeadingDimensionPair(value)
+  if (leadingPair) return leadingPair
   return normalizeMatchValue(value).replace(/\s+/g, "")
+}
+
+function normalizeCityValue(value: unknown): string {
+  const normalized = normalizeMatchValue(value)
+  if (!normalized) return ""
+
+  // Facility labels like "modSTORAGE - Laramie" → "laramie"
+  const hyphenParts = normalized.split("-").map((p) => p.trim()).filter(Boolean)
+  if (hyphenParts.length > 1) {
+    return hyphenParts[hyphenParts.length - 1].replace(/^modstorage\s*/g, "").trim()
+  }
+
+  // Address-like strings: "street, city, state" → city; "city, state" → city
+  const commaParts = normalized.split(",").map((p) => p.trim()).filter(Boolean)
+  if (commaParts.length >= 3) return commaParts[commaParts.length - 2]
+  if (commaParts.length === 2) return commaParts[0]
+
+  return normalized.replace(/^modstorage\s*/g, "").trim()
 }
 
 function parseCsvText(text: string): string[][] {
@@ -304,12 +331,22 @@ function applyCalculatedPricesToCsv(original: ParsedCsv, calculatedRows: Calcula
   }
 
   const priceLookup = new Map<string, string>()
+  const cityPriceLookup = new Map<string, string>()
   for (const calculatedRow of calculatedRows) {
     if (typeof calculatedRow.price !== "number" || Number.isNaN(calculatedRow.price)) continue
-    const location = normalizeMatchValue(calculatedRow.comboMap.client_location)
+    const location = normalizeMatchValue(
+      calculatedRow.comboMap.client_location ?? calculatedRow.comboMap.modstorage_location
+    )
+    const city = normalizeCityValue(
+      calculatedRow.comboMap.client_location ?? calculatedRow.comboMap.modstorage_location
+    )
     const dimension = normalizeDimensionValue(calculatedRow.comboMap.unit_dimensions)
     if (!location || !dimension) continue
-    priceLookup.set(`${location}__${dimension}`, calculatedRow.price.toFixed(2))
+    const price = calculatedRow.price.toFixed(2)
+    priceLookup.set(`${location}__${dimension}`, price)
+    if (city) {
+      cityPriceLookup.set(`${city}__${dimension}`, price)
+    }
   }
 
   if (priceLookup.size === 0) {
@@ -319,8 +356,11 @@ function applyCalculatedPricesToCsv(original: ParsedCsv, calculatedRows: Calcula
   let matchedRows = 0
   for (const row of rows) {
     const location = normalizeMatchValue(getCellValue(row, locationIndex))
+    const city = normalizeCityValue(getCellValue(row, locationIndex))
     const dimension = normalizeDimensionValue(getCellValue(row, unitSizeIndex))
-    const mappedPrice = priceLookup.get(`${location}__${dimension}`)
+    const mappedPrice =
+      priceLookup.get(`${location}__${dimension}`) ??
+      (city ? cityPriceLookup.get(`${city}__${dimension}`) : undefined)
     if (!mappedPrice) continue
     row[newWebRateIndex] = mappedPrice
     row[newStandardRateIndex] = mappedPrice
