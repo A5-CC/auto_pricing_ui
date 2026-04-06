@@ -1,28 +1,28 @@
-import { useState, useMemo, useEffect } from 'react'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
-import { Input } from '@/components/ui/input'
+import { ChartContainer } from '@/components/ui/chart'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
 } from '@/components/ui/select'
-import { Calculator, Equal } from 'lucide-react'
 import type { FunctionBasedAdjuster } from '@/lib/adjusters'
 import { evaluateSafeFunction, validateFunctionSyntax } from '@/lib/adjusters'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts'
-import { ChartContainer } from '@/components/ui/chart'
 import type { E1DataRow } from '@/lib/api/types'
+import { Calculator, Equal } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { CartesianGrid, Line, LineChart, XAxis, YAxis } from 'recharts'
 import { toast } from 'sonner'
 
 interface AddFunctionAdjusterDialogProps {
