@@ -334,7 +334,7 @@ function applyCalculatedPricesToCsv(original: ParsedCsv, calculatedRows: Calcula
   return { headers, rows }
 }
 
-export function ProcessCsvButton({ snapshotId, filters, adjusters, combinatoric, rounding, calculatedRows = [] }: ProcessCsvButtonProps) {
+export function ProcessCsvButton({ filters, calculatedRows = [] }: ProcessCsvButtonProps) {
   const [open, setOpen] = useState(false)
   const [file, setFile] = useState<File | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)

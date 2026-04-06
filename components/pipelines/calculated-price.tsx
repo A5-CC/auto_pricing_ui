@@ -228,7 +228,7 @@ export function CalculatedPrice({
       filters,
       combinatoricFlags,
     }),
-    [noCompetitorData, competitorData, clientAvailableUnits, adjusters, currentDate, filters, combinatoricFlags]
+    [competitorData, clientAvailableUnits, adjusters, currentDate, filters, combinatoricFlags]
   )
 
   if (!adjusters || adjusters.length === 0) {
