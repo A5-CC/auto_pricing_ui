@@ -1,7 +1,6 @@
 
 "use client"
 
-import { AddCompetitiveAdjusterDialog } from "@/components/pipelines/adjusters/add-competitive-adjuster-dialog"
 import { AddFunctionAdjusterDialog } from "@/components/pipelines/adjusters/add-function-adjuster-dialog"
 import { useAdjusterDialog } from "@/components/pipelines/adjusters/use-adjuster-dialog"
 import type { CalculatedPriceRow } from "@/components/pipelines/calculated-price"
@@ -108,6 +107,12 @@ const UNIT_SIZE_COLUMNS = new Set(["size", "unitsize", "unitdimensions"])
 const LOCATION_COLUMNS = new Set(["facilityname", "storagename", "propertyname", "sitename", "location", "address", "clientlocation", "modstoragelocation"])
 const NEW_WEB_RATE_COLUMNS = new Set(["newwebrate"])
 const NEW_STANDARD_RATE_COLUMNS = new Set(["newstandardrate"])
+const RATE_VARIABLE_EXCLUSIONS = new Set([
+  "currentwebrate",
+  "newwebrate",
+  "currentstandardrate",
+  "newstandardrate",
+])
 
 function normalizeColumnKey(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]/g, "")
@@ -193,7 +198,8 @@ function applyPopupAdjustersToWebRate(
       const functionString = String(fn.function_string ?? "")
       if (!variable || !functionString) continue
 
-      const x = Number(csvRow[variable])
+      const cleaned = String(csvRow[variable] ?? '').replace(/[$,%\s,]/g, '')
+      const x = Number(cleaned)
       if (!Number.isFinite(x)) continue
       const evaluated = evaluateSafeFunction(functionString, x)
       if (evaluated.success && typeof evaluated.value === 'number' && Number.isFinite(evaluated.value)) {
@@ -511,7 +517,6 @@ export function ProcessCsvButton({ filters, calculatedRows = [], rounding, prici
   const [originalParsed, setOriginalParsed] = useState<ParsedCsv | null>(null)
   const [csvNumericVariables, setCsvNumericVariables] = useState<string[]>([])
 
-  const competitiveDialog = useAdjusterDialog()
   const functionDialog = useAdjusterDialog()
 
   // Validate allowed filters
@@ -750,10 +755,7 @@ export function ProcessCsvButton({ filters, calculatedRows = [], rounding, prici
         ) : (
           <div className="space-y-3 overflow-hidden">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm font-medium">Popup Adjusters</span>
-              <Button type="button" size="sm" variant="outline" onClick={competitiveDialog.handleOpen}>
-                <Plus className="mr-1 h-3.5 w-3.5" /> Competitive
-              </Button>
+              <span className="text-sm font-medium">Popup Function Adjusters</span>
               <Button type="button" size="sm" variant="outline" onClick={functionDialog.handleOpen}>
                 <Plus className="mr-1 h-3.5 w-3.5" /> Function
               </Button>
@@ -813,7 +815,11 @@ export function ProcessCsvButton({ filters, calculatedRows = [], rounding, prici
                       <th className="px-3 py-2 text-left font-medium">Row</th>
                       <th className="px-3 py-2 text-left font-medium">Facility</th>
                       <th className="px-3 py-2 text-left font-medium">Unit</th>
+                      <th className="px-3 py-2 text-left font-medium">Current Web</th>
+                      <th className="px-3 py-2 text-left font-medium">New Web</th>
                       <th className="px-3 py-2 text-left font-medium">Web Decision</th>
+                      <th className="px-3 py-2 text-left font-medium">Current Standard</th>
+                      <th className="px-3 py-2 text-left font-medium">New Standard</th>
                       <th className="px-3 py-2 text-left font-medium">Standard Decision</th>
                     </tr>
                   </thead>
@@ -823,6 +829,8 @@ export function ProcessCsvButton({ filters, calculatedRows = [], rounding, prici
                         <td className="px-3 py-2 align-top">{row.rowIndex + 2}</td>
                         <td className="px-3 py-2 align-top">{row.facilityName || "—"}</td>
                         <td className="px-3 py-2 align-top">{row.unitSize || "—"}</td>
+                        <td className="px-3 py-2 align-top text-muted-foreground">{row.currentWebRate || "—"}</td>
+                        <td className="px-3 py-2 align-top">{row.proposedWebRate || "—"}</td>
                         <td className="px-3 py-2 align-top">
                           {row.webRateChange ? (
                             <div className="flex items-center gap-2">
@@ -847,6 +855,8 @@ export function ProcessCsvButton({ filters, calculatedRows = [], rounding, prici
                             <span className="text-muted-foreground">—</span>
                           )}
                         </td>
+                        <td className="px-3 py-2 align-top text-muted-foreground">{row.currentStandardRate || "—"}</td>
+                        <td className="px-3 py-2 align-top">{row.proposedStandardRate || "—"}</td>
                         <td className="px-3 py-2 align-top">
                           {row.standardRateChange ? (
                             <div className="flex items-center gap-2">
@@ -900,12 +910,6 @@ export function ProcessCsvButton({ filters, calculatedRows = [], rounding, prici
         </DialogContent>
       </Dialog>
 
-      <AddCompetitiveAdjusterDialog
-        open={competitiveDialog.open}
-        onOpenChange={competitiveDialog.setOpen}
-        onAdd={handleAddPopupAdjuster}
-        availablePriceColumns={CSV_NUMERIC_PREFERRED_COLUMNS}
-      />
       <AddFunctionAdjusterDialog
         open={functionDialog.open}
         onOpenChange={functionDialog.setOpen}
@@ -913,7 +917,7 @@ export function ProcessCsvButton({ filters, calculatedRows = [], rounding, prici
         availableVariables={Array.from(new Set([
           ...CSV_NUMERIC_PREFERRED_COLUMNS,
           ...csvNumericVariables,
-        ]))}
+        ])).filter((name) => !RATE_VARIABLE_EXCLUSIONS.has(normalizeColumnKey(name)))}
         competitorData={pricingContext?.competitorData ?? []}
         clientAvailableUnits={pricingContext?.clientAvailableUnits ?? 0}
         includeAvailableUnits={false}
