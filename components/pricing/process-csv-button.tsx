@@ -122,6 +122,17 @@ function normalizeDimensionValue(value: unknown): string {
   return normalizeMatchValue(value).replace(/\s+/g, "")
 }
 
+function calculateBlueLineStandardRate(webRate: unknown): string {
+  const x = Number(webRate)
+  if (!Number.isFinite(x)) return String(webRate ?? "")
+  if (x <= 0) return String(x)
+
+  const multiplier = Math.min(1.8, 1.6 + (20 / x), 1.4 + (60 / x))
+  const standardRate = x * multiplier
+
+  return String(Math.round(standardRate))
+}
+
 function normalizeCityValue(value: unknown): string {
   const normalized = normalizeMatchValue(value)
   if (!normalized) return ""
@@ -362,8 +373,10 @@ function applyCalculatedPricesToCsv(original: ParsedCsv, calculatedRows: Calcula
       priceLookup.get(`${location}__${dimension}`) ??
       (city ? cityPriceLookup.get(`${city}__${dimension}`) : undefined)
     if (!mappedPrice) continue
+
+    const standardRate = calculateBlueLineStandardRate(mappedPrice)
     row[newWebRateIndex] = mappedPrice
-    row[newStandardRateIndex] = mappedPrice
+    row[newStandardRateIndex] = standardRate
     matchedRows += 1
   }
 
