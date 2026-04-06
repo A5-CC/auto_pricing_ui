@@ -82,31 +82,80 @@ class APICache {
 // Export singleton instance
 export const apiCache = new APICache();
 
+const LS_PREFIX = '__apu_cache__'
+const LS_TTL = 30 * 60 * 1000 // 30 minutes for localStorage tier
+
+function lsGet<T>(key: string): T | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = window.localStorage.getItem(LS_PREFIX + key)
+    if (!raw) return null
+    const { data, ts } = JSON.parse(raw) as { data: T; ts: number }
+    if (Date.now() - ts > LS_TTL) return null
+    return data
+  } catch {
+    return null
+  }
+}
+
+function lsSet<T>(key: string, data: T): void {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(LS_PREFIX + key, JSON.stringify({ data, ts: Date.now() }))
+  } catch {
+    // quota exceeded or SSR – ignore
+  }
+}
+
 /**
- * Wrapper function to cache API calls
+ * Wrapper function to cache API calls.
+ * Options:
+ *   persist   – also read/write localStorage so data survives page refreshes (stale-while-revalidate)
+ *   skipCache – bypass both memory and localStorage caches
+ *   ttl       – override in-memory TTL
+ *   onStale   – called with fresh data after stale data was already returned (SWR callback)
  */
 export async function cachedFetch<T>(
   key: string,
   fetcher: () => Promise<T>,
-  options?: { skipCache?: boolean; ttl?: number }
+  options?: {
+    skipCache?: boolean
+    ttl?: number
+    persist?: boolean
+    onStale?: (data: T) => void
+  }
 ): Promise<T> {
-  // Skip cache if requested
   if (options?.skipCache) {
-    const data = await fetcher();
-    apiCache.set(key, data);
-    return data;
+    const data = await fetcher()
+    apiCache.set(key, data)
+    if (options.persist) lsSet(key, data)
+    return data
   }
 
-  // Check cache first
-  const cached = apiCache.get<T>(key);
+  // 1. In-memory hit (fast, unexpired)
+  const cached = apiCache.get<T>(key)
   if (cached !== null) {
-    console.log(`[Cache HIT] ${key}`);
-    return cached;
+    return cached
   }
 
-  // Fetch and cache
-  console.log(`[Cache MISS] ${key}`);
-  const data = await fetcher();
-  apiCache.set(key, data);
-  return data;
+  // 2. localStorage hit (stale-while-revalidate)
+  if (options?.persist) {
+    const stale = lsGet<T>(key)
+    if (stale !== null) {
+      apiCache.set(key, stale) // warm memory cache
+      // Kick off background revalidation
+      void fetcher().then((fresh) => {
+        apiCache.set(key, fresh)
+        lsSet(key, fresh)
+        options.onStale?.(fresh)
+      }).catch(() => { /* keep stale */ })
+      return stale
+    }
+  }
+
+  // 3. Cold fetch
+  const data = await fetcher()
+  apiCache.set(key, data)
+  if (options?.persist) lsSet(key, data)
+  return data
 }

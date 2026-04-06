@@ -77,6 +77,7 @@ export default function PipelinesPage() {
   const [snapshots, setSnapshots] = useState<PricingSnapshot[]>([]);
   const [selectedSnapshot, setSelectedSnapshot] = useState<string>("latest");
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [localAdjusters, setLocalAdjusters] = useState<Adjuster[]>([]);
   const [roundingEnabled, setRoundingEnabled] = useState(false);
@@ -111,6 +112,7 @@ export default function PipelinesPage() {
   const [dataResponse, setDataResponse] = useState<PricingDataResponse | null>(
     null
   );
+  const hasLoadedDataRef = useRef(false)
   const [clientDataResponse, setClientDataResponse] =
     useState<PricingDataResponse | null>(null);
 
@@ -135,15 +137,26 @@ export default function PipelinesPage() {
 
   const loadData = useCallback(async () => {
     const loadId = ++activeLoadRef.current
-    setLoading(true);
     setError(null);
     setColumnsStats({})
+
+    // If we already have data (from a previous load or stale cache), show it
+    // immediately and only show the refreshing banner.
+    const alreadyHasData = hasLoadedDataRef.current
+    if (alreadyHasData) {
+      setIsRefreshing(true)
+    } else {
+      setLoading(true);
+    }
+
     try {
       // Stage 1: quick initial payload for first paint.
       const initialRes = await getPricingData(selectedSnapshot, { limit: INITIAL_LOAD_LIMIT });
       if (loadId !== activeLoadRef.current) return
       setDataResponse(initialRes);
+      hasLoadedDataRef.current = true
       setLoading(false);
+      setIsRefreshing(false);
 
       // Stage 2a: hydrate full competitor data + stats in background.
       void (async () => {
@@ -182,7 +195,9 @@ export default function PipelinesPage() {
           : "Failed to load pricing data";
       setError(message);
       setLoading(false);
+      setIsRefreshing(false);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSnapshot]);
 
   useEffect(() => {
@@ -506,7 +521,25 @@ export default function PipelinesPage() {
   /* ---------------- Render ---------------- */
   return (
     <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 space-y-4 sm:space-y-5">
-      <header>
+      {isRefreshing && (
+        <div className="flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
+          <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-blue-400 border-t-transparent" />
+          Refreshing pricing data in background…
+        </div>
+      )}
+      {loading && (
+        <div className="space-y-3 animate-pulse">
+          <div className="h-8 w-48 rounded bg-muted" />
+          <div className="grid grid-cols-3 gap-3">
+            <div className="h-24 rounded bg-muted" />
+            <div className="h-24 rounded bg-muted" />
+            <div className="h-24 rounded bg-muted" />
+          </div>
+          <div className="h-32 rounded bg-muted" />
+          <div className="h-32 rounded bg-muted" />
+        </div>
+      )}
+      <header className={loading ? 'hidden' : undefined}>
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div className="min-w-0">
           </div>
@@ -555,7 +588,8 @@ export default function PipelinesPage() {
           </div>
         </div>
       </header>
-      
+
+      <div className={loading ? 'hidden' : undefined}>
       {error && (
         <Alert variant="destructive">
           <AlertTitle>Error</AlertTitle>
@@ -741,6 +775,8 @@ export default function PipelinesPage() {
           onAdd={handleAddAdjuster}
         />
       </div>
+      </div>{/* end loading guard */}
     </main>
   );
 }
+

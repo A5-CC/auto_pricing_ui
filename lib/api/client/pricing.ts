@@ -67,7 +67,8 @@ export async function getPricingData(
       const url = `${API_BASE_URL}/competitors/pricing-data/${encodeURIComponent(snapshot)}${queryString ? `?${queryString}` : ""}`
       const response = await fetchWithError(url)
       return (await response.json()) as PricingDataResponse
-    }
+    },
+    { persist: true }
   )
 }
 
