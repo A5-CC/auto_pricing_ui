@@ -159,15 +159,24 @@ function applyConfiguredRounding(value: number, rounding?: { enabled: boolean; o
   return Object.is(rounded, -0) ? 0 : rounded
 }
 
-function calculateBlueLineStandardRate(webRate: unknown): string {
-  const x = Number(webRate)
-  if (!Number.isFinite(x)) return String(webRate ?? "")
-  if (x <= 0) return String(x)
+function parseCurrencyLikeNumber(value: unknown): number {
+  const cleaned = String(value ?? "").replace(/[$,%\s,]/g, "")
+  return Number(cleaned)
+}
+
+function formatCurrency(value: number): string {
+  if (!Number.isFinite(value)) return ""
+  return `$${value.toFixed(2)}`
+}
+
+function calculateBlueLineStandardRateValue(webRate: unknown): number {
+  const x = parseCurrencyLikeNumber(webRate)
+  if (!Number.isFinite(x) || x <= 0) return x
 
   const multiplier = Math.min(1.8, 1.6 + (20 / x), 1.4 + (60 / x))
   const standardRate = x * multiplier
 
-  return String(Math.round(standardRate))
+  return Math.round(standardRate)
 }
 
 function rowToRecord(headers: string[], row: string[]): Record<string, string> {
@@ -198,8 +207,18 @@ function applyPopupAdjustersToWebRate(
       const functionString = String(fn.function_string ?? "")
       if (!variable || !functionString) continue
 
-      const cleaned = String(csvRow[variable] ?? '').replace(/[$,%\s,]/g, '')
-      const x = Number(cleaned)
+      let x = parseCurrencyLikeNumber(csvRow[variable])
+      if (!Number.isFinite(x)) {
+        const normalizedVariable = normalizeColumnKey(variable)
+        if (normalizedVariable) {
+          for (const [header, rawValue] of Object.entries(csvRow)) {
+            if (normalizeColumnKey(header) === normalizedVariable) {
+              x = parseCurrencyLikeNumber(rawValue)
+              break
+            }
+          }
+        }
+      }
       if (!Number.isFinite(x)) continue
       const evaluated = evaluateSafeFunction(functionString, x)
       if (evaluated.success && typeof evaluated.value === 'number' && Number.isFinite(evaluated.value)) {
@@ -454,8 +473,8 @@ function applyCalculatedPricesToCsv(
     throw new Error("CSV must include New Web Rate and New Standard Rate columns.")
   }
 
-  const priceLookup = new Map<string, string>()
-  const cityPriceLookup = new Map<string, string>()
+  const priceLookup = new Map<string, number>()
+  const cityPriceLookup = new Map<string, number>()
   for (const calculatedRow of calculatedRows) {
     if (typeof calculatedRow.price !== "number" || Number.isNaN(calculatedRow.price)) continue
     const location = normalizeMatchValue(
@@ -467,7 +486,7 @@ function applyCalculatedPricesToCsv(
     const dimension = normalizeDimensionValue(calculatedRow.comboMap.unit_dimensions)
     if (!location || !dimension) continue
     const webPrice = applyConfiguredRounding(calculatedRow.price, rounding)
-    const price = rounding?.enabled ? webPrice.toFixed(2) : String(webPrice)
+    const price = webPrice
     priceLookup.set(`${location}__${dimension}`, price)
     if (city) {
       cityPriceLookup.set(`${city}__${dimension}`, price)
@@ -489,11 +508,13 @@ function applyCalculatedPricesToCsv(
       (city ? cityPriceLookup.get(`${city}__${dimension}`) : undefined)
     if (!mappedPrice) continue
 
-    const baseWebRate = Number(mappedPrice)
+    const baseWebRate = mappedPrice
     const adjustedWebRate = applyPopupAdjustersToWebRate(baseWebRate, csvRow, popupAdjusters)
     const roundedWebRate = applyConfiguredRounding(adjustedWebRate, rounding)
-    const finalWebRate = rounding?.enabled ? roundedWebRate.toFixed(2) : String(roundedWebRate)
-    const standardRate = calculateBlueLineStandardRate(finalWebRate)
+    const standardRateValue = calculateBlueLineStandardRateValue(roundedWebRate)
+
+    const finalWebRate = formatCurrency(roundedWebRate)
+    const standardRate = formatCurrency(standardRateValue)
 
     row[newWebRateIndex] = finalWebRate
     row[newStandardRateIndex] = standardRate
@@ -729,7 +750,7 @@ export function ProcessCsvButton({ filters, calculatedRows = [], rounding, prici
                 <span className="text-xs text-muted-foreground mt-2 block">
                   Supported filters: client_location, unit_dimensions.
                   <br />
-                  Competitive/Function popup adjusters appear after upload in the review screen.
+                  Function popup adjusters appear after upload in the review screen.
                   <br />
                   Uses the currently displayed pipeline price table in the browser.
                   <br />
@@ -914,10 +935,7 @@ export function ProcessCsvButton({ filters, calculatedRows = [], rounding, prici
         open={functionDialog.open}
         onOpenChange={functionDialog.setOpen}
         onAdd={handleAddPopupAdjuster}
-        availableVariables={Array.from(new Set([
-          ...CSV_NUMERIC_PREFERRED_COLUMNS,
-          ...csvNumericVariables,
-        ])).filter((name) => !RATE_VARIABLE_EXCLUSIONS.has(normalizeColumnKey(name)))}
+        availableVariables={csvNumericVariables.filter((name: string) => !RATE_VARIABLE_EXCLUSIONS.has(normalizeColumnKey(name)))}
         competitorData={pricingContext?.competitorData ?? []}
         clientAvailableUnits={pricingContext?.clientAvailableUnits ?? 0}
         includeAvailableUnits={false}
