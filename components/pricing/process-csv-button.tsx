@@ -500,9 +500,10 @@ function applyCalculatedPricesToCsv(
     const baseWebRate = mappedPrice
     const adjustedWebRate = applyPopupAdjustersToWebRate(baseWebRate, csvRow, popupAdjusters)
     const effectiveWebRate = Number.isFinite(adjustedWebRate) ? adjustedWebRate : baseWebRate
-    const standardRateValue = calculateBlueLineStandardRateValue(effectiveWebRate)
+    const roundedEffectiveWebRate = applyConfiguredRounding(effectiveWebRate, rounding)
+    const standardRateValue = calculateBlueLineStandardRateValue(roundedEffectiveWebRate)
 
-    const finalWebRate = formatCurrency(effectiveWebRate)
+    const finalWebRate = formatCurrency(roundedEffectiveWebRate)
     const standardRate = formatCurrency(standardRateValue)
 
     row[newWebRateIndex] = finalWebRate
