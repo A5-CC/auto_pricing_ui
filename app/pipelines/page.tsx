@@ -529,6 +529,14 @@ export default function PipelinesPage() {
                 offset: roundingOffset,
               }}
               calculatedRows={calculatedPriceTable.rows}
+              pricingContext={{
+                competitorData: subsetFilteredRows,
+                clientAvailableUnits: clientDataResponse?.data.length || 0,
+                currentDate,
+                filters: mergedFilters,
+                combinatoricFlags: mergedCombinatoricFlags,
+                availableVariables,
+              }}
             />
             <PipelineSelector
               currentFilters={{} as PipelineFiltersType}

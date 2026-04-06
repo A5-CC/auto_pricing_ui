@@ -1,7 +1,10 @@
 
 "use client"
 
-import type { CalculatedPriceRow } from "@/components/pipelines/calculated-price"
+import { AddCompetitiveAdjusterDialog } from "@/components/pipelines/adjusters/add-competitive-adjuster-dialog"
+import { AddFunctionAdjusterDialog } from "@/components/pipelines/adjusters/add-function-adjuster-dialog"
+import { useAdjusterDialog } from "@/components/pipelines/adjusters/use-adjuster-dialog"
+import { calculatePriceTable, type CalculatedPriceRow } from "@/components/pipelines/calculated-price"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -16,8 +19,9 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import type { Adjuster } from '@/lib/adjusters'
-import { FileSpreadsheet, Info, Loader2 } from "lucide-react"
-import { type ChangeEvent, useState } from "react"
+import type { E1DataRow } from "@/lib/api/types"
+import { FileSpreadsheet, Info, Loader2, Plus, Trash2 } from "lucide-react"
+import { type ChangeEvent, useMemo, useState } from "react"
 import { toast } from "sonner"
 
 interface ProcessCsvButtonProps {
@@ -38,6 +42,14 @@ interface ProcessCsvButtonProps {
     offset: number
   }
   calculatedRows?: CalculatedPriceRow[]
+  pricingContext?: {
+    competitorData: E1DataRow[]
+    clientAvailableUnits: number
+    currentDate: Date
+    filters: Record<string, { mode: 'subset'; values: string[] }>
+    combinatoricFlags: Record<string, boolean>
+    availableVariables: string[]
+  }
 }
 
 type ParsedCsv = {
@@ -400,12 +412,30 @@ function applyCalculatedPricesToCsv(
   return { headers, rows }
 }
 
-export function ProcessCsvButton({ filters, calculatedRows = [], rounding }: ProcessCsvButtonProps) {
+export function ProcessCsvButton({ filters, adjusters = [], calculatedRows = [], rounding, pricingContext }: ProcessCsvButtonProps) {
   const [open, setOpen] = useState(false)
   const [file, setFile] = useState<File | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
   const [reviewData, setReviewData] = useState<ReviewData | null>(null)
   const [approvedChanges, setApprovedChanges] = useState<Record<string, boolean>>({})
+  const [popupAdjusters, setPopupAdjusters] = useState<Adjuster[]>(adjusters)
+
+  const competitiveDialog = useAdjusterDialog()
+  const functionDialog = useAdjusterDialog()
+
+  const effectiveCalculatedRows = useMemo(() => {
+    if (!pricingContext) return calculatedRows
+    if (!popupAdjusters || popupAdjusters.length === 0) return []
+
+    return calculatePriceTable({
+      competitorData: pricingContext.competitorData,
+      clientAvailableUnits: pricingContext.clientAvailableUnits,
+      adjusters: popupAdjusters,
+      currentDate: pricingContext.currentDate,
+      filters: pricingContext.filters,
+      combinatoricFlags: pricingContext.combinatoricFlags,
+    }).rows
+  }, [pricingContext, popupAdjusters, calculatedRows])
 
   // Validate allowed filters
   // Strictly Allowed:
@@ -438,6 +468,21 @@ export function ProcessCsvButton({ filters, calculatedRows = [], rounding }: Pro
     setIsProcessing(false)
     setReviewData(null)
     setApprovedChanges({})
+    setPopupAdjusters(adjusters)
+  }
+
+  const handleAddPopupAdjuster = (adjuster: Adjuster) => {
+    setPopupAdjusters((prev: Adjuster[]) => {
+      if (adjuster.type !== 'competitive' && prev.length === 0) {
+        toast.error("Add a competitive adjuster first to establish base price.")
+        return prev
+      }
+      return [...prev, adjuster]
+    })
+  }
+
+  const handleRemovePopupAdjuster = (index: number) => {
+    setPopupAdjusters((prev: Adjuster[]) => prev.filter((_: Adjuster, i: number) => i !== index))
   }
 
   const handleProcess = async () => {
@@ -447,7 +492,7 @@ export function ProcessCsvButton({ filters, calculatedRows = [], rounding }: Pro
     try {
       const originalText = await file.text()
       const original = toParsedCsv(originalText)
-      const processed = applyCalculatedPricesToCsv(original, calculatedRows, rounding)
+      const processed = applyCalculatedPricesToCsv(original, effectiveCalculatedRows, rounding)
 
       if (original.headers.length === 0 || processed.headers.length === 0) {
         throw new Error("CSV appears empty or invalid. Please check the input file.")
@@ -566,6 +611,8 @@ export function ProcessCsvButton({ filters, calculatedRows = [], rounding }: Pro
                 <span className="text-xs text-muted-foreground mt-2 block">
                   Supported filters: client_location, unit_dimensions.
                   <br />
+                  Add Competitive/Function adjusters below to run this popup independently.
+                  <br />
                   Uses the currently displayed pipeline price table in the browser.
                   <br />
                   Ensure columns: &apos;Facility Name&apos;, &apos;Size&apos;, &apos;Current Web Rate&apos;, &apos;Current Standard Rate&apos;, &apos;New Web Rate&apos;, &apos;New Standard Rate&apos;.
@@ -585,6 +632,40 @@ export function ProcessCsvButton({ filters, calculatedRows = [], rounding }: Pro
                 accept=".csv"
                 onChange={(e: ChangeEvent<HTMLInputElement>) => setFile(e.target.files?.[0] || null)}
               />
+            </div>
+
+            <div className="rounded-md border p-3 space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm font-medium">Popup Adjusters</span>
+                <Button type="button" size="sm" variant="outline" onClick={competitiveDialog.handleOpen}>
+                  <Plus className="mr-1 h-3.5 w-3.5" /> Competitive
+                </Button>
+                <Button type="button" size="sm" variant="outline" onClick={functionDialog.handleOpen}>
+                  <Plus className="mr-1 h-3.5 w-3.5" /> Function
+                </Button>
+              </div>
+
+              <div className="space-y-2">
+                {popupAdjusters.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">No popup adjusters configured.</p>
+                ) : (
+                  popupAdjusters.map((adj: Adjuster, idx: number) => (
+                    <div key={`${adj.type}-${idx}`} className="flex items-center justify-between rounded border px-2 py-1.5">
+                      <span className="text-xs capitalize">{idx + 1}. {adj.type}</span>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleRemovePopupAdjuster(idx)}
+                        className="h-7 px-2"
+                        aria-label="Remove adjuster"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
           </div>
         ) : (
@@ -715,6 +796,21 @@ export function ProcessCsvButton({ filters, calculatedRows = [], rounding }: Pro
         </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AddCompetitiveAdjusterDialog
+        open={competitiveDialog.open}
+        onOpenChange={competitiveDialog.setOpen}
+        onAdd={handleAddPopupAdjuster}
+      />
+      <AddFunctionAdjusterDialog
+        open={functionDialog.open}
+        onOpenChange={functionDialog.setOpen}
+        onAdd={handleAddPopupAdjuster}
+        availableVariables={pricingContext?.availableVariables ?? []}
+        competitorData={pricingContext?.competitorData ?? []}
+        clientAvailableUnits={pricingContext?.clientAvailableUnits ?? 0}
+      />
+
       <Tooltip>
         <TooltipTrigger asChild>
           <button
