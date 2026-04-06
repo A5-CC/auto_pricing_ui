@@ -88,17 +88,6 @@ type ReviewData = {
   reviewRows: ReviewRow[]
 }
 
-const CSV_NUMERIC_PREFERRED_COLUMNS = [
-  "Area",
-  "Total Units",
-  "Occupied",
-  "Available",
-  "Vacancy",
-  "Occupancy",
-  "Days Since Last Move-In",
-  "Average Rent",
-]
-
 const REVIEWABLE_RATE_COLUMNS = new Set(["newwebrate", "newstandardrate"])
 const CURRENT_WEB_RATE_COLUMNS = new Set(["currentwebrate"])
 const CURRENT_STANDARD_RATE_COLUMNS = new Set(["currentstandardrate"])

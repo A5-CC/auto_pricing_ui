@@ -105,7 +105,7 @@ export function AddFunctionAdjusterDialog({
       setDomainMin(min.toString())
       setDomainMax(max.toString())
     }
-  }, [variable, competitorData, clientAvailableUnits])
+  }, [variable, competitorData, clientAvailableUnits, includeAvailableUnits])
 
   // Commit function for evaluation
   const handleCommitFunction = () => {
