@@ -11,17 +11,18 @@ const COLUMN_LABEL_OVERRIDES: Record<string, string> = {
  */
 export function getColumnLabel(columnId: string, pricingSchemas: PricingSchemas | null): string {
   if (COLUMN_LABEL_OVERRIDES[columnId]) return COLUMN_LABEL_OVERRIDES[columnId]
-  if (!pricingSchemas) return columnId
 
-  // Check spine columns first
-  const spineColumn = pricingSchemas.spine?.find(col => col.id === columnId)
-  if (spineColumn?.label) return spineColumn.label
+  if (pricingSchemas) {
+    // Check spine columns first
+    const spineColumn = pricingSchemas.spine?.find(col => col.id === columnId)
+    if (spineColumn?.label) return spineColumn.label
 
-  // Check canonical columns
-  const canonicalColumn = pricingSchemas.canonical?.columns?.[columnId]
-  if (canonicalColumn?.label) return canonicalColumn.label
+    // Check canonical columns
+    const canonicalColumn = pricingSchemas.canonical?.columns?.[columnId]
+    if (canonicalColumn?.label) return canonicalColumn.label
+  }
 
-  // Fallback to formatted column ID
+  // Fallback to formatted column ID (always applied when no schema label found)
   return columnId.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
 }
 
