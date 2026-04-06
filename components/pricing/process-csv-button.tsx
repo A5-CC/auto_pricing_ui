@@ -562,9 +562,10 @@ export function ProcessCsvButton({ filters, calculatedRows = [], rounding, prici
   // - unit_dimensions: "Unit Dimensions"
   // - client_location: "Facility Location"
   // - competitor_name: "Competitor Name"
+  // - has_drive_up_access: optional drive-up match via CSV Unit Type
   // All other filters must be empty.
-  
-  const allowedKeys = new Set(["unit_dimensions", "client_location", "competitor_name"]);
+
+  const allowedKeys = new Set(["unit_dimensions", "client_location", "competitor_name", "has_drive_up_access"]);
   
   // NOTE: 'competitors', 'locations', 'unitCategories' are standard legacy keys.
   // 'locations' is legacy client_location.
@@ -740,7 +741,7 @@ export function ProcessCsvButton({ filters, calculatedRows = [], rounding, prici
             variant="outline" 
             size="sm"
             disabled={hasInvalidFilters}
-            title={hasInvalidFilters ? "Only Location and Dimension filters are supported for pricing effect" : "Effect Pricing"}
+            title={hasInvalidFilters ? "Only Location, Dimension, and optional Drive Up filters are supported for pricing effect" : "Effect Pricing"}
           >
             <FileSpreadsheet className="mr-2 h-4 w-4" />
             Effect Pricing
@@ -765,11 +766,13 @@ export function ProcessCsvButton({ filters, calculatedRows = [], rounding, prici
                 Upload a client CSV and apply pricing algorithms.
                 <br />
                 <span className="text-xs text-muted-foreground mt-2 block">
-                  Supported filters: client_location, unit_dimensions.
+                  Supported filters: client_location, unit_dimensions, has_drive_up_access.
                   <br />
                   Function popup adjusters appear after upload in the review screen.
                   <br />
                   Uses the currently displayed pipeline price table in the browser.
+                  <br />
+                  Drive-up matching uses CSV &apos;Unit Type&apos; when present.
                   <br />
                   Ensure columns: &apos;Facility Name&apos;, &apos;Size&apos;, &apos;Current Web Rate&apos;, &apos;Current Standard Rate&apos;, &apos;New Web Rate&apos;, &apos;New Standard Rate&apos;.
                 </span>
@@ -981,7 +984,7 @@ export function ProcessCsvButton({ filters, calculatedRows = [], rounding, prici
           <div className="text-xs">
             Use this for pricing CSVs. Requires combinatoric filters on
             <strong> client_location</strong> and <strong>unit_dimensions</strong>.
-            Additional filters must be non-combinatoric. 
+            Optional combinatoric <strong>has_drive_up_access</strong> maps from CSV Unit Type.
           </div>
         </TooltipContent>
       </Tooltip>
