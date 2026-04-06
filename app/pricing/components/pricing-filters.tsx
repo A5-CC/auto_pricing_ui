@@ -26,6 +26,35 @@ function getDisplayColumnId(columnKey: string): string {
   return columnKey
 }
 
+function hasValuesForColumn(rows: PricingDataRow[], columnKey: string): boolean {
+  return (rows ?? []).some((row) => {
+    const value = row[columnKey as keyof PricingDataRow]
+    if (value === null || value === undefined) return false
+    if (Array.isArray(value)) return value.length > 0
+    return String(value).trim().length > 0
+  })
+}
+
+function resolveLocationKeySet(rows: PricingDataRow[], keySet: Set<string>): Set<string> {
+  const hasClientLocation = keySet.has("client_location")
+  const hasModstorageLocation = keySet.has("modstorage_location")
+  if (!hasClientLocation || !hasModstorageLocation) return keySet
+
+  const next = new Set(keySet)
+  const clientHasValues = hasValuesForColumn(rows, "client_location")
+  const modstorageHasValues = hasValuesForColumn(rows, "modstorage_location")
+
+  if (clientHasValues && !modstorageHasValues) {
+    next.delete("modstorage_location")
+  } else {
+    // Prefer modstorage_location when both are populated or client_location is empty,
+    // because it is still the canonical backend key in pricing payloads.
+    next.delete("client_location")
+  }
+
+  return next
+}
+
 export function PricingFilters({
   rows,
   pricingSchemas,
@@ -42,14 +71,16 @@ export function PricingFilters({
     for (const s of spine) keySet.add(s.id)
     ;(extraColumns ?? []).forEach((k) => keySet.add(k))
 
-    const cols = Array.from(keySet).map((key) => ({
+    const dedupedKeySet = resolveLocationKeySet(rows, keySet)
+
+    const cols = Array.from(dedupedKeySet).map((key) => ({
       key,
       label: getCanonicalLabel(key, pricingSchemas ?? null),
     }))
 
     cols.sort((a, b) => a.label.localeCompare(b.label))
     return cols
-  }, [pricingSchemas, extraColumns])
+  }, [pricingSchemas, extraColumns, rows])
 
   const activeColumns = Object.keys(selectedFilters)
 
