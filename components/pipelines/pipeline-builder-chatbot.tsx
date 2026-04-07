@@ -228,7 +228,7 @@ export function PipelineBuilderChatbot({
       };
     });
 
-    await createPipeline({
+    const requestPayload = {
       name: trimmedName,
       // Backward compatibility: keep legacy keys for older readers.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -239,7 +239,19 @@ export function PipelineBuilderChatbot({
         ...(Object.keys(canonicalFilters).length > 0 ? { universal_filters: canonicalFilters } : {}),
         ...(Object.keys(filterModes).length > 0 ? { filter_modes: filterModes } : {}),
       },
-    });
+    };
+
+    try {
+      await createPipeline(requestPayload);
+    } catch (error) {
+      const message = error instanceof Error ? error.message.toLowerCase() : "";
+      const duplicateName = message.includes("already exists") || message.includes("duplicate") || message.includes("409");
+      if (!duplicateName) throw error;
+
+      const uniqueName = `${trimmedName} (${new Date().toISOString().slice(11, 19)})`;
+      await createPipeline({ ...requestPayload, name: uniqueName });
+      setPipelineName(uniqueName);
+    }
   }, []);
 
   // Load saved pipelines list
@@ -285,7 +297,7 @@ export function PipelineBuilderChatbot({
 
         if (action.type === "save_pipeline") {
           const actionName = typeof action.payload?.name === "string" ? action.payload.name.trim() : "";
-          const derivedName = actionName || (response.pipeline_state?.name ?? "").trim() || `Pipeline ${new Date().toISOString().slice(0, 10)}`;
+          const derivedName = actionName || (response.pipeline_state?.name ?? "").trim() || `Pipeline ${new Date().toISOString().replace("T", " ").slice(0, 19)}`;
 
           setPipelineName(derivedName);
 
@@ -373,7 +385,7 @@ export function PipelineBuilderChatbot({
     const saveIntent = /\bsave\b/i.test(cleanedMessage);
     const canDirectSave = saveIntent && !!pipelineState;
     if (canDirectSave && pipelineState) {
-      const inferredName = (pipelineName ?? "").trim() || (pipelineState.name ?? "").trim() || `Pipeline ${new Date().toISOString().slice(0, 10)}`;
+      const inferredName = (pipelineName ?? "").trim() || (pipelineState.name ?? "").trim() || `Pipeline ${new Date().toISOString().replace("T", " ").slice(0, 19)}`;
       setPipelineName(inferredName);
       setIsSaving(true);
       try {
