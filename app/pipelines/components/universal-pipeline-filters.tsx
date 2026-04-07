@@ -28,15 +28,6 @@ function getDisplayColumnId(columnKey: string): string {
   return columnKey
 }
 
-function hasValuesForColumn(rows: E1DataRow[], columnKey: string): boolean {
-  return (rows ?? []).some((row) => {
-    const value = row[columnKey as keyof E1DataRow]
-    if (value === null || value === undefined) return false
-    if (Array.isArray(value)) return value.length > 0
-    return String(value).trim().length > 0
-  })
-}
-
 function resolveLocationKeySet(rows: E1DataRow[], keySet: Set<string>): Set<string> {
   const hasClientLocation = keySet.has("client_location")
   if (!hasClientLocation) return keySet

@@ -198,7 +198,6 @@ export default function PipelinesPage() {
       setLoading(false);
       setIsRefreshing(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSnapshot]);
 
   useEffect(() => {
@@ -216,7 +215,6 @@ export default function PipelinesPage() {
   // Reload when snapshot changes
   useEffect(() => {
     loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSnapshot]); // Only depend on selectedSnapshot to avoid duplicate calls
 
   /* ---------------- Pipeline load/save handlers ---------------- */
