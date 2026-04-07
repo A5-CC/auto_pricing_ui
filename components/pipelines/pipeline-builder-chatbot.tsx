@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/select";
 import {
     createPipeline,
+  getAgentSession,
     getE1DataSummary,
     listPipelines,
     loadPipelineIntoSession,
@@ -180,8 +181,29 @@ export function PipelineBuilderChatbot({
       throw new Error("Pipeline name is required");
     }
 
+    let stateToSave = state;
+
+    if (sessionId) {
+      try {
+        const latestSession = await getAgentSession(sessionId);
+        if (latestSession?.pipeline) {
+          const latestAdjusterCount = latestSession.pipeline.adjusters?.length ?? 0;
+          const currentAdjusterCount = state.adjusters?.length ?? 0;
+          if (latestAdjusterCount > currentAdjusterCount) {
+            stateToSave = latestSession.pipeline;
+          }
+        }
+      } catch (error) {
+        console.warn("Could not refresh latest session pipeline before save:", error);
+      }
+    }
+
+    if ((stateToSave.adjusters?.length ?? 0) === 0) {
+      throw new Error("Pipeline has no adjusters yet. Finish configuring at least one adjuster, then save again.");
+    }
+
     const canonicalFilters = Object.fromEntries(
-      Object.entries(state.filters ?? {}).flatMap(([key, values]) => {
+      Object.entries(stateToSave.filters ?? {}).flatMap(([key, values]) => {
         if (!Array.isArray(values) || values.length === 0) return [];
         const canonicalKey = LEGACY_TO_CANONICAL_FILTER_KEY[key] ?? key;
         return [[canonicalKey, values]];
@@ -189,7 +211,7 @@ export function PipelineBuilderChatbot({
     ) as Record<string, string[]>;
 
     const filterModes = Object.fromEntries(
-      (state.dimensions ?? [])
+      (stateToSave.dimensions ?? [])
         .filter((d) => d?.enabled && d?.name)
         .map((d) => [
           LEGACY_TO_CANONICAL_FILTER_KEY[d.name] ?? d.name,
@@ -197,7 +219,7 @@ export function PipelineBuilderChatbot({
         ])
     ) as Record<string, "combinatoric" | "subset">;
 
-    const normalizedAdjusters = (state.adjusters ?? []).map((adj) => {
+    const normalizedAdjusters = (stateToSave.adjusters ?? []).map((adj) => {
       if (adj.type === "competitive") {
         return {
           type: "competitive" as const,
@@ -232,7 +254,7 @@ export function PipelineBuilderChatbot({
       name: trimmedName,
       // Backward compatibility: keep legacy keys for older readers.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      filters: state.filters as any,
+      filters: stateToSave.filters as any,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       adjusters: normalizedAdjusters as any,
       settings: {
@@ -252,7 +274,7 @@ export function PipelineBuilderChatbot({
       await createPipeline({ ...requestPayload, name: uniqueName });
       setPipelineName(uniqueName);
     }
-  }, []);
+  }, [sessionId]);
 
   // Load saved pipelines list
   const refreshSavedPipelines = useCallback(async () => {
