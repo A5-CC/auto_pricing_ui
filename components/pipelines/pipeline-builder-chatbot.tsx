@@ -178,7 +178,10 @@ export function PipelineBuilderChatbot({
   // API Interactions
   // =============================================================================
 
-  const canSavePipeline = Boolean(pipelineState && (pipelineState.adjusters?.length ?? 0) > 0);
+  // True as soon as the agent has created a session — actual adjuster data is
+  // always fetched fresh from the session endpoint before saving, so we don't
+  // require local pipeline_state.adjusters to be non-empty here.
+  const canSavePipeline = Boolean(pipelineState && sessionId);
 
   const savePipelineToPipelinesStore = useCallback(async (state: PipelineState, name: string) => {
     const trimmedName = (name ?? "").trim();
@@ -186,20 +189,20 @@ export function PipelineBuilderChatbot({
       throw new Error("Pipeline name is required");
     }
 
+    // Always fetch the latest session state from the server — the local
+    // pipeline_state returned by chat responses may have empty adjusters even
+    // when the agent has fully configured them server-side.
     let stateToSave = state;
 
     if (sessionId) {
       try {
         const latestSession = await getAgentSession(sessionId);
         if (latestSession?.pipeline) {
-          const latestAdjusterCount = latestSession.pipeline.adjusters?.length ?? 0;
-          const currentAdjusterCount = state.adjusters?.length ?? 0;
-          if (latestAdjusterCount > currentAdjusterCount) {
-            stateToSave = latestSession.pipeline;
-          }
+          stateToSave = latestSession.pipeline;
+          console.log("[save] Using session state — adjusters:", stateToSave.adjusters?.length ?? 0);
         }
       } catch (error) {
-        console.warn("Could not refresh latest session pipeline before save:", error);
+        console.warn("Could not fetch latest session pipeline before save, using local state:", error);
       }
     }
 
@@ -552,10 +555,14 @@ export function PipelineBuilderChatbot({
     }
   }, [mode, e1DataSummary, messages.length, onReady]);
 
-  // Auto-open save dialog once per session when pipeline becomes savable
+  // Auto-open save dialog once per session when pipeline becomes savable.
+  // Triggers on adjuster_config/review/complete — not just review/complete —
+  // because the backend pipeline_state.adjusters is often empty in chat
+  // responses even after adjuster configuration is done.
   useEffect(() => {
     if (!canSavePipeline) return;
-    if (currentPhase !== "review" && currentPhase !== "complete") return;
+    const triggerPhases: ConversationPhase[] = ["adjuster_config", "review", "complete"];
+    if (!triggerPhases.includes(currentPhase)) return;
     if (!sessionId) return;
     if (savePromptedSessionId === sessionId) return;
 
