@@ -19,6 +19,7 @@ import { SavePipelineDialog } from "./save-pipeline-dialog";
 const LEGACY_TO_CANONICAL: Record<string, string> = {
   competitors: "competitor_name",
   locations: "modstorage_location",
+  client_location: "modstorage_location",
   dimensions: "unit_dimensions",
   unit_categories: "unit_category",
 };

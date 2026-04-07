@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
 
 interface SavePipelineDialogProps {
   open: boolean;
@@ -39,6 +40,9 @@ export function SavePipelineDialog({
       onOpenChange(false);
     } catch (error) {
       console.error("Failed to save pipeline:", error);
+      toast.error("Failed to save pipeline", {
+        description: error instanceof Error ? error.message : "Please try again.",
+      });
     } finally {
       setSaving(false);
     }
