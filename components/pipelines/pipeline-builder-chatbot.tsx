@@ -16,6 +16,7 @@ import {
     getE1DataSummary,
     listPipelines,
     loadPipelineIntoSession,
+    saveAgentPipeline,
     sendAgentMessage,
     type AgentChatResponse,
     type ConversationPhase,
@@ -383,13 +384,19 @@ export function PipelineBuilderChatbot({
     setInputValue("");
 
     const saveIntent = /\bsave\b/i.test(cleanedMessage);
-    const canDirectSave = saveIntent && !!pipelineState;
-    if (canDirectSave && pipelineState) {
-      const inferredName = (pipelineName ?? "").trim() || (pipelineState.name ?? "").trim() || `Pipeline ${new Date().toISOString().replace("T", " ").slice(0, 19)}`;
+    if (saveIntent) {
+      const inferredName = (pipelineName ?? "").trim() || (pipelineState?.name ?? "").trim() || `Pipeline ${new Date().toISOString().replace("T", " ").slice(0, 19)}`;
       setPipelineName(inferredName);
       setIsSaving(true);
       try {
-        await savePipelineToPipelinesStore(pipelineState, inferredName);
+        if (pipelineState) {
+          await savePipelineToPipelinesStore(pipelineState, inferredName);
+        } else if (sessionId) {
+          await saveAgentPipeline(sessionId, inferredName);
+        } else {
+          throw new Error("No active pipeline/session available to save yet.");
+        }
+
         toast.success("✅ Pipeline saved", {
           description: `"${inferredName}" is now available on the Pipelines page`
         });
