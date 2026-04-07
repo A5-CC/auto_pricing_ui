@@ -32,7 +32,7 @@ export interface RawScrapeDetail {
 
 export interface UrlResult {
   competitor_name: string
-  modstorage_location: string
+  client_location: string
   final_pricing_url: string
   status: string
   chars_scraped?: number

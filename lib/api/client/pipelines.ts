@@ -56,7 +56,7 @@ export async function getE1Snapshots(): Promise<E1Snapshot[]> {
 export async function getE1Competitors(
   snapshot: string,
   params?: {
-    modstorage_location?: string
+    client_location?: string
     competitor_name?: string
     unit_dimensions?: string
     limit?: number
@@ -79,14 +79,14 @@ export async function getE1Competitors(
 export async function exportE1CompetitorsCSV(
   snapshot: string,
   params?: {
-    modstorage_location?: string
+    client_location?: string
     competitor_name?: string
     columns?: string[]
   }
 ): Promise<Blob> {
   const queryParams = new URLSearchParams()
   if (params) {
-    if (params.modstorage_location) queryParams.append('modstorage_location', params.modstorage_location)
+    if (params.client_location) queryParams.append('client_location', params.client_location)
     if (params.competitor_name) queryParams.append('competitor_name', params.competitor_name)
     if (params.columns) queryParams.append('columns', params.columns.join(','))
   }
@@ -115,7 +115,7 @@ export async function getE1CompetitorsStatistics(
 export async function getE1Client(
   snapshot: string,
   params?: {
-    modstorage_location?: string
+    client_location?: string
     unit_dimensions?: string
     limit?: number
     offset?: number
@@ -146,13 +146,13 @@ export async function getE1Client(
 export async function exportE1ClientCSV(
   snapshot: string,
   params?: {
-    modstorage_location?: string
+    client_location?: string
     columns?: string[]
   }
 ): Promise<Blob> {
   const queryParams = new URLSearchParams()
   if (params) {
-    if (params.modstorage_location) queryParams.append('modstorage_location', params.modstorage_location)
+    if (params.client_location) queryParams.append('client_location', params.client_location)
     if (params.columns) queryParams.append('columns', params.columns.join(','))
   }
   const url = `${API_BASE_URL}/competitors/e1-data/${encodeURIComponent(snapshot)}/client/export/csv${queryParams.toString() ? `?${queryParams}` : ''}`

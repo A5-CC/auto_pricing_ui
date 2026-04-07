@@ -72,7 +72,7 @@ export default function URLDumpsPage() {
     const q = searchTerm.trim().toLowerCase()
     if (!q) return selectedDump.urls
     return selectedDump.urls.filter((u) =>
-      u.modstorage_location.toLowerCase().includes(q) ||
+      u.client_location.toLowerCase().includes(q) ||
       u.competitor_name.toLowerCase().includes(q) ||
       u.competitor_address.toLowerCase().includes(q)
     )
@@ -248,10 +248,10 @@ export default function URLDumpsPage() {
                   {filteredUrls.map((u, idx) => {
                     const hasValidUrl = u.final_pricing_url !== 'not_found'
                     return (
-                      <tr key={`${u.modstorage_location}-${idx}`} className="border-t">
+                      <tr key={`${u.client_location}-${idx}`} className="border-t">
                         <td className="px-4 py-3">
                           <div className="space-y-1">
-                            <div className="font-medium text-sm leading-tight">{u.modstorage_location}</div>
+                            <div className="font-medium text-sm leading-tight">{u.client_location}</div>
                             <div className="text-xs text-muted-foreground leading-tight">{u.competitor_name}</div>
                           </div>
                         </td>

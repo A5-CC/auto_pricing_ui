@@ -54,7 +54,7 @@ export interface PricingSnapshot {
 }
 
 export interface PricingDataRow {
-  modstorage_location: string
+  client_location: string
   competitor_name: string
   competitor_address: string
   snapshot_date: string
@@ -79,7 +79,7 @@ export interface PricingDataResponse {
 }
 
 export interface FacilityPricingData {
-  modstorage_location: string
+  client_location: string
   competitor_name: string
   competitor_address: string
   snapshot_date: string

@@ -7,7 +7,7 @@
  * - E1 snapshot listing endpoint
  *
  * ASSUMPTIONS (TBC with Alex):
- * - Same spine as A2: snapshot_date, modstorage_location, competitor_name, competitor_address
+ * - Same spine as A2: snapshot_date, client_location, competitor_name, competitor_address
  * - Additional ModStorage columns (e.g., client_current_price, client_unit_availability, etc.)
  * - Data format: Parquet (similar to A2 output)
  * - S3 location: TBD (likely processed-e1/{run_id}.parquet or similar)
@@ -35,7 +35,7 @@ export interface E1Snapshot {
  *
  * SPINE (assumed same as A2):
  * - snapshot_date
- * - modstorage_location
+ * - client_location
  * - competitor_name
  * - competitor_address
  *

@@ -40,8 +40,8 @@ const FULL_LOAD_LIMIT = 1000
 export default function PipelinesPage() {
   const LEGACY_TO_COLUMN: Record<string, string> = {
     competitors: 'competitor_name',
-    locations: 'modstorage_location',
-    client_location: 'modstorage_location',
+    locations: 'client_location',
+    client_location: 'client_location',
     dimensions: 'unit_dimensions',
     unit_categories: 'unit_category',
   }
@@ -365,7 +365,7 @@ export default function PipelinesPage() {
 
     const FILTER_KEY_TO_COLUMN: Record<string, string> = {
       competitors: 'competitor_name',
-      locations: 'modstorage_location',
+      locations: 'client_location',
       dimensions: 'unit_dimensions',
       unit_categories: 'unit_category',
     }
@@ -399,7 +399,7 @@ export default function PipelinesPage() {
 
         const FILTER_KEY_TO_COLUMN: Record<string, string> = {
           competitors: 'competitor_name',
-          locations: 'modstorage_location',
+          locations: 'client_location',
           dimensions: 'unit_dimensions',
           unit_categories: 'unit_category',
         }

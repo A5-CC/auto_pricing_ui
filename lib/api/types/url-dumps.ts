@@ -13,7 +13,7 @@ export interface URLDumpSummary {
 }
 
 export interface URLDumpEntry {
-  modstorage_location: string
+  client_location: string
   competitor_name: string
   competitor_address: string
   maps_url: string

@@ -25,7 +25,6 @@ interface UniversalPipelineFiltersProps {
 }
 
 function getDisplayColumnId(columnKey: string): string {
-  if (columnKey === "modstorage_location") return "client_location"
   return columnKey
 }
 
@@ -40,22 +39,9 @@ function hasValuesForColumn(rows: E1DataRow[], columnKey: string): boolean {
 
 function resolveLocationKeySet(rows: E1DataRow[], keySet: Set<string>): Set<string> {
   const hasClientLocation = keySet.has("client_location")
-  const hasModstorageLocation = keySet.has("modstorage_location")
-  if (!hasClientLocation || !hasModstorageLocation) return keySet
-
-  const next = new Set(keySet)
-  const clientHasValues = hasValuesForColumn(rows, "client_location")
-  const modstorageHasValues = hasValuesForColumn(rows, "modstorage_location")
-
-  if (clientHasValues && !modstorageHasValues) {
-    next.delete("modstorage_location")
-  } else {
-    // Prefer modstorage_location when both are populated or client_location is empty,
-    // because it is still the canonical backend key in pricing payloads.
-    next.delete("client_location")
-  }
-
-  return next
+  if (!hasClientLocation) return keySet
+  void rows
+  return keySet
 }
 
 export function UniversalPipelineFilters({ rows, pricingSchemas, selectedFilters, setSelectedFilters, combinatoricFlags, setCombinatoricFlags }: UniversalPipelineFiltersProps) {

@@ -62,7 +62,7 @@ export default function PricingPage() {
   const [selectedFilters, setSelectedFilters] = useState<Record<string, string[]>>({})
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>({
     competitor_name: 280,
-    modstorage_location: 240,
+    client_location: 240,
     unit_dimensions: 180,
   })
   const resizeStateRef = useRef<{ columnId: string; startX: number; startWidth: number } | null>(null)
@@ -227,7 +227,7 @@ export default function PricingPage() {
         const fixedColumns = [
           "competitor_name",
           "competitor_address",
-          "modstorage_location",
+          "client_location",
           "snapshot_date",
           "unit_dimensions",
         ];
@@ -252,7 +252,7 @@ export default function PricingPage() {
             const fixedColumns = [
               "competitor_name",
               "competitor_address",
-              "modstorage_location",
+              "client_location",
               "snapshot_date",
               "unit_dimensions",
             ];
@@ -379,7 +379,7 @@ export default function PricingPage() {
               onCollapseAll={groupBy ? collapseAllGroups : undefined}
               options={[
                 { id: "competitor_name", label: getCanonicalLabel("competitor_name", pricingSchemas) },
-                { id: "modstorage_location", label: getCanonicalLabel("modstorage_location", pricingSchemas) },
+                { id: "client_location", label: getCanonicalLabel("client_location", pricingSchemas) },
                 { id: "unit_dimensions", label: getCanonicalLabel("unit_dimensions", pricingSchemas) },
               ]}
             />
@@ -405,13 +405,13 @@ export default function PricingPage() {
                   className="px-4 py-2"
                 />
                 <SortableTh
-                  columnId="modstorage_location"
-                  label={getCanonicalLabel("modstorage_location", pricingSchemas)}
+                  columnId="client_location"
+                  label={getCanonicalLabel("client_location", pricingSchemas)}
                   sortBy={sortBy}
                   sortDir={sortDir}
                   onSortClick={handleSortClick}
                   onResizeStart={handleResizeStart}
-                  width={getColumnWidth("modstorage_location")}
+                  width={getColumnWidth("client_location")}
                   minWidth={MIN_COLUMN_WIDTH}
                   className="px-4 py-2"
                 />
@@ -524,8 +524,8 @@ export default function PricingPage() {
                               </div>
                             </div>
                           </td>
-                          <td className="px-4 py-2" style={getColumnCellStyle("modstorage_location")}>
-                            <AddressCell address={row.modstorage_location} />
+                          <td className="px-4 py-2" style={getColumnCellStyle("client_location")}>
+                            <AddressCell address={row.client_location} />
                           </td>
                           <td className="px-4 py-2 whitespace-nowrap" style={getColumnCellStyle("unit_dimensions")}>
                             {row.unit_dimensions || "—"}
@@ -546,7 +546,7 @@ export default function PricingPage() {
               ) : displayedRows?.length ? (
                 displayedRows.map((row, idx) => (
                   <tr
-                    key={`${row.modstorage_location}-${idx}`}
+                    key={`${row.client_location}-${idx}`}
                     className="border-t align-top"
                   >
                     <td className="px-4 py-2 whitespace-nowrap" style={getColumnCellStyle("competitor_name")}>
@@ -576,8 +576,8 @@ export default function PricingPage() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-2" style={getColumnCellStyle("modstorage_location")}>
-                      <AddressCell address={row.modstorage_location} />
+                    <td className="px-4 py-2" style={getColumnCellStyle("client_location")}>
+                      <AddressCell address={row.client_location} />
                     </td>
                     <td className="px-4 py-2 whitespace-nowrap" style={getColumnCellStyle("unit_dimensions")}>
                       {row.unit_dimensions || "—"}

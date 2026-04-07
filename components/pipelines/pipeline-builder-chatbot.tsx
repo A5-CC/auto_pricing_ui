@@ -78,7 +78,7 @@ interface PipelineBuilderChatbotProps {
 
 const LEGACY_TO_CANONICAL_FILTER_KEY: Record<string, string> = {
   competitors: "competitor_name",
-  locations: "modstorage_location",
+  locations: "client_location",
   dimensions: "unit_dimensions",
   unit_categories: "unit_category",
 };

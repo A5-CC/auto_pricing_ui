@@ -18,8 +18,8 @@ import { SavePipelineDialog } from "./save-pipeline-dialog";
 
 const LEGACY_TO_CANONICAL: Record<string, string> = {
   competitors: "competitor_name",
-  locations: "modstorage_location",
-  client_location: "modstorage_location",
+  locations: "client_location",
+  client_location: "client_location",
   dimensions: "unit_dimensions",
   unit_categories: "unit_category",
 };
@@ -87,7 +87,7 @@ function buildLegacyFilters(filters?: Record<string, string[]>): PipelineFilters
 
   return compactFilters({
     competitors: canonicalFilters.competitor_name ?? [],
-    locations: canonicalFilters.modstorage_location ?? [],
+    locations: canonicalFilters.client_location ?? [],
     dimensions: canonicalFilters.unit_dimensions ?? [],
     unit_categories: canonicalFilters.unit_category ?? [],
   }) as PipelineFilters;

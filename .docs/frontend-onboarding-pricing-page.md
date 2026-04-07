@@ -11,7 +11,7 @@ The frontend is configured with Next.js 15, Tailwind CSS, and shadcn/ui componen
 Before building the UI, it's crucial to understand the multi-row per facility data model. Each storage facility has multiple rows in the dataset - one for each unique unit offering. For example, a single Extra Space Storage location might have 10 rows representing different unit sizes (5x5, 10x10, etc.) with varying features (climate control, drive-up access).
 
 The data has two schema components:
-1. **Spine columns** (primary keys): `snapshot_date`, `modstorage_location`, `competitor_name`, `competitor_address`
+1. **Spine columns** (primary keys): `snapshot_date`, `client_location`, `competitor_name`, `competitor_address`
 2. **Data columns**: `unit_dimensions`, `monthly_rate_starting`, `monthly_rate_instore`, and dozens of feature flags
 
 The schema is evolutionary and can have 30-50+ columns. The backend automatically filters sparse columns (< 25% fill rate) by default to keep the UI clean. You can override this with `include_sparse_columns=true` if needed.
@@ -30,7 +30,7 @@ Returns: Array of snapshot metadata with dates, row counts, and file sizes
 ```typescript
 GET /competitors/pricing-data/{snapshot_date}
 Query params:
-  - modstorage_location: Filter by our location
+  - client_location: Filter by our location
   - competitor_name: Filter by competitor
   - unit_dimensions: Filter by unit size (e.g., "10x10")
   - limit: Max rows (default 100, max 1000)
@@ -43,7 +43,7 @@ Returns: Filtered pricing data with pagination
 
 ### 3. Get Facility Pricing
 ```typescript
-GET /competitors/pricing-data/{snapshot_date}/facility/{modstorage_location}
+GET /competitors/pricing-data/{snapshot_date}/facility/{client_location}
 Query params:
   - competitor_name: Optional competitor filter
 
@@ -54,7 +54,7 @@ Returns: All unit offerings for a specific facility
 ```typescript
 GET /competitors/pricing-data/{snapshot_date}/export/csv
 Query params:
-  - modstorage_location: Optional location filter
+  - client_location: Optional location filter
   - competitor_name: Optional competitor filter
   - columns: Comma-separated column list
 
@@ -110,7 +110,7 @@ export interface PricingDataResponse {
 }
 
 export interface PricingDataRow {
-  modstorage_location: string
+  client_location: string
   competitor_name: string
   competitor_address: string
   snapshot_date: string
@@ -126,7 +126,7 @@ export interface PricingDataRow {
 }
 
 export interface FacilityPricingData {
-  modstorage_location: string
+  client_location: string
   competitor_name: string
   competitor_address: string
   snapshot_date: string
@@ -183,7 +183,7 @@ export async function getPricingSnapshots(): Promise<PricingSnapshot[]> {
 export async function getPricingData(
   snapshot: string,
   params?: {
-    modstorage_location?: string
+    client_location?: string
     competitor_name?: string
     unit_dimensions?: string
     limit?: number
@@ -217,14 +217,14 @@ export async function getFacilityPricing(
 export async function exportPricingCSV(
   snapshot: string,
   params?: {
-    modstorage_location?: string
+    client_location?: string
     competitor_name?: string
     columns?: string[]
   }
 ): Promise<Blob> {
   const queryParams = new URLSearchParams()
   if (params) {
-    if (params.modstorage_location) queryParams.append('modstorage_location', params.modstorage_location)
+    if (params.client_location) queryParams.append('client_location', params.client_location)
     if (params.competitor_name) queryParams.append('competitor_name', params.competitor_name)
     if (params.columns) queryParams.append('columns', params.columns.join(','))
   }

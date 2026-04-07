@@ -72,7 +72,7 @@ export function calculatePriceTable({
   const columnNames: string[] = []
   const FILTER_KEY_TO_COLUMN: Record<string, string> = {
     competitors: 'competitor_name',
-    locations: 'modstorage_location',
+    locations: 'client_location',
     dimensions: 'unit_dimensions',
     unit_categories: 'unit_category',
   }

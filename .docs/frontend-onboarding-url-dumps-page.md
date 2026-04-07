@@ -53,7 +53,7 @@ export interface URLDumpSummary {
 }
 
 export interface URLDumpEntry {
-  modstorage_location: string    // Our location ID like "Austin-TX-001"
+  client_location: string    // Our location ID like "Austin-TX-001"
   competitor_name: string         // Brand like "Extra Space Storage"
   competitor_address: string      // Physical address
   maps_url: string               // Google Maps link
@@ -201,7 +201,7 @@ Add search functionality to the detail view for finding specific URLs:
 const [searchTerm, setSearchTerm] = useState('')
 
 const filteredUrls = selectedDump?.urls.filter(url => 
-  url.modstorage_location.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  url.client_location.toLowerCase().includes(searchTerm.toLowerCase()) ||
   url.competitor_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
   url.competitor_address.toLowerCase().includes(searchTerm.toLowerCase())
 ) || []

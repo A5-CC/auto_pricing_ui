@@ -489,12 +489,8 @@ function applyCalculatedPricesToCsv(
   const cityPriceLookup = new Map<string, number>()
   for (const calculatedRow of calculatedRows) {
     if (typeof calculatedRow.price !== "number" || Number.isNaN(calculatedRow.price)) continue
-    const location = normalizeMatchValue(
-      calculatedRow.comboMap.client_location ?? calculatedRow.comboMap.modstorage_location
-    )
-    const city = normalizeCityValue(
-      calculatedRow.comboMap.client_location ?? calculatedRow.comboMap.modstorage_location
-    )
+    const location = normalizeMatchValue(calculatedRow.comboMap.client_location)
+    const city = normalizeCityValue(calculatedRow.comboMap.client_location)
     const dimension = normalizeDimensionValue(calculatedRow.comboMap.unit_dimensions)
     const driveUpAccess = normalizeDriveUpAccessValue(calculatedRow.comboMap.has_drive_up_access)
     if (!location || !dimension) continue

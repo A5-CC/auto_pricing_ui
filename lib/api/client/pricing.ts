@@ -46,7 +46,7 @@ export async function getPricingSnapshots(): Promise<PricingSnapshot[]> {
 export async function getPricingData(
   snapshot: string,
   params?: {
-    modstorage_location?: string
+    client_location?: string
     competitor_name?: string
     unit_dimensions?: string
     limit?: number
@@ -89,14 +89,14 @@ export async function getFacilityPricing(
 export async function exportPricingCSV(
   snapshot: string,
   params?: {
-    modstorage_location?: string
+    client_location?: string
     competitor_name?: string
     columns?: string[]
   }
 ): Promise<Blob> {
   const queryParams = new URLSearchParams()
   if (params) {
-    if (params.modstorage_location) queryParams.append('modstorage_location', params.modstorage_location)
+    if (params.client_location) queryParams.append('client_location', params.client_location)
     if (params.competitor_name) queryParams.append('competitor_name', params.competitor_name)
     if (params.columns) queryParams.append('columns', params.columns.join(','))
   }
