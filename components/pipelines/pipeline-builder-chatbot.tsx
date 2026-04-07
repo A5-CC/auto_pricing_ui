@@ -914,6 +914,7 @@ export function PipelineBuilderChatbot({
           <div className={cn(
             "text-[15px] leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
             isLongAssistantMessage && !isExpanded && "max-h-[22rem] overflow-hidden",
+            isLongAssistantMessage && isExpanded && "max-h-none overflow-visible",
             isUser ? "text-white" : "text-slate-800"
           )}>
             {message.content}
