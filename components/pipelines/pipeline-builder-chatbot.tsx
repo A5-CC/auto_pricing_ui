@@ -16,7 +16,6 @@ import {
     getE1DataSummary,
     listPipelines,
     loadPipelineIntoSession,
-    saveAgentPipeline,
     sendAgentMessage,
     type AgentChatResponse,
     type ConversationPhase,
@@ -382,43 +381,7 @@ export function PipelineBuilderChatbot({
     };
     setMessages(prev => [...prev, userMessage]);
     setInputValue("");
-
     const saveIntent = /\bsave\b/i.test(cleanedMessage);
-    if (saveIntent) {
-      const inferredName = (pipelineName ?? "").trim() || (pipelineState?.name ?? "").trim() || `Pipeline ${new Date().toISOString().replace("T", " ").slice(0, 19)}`;
-      setPipelineName(inferredName);
-      setIsSaving(true);
-      try {
-        if (pipelineState) {
-          await savePipelineToPipelinesStore(pipelineState, inferredName);
-        } else if (sessionId) {
-          await saveAgentPipeline(sessionId, inferredName);
-        } else {
-          throw new Error("No active pipeline/session available to save yet.");
-        }
-
-        toast.success("✅ Pipeline saved", {
-          description: `"${inferredName}" is now available on the Pipelines page`
-        });
-        setCurrentPhase("complete");
-        await refreshSavedPipelines();
-        setMessages(prev => [...prev, {
-          id: generateMessageId("assistant"),
-          role: "assistant",
-          content: `✅ Saved. I stored this pipeline as "${inferredName}" and it should now appear on the Pipelines page.`,
-          timestamp: new Date(),
-          suggestions: ["Load saved pipeline", "Continue editing"]
-        }]);
-      } catch (error) {
-        console.error("Error saving pipeline from chat command:", error);
-        toast.error("Error saving", {
-          description: error instanceof Error ? error.message : "Unknown error"
-        });
-      } finally {
-        setIsSaving(false);
-      }
-      return;
-    }
 
     setIsTyping(true);
 
@@ -434,7 +397,32 @@ export function PipelineBuilderChatbot({
         sessionId || undefined,
         context
       );
+
+      const responseTriggeredSave = response.actions?.some((action) => action.type === "save_pipeline") ?? false;
       handleAgentResponse(response);
+
+      // If user asked to save but the agent didn't emit save action,
+      // save the latest pipeline state returned by this response.
+      if (saveIntent && !responseTriggeredSave) {
+        const inferredName = (pipelineName ?? "").trim() || (response.pipeline_state?.name ?? "").trim() || `Pipeline ${new Date().toISOString().replace("T", " ").slice(0, 19)}`;
+        setPipelineName(inferredName);
+        setIsSaving(true);
+        try {
+          await savePipelineToPipelinesStore(response.pipeline_state, inferredName);
+          toast.success("✅ Pipeline saved", {
+            description: `"${inferredName}" is now available on the Pipelines page`
+          });
+          setCurrentPhase("complete");
+          await refreshSavedPipelines();
+        } catch (error) {
+          console.error("Error saving pipeline from chat command:", error);
+          toast.error("Error saving", {
+            description: error instanceof Error ? error.message : "Unknown error"
+          });
+        } finally {
+          setIsSaving(false);
+        }
+      }
     } catch (error) {
       console.error("Error sending message:", error);
       toast.error("Connection error", {
