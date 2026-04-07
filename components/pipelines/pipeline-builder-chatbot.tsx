@@ -869,8 +869,8 @@ export function PipelineBuilderChatbot({
 
   const renderMessage = (message: Message) => {
     const isUser = message.role === "user";
-    const LONG_MESSAGE_CHAR_THRESHOLD = 1200;
-    const LONG_MESSAGE_LINE_THRESHOLD = 18;
+    const LONG_MESSAGE_CHAR_THRESHOLD = 1800;
+    const LONG_MESSAGE_LINE_THRESHOLD = 28;
     const isLongAssistantMessage = !isUser && (
       message.content.length > LONG_MESSAGE_CHAR_THRESHOLD ||
       message.content.split("\n").length > LONG_MESSAGE_LINE_THRESHOLD
@@ -913,7 +913,7 @@ export function PipelineBuilderChatbot({
         >
           <div className={cn(
             "text-[15px] leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
-            isLongAssistantMessage && !isExpanded && "max-h-[16.5rem] overflow-hidden",
+            isLongAssistantMessage && !isExpanded && "max-h-[22rem] overflow-hidden",
             isUser ? "text-white" : "text-slate-800"
           )}>
             {message.content}
@@ -925,7 +925,7 @@ export function PipelineBuilderChatbot({
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="h-7 px-2 text-xs"
+                className="h-9 px-3 text-sm"
                 onClick={toggleExpanded}
               >
                 {isExpanded ? "Show less" : "Show more"}
@@ -1108,7 +1108,7 @@ export function PipelineBuilderChatbot({
         </div>
 
         {/* Save Pipeline Section */}
-        {(currentPhase === "review" || currentPhase === "complete") && pipelineState && (
+        {!SAVE_DIALOG_DISABLED && (currentPhase === "review" || currentPhase === "complete") && pipelineState && (
           <div className="px-6 py-4 border-t bg-gradient-to-r from-green-50 to-emerald-50 flex-shrink-0 shadow-inner">
             <div className="max-w-4xl mx-auto flex items-center justify-between gap-3">
               <p className="text-sm text-emerald-900/80">Pipeline is ready to save.</p>
@@ -1335,7 +1335,7 @@ export function PipelineBuilderChatbot({
           </div>
 
           {/* Save Pipeline Section */}
-          {(currentPhase === "review" || currentPhase === "complete") && pipelineState && (
+          {!SAVE_DIALOG_DISABLED && (currentPhase === "review" || currentPhase === "complete") && pipelineState && (
             <div className="px-6 py-4 border-t bg-gradient-to-r from-green-50 to-emerald-50 flex-shrink-0 shadow-inner">
               <div className="max-w-4xl mx-auto flex items-center justify-between gap-3">
                 <p className="text-sm text-emerald-900/80">Pipeline is ready to save.</p>
@@ -1597,7 +1597,7 @@ export function PipelineBuilderChatbot({
               </CardContent>
 
               {/* Save Pipeline Section (shown in review/complete phase) */}
-              {(currentPhase === "review" || currentPhase === "complete") && pipelineState && (
+              {!SAVE_DIALOG_DISABLED && (currentPhase === "review" || currentPhase === "complete") && pipelineState && (
                 <div className="px-4 py-3 border-t bg-card">
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-xs text-muted-foreground">Pipeline is ready to save.</p>
