@@ -1,6 +1,40 @@
 import { ColumnStatistics, CreatePipelineRequest, E1DataResponse, E1Snapshot, Pipeline, UpdatePipelineRequest } from '@/lib/api/types'
-import { cachedFetch } from '../cache'
+import { apiCache, cachedFetch } from '../cache'
 import { API_BASE_URL, fetchWithError } from './shared'
+
+const PIPELINES_LIST_CACHE_KEY = 'pipelines-list'
+const PIPELINES_LIST_LOCAL_STORAGE_KEY = '__apu_cache__pipelines-list'
+
+function readCachedPipelinesList(): Pipeline[] {
+  const memory = apiCache.get<Pipeline[]>(PIPELINES_LIST_CACHE_KEY)
+  if (memory && Array.isArray(memory)) return memory
+
+  if (typeof window === 'undefined') return []
+
+  try {
+    const raw = window.localStorage.getItem(PIPELINES_LIST_LOCAL_STORAGE_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw) as { data?: Pipeline[] }
+    return Array.isArray(parsed.data) ? parsed.data : []
+  } catch {
+    return []
+  }
+}
+
+function writeCachedPipelinesList(pipelines: Pipeline[]): void {
+  apiCache.set(PIPELINES_LIST_CACHE_KEY, pipelines)
+
+  if (typeof window === 'undefined') return
+
+  try {
+    window.localStorage.setItem(
+      PIPELINES_LIST_LOCAL_STORAGE_KEY,
+      JSON.stringify({ data: pipelines, ts: Date.now() })
+    )
+  } catch {
+    // ignore localStorage failures
+  }
+}
 
 /**
  * E1 Competitors API (EXCLUDES modSTORAGE client data)
@@ -143,7 +177,7 @@ export async function getE1ClientStatistics(
 
 export async function listPipelines(): Promise<Pipeline[]> {
   return cachedFetch(
-    'pipelines-list',
+    PIPELINES_LIST_CACHE_KEY,
     async () => {
       const response = await fetchWithError(`${API_BASE_URL}/pipelines`)
       return response.json() as Promise<Pipeline[]>
@@ -153,12 +187,10 @@ export async function listPipelines(): Promise<Pipeline[]> {
 }
 
 export function invalidatePipelinesListCache(): void {
-  import('../cache').then(({ apiCache }) => {
-    apiCache.clear('pipelines-list')
-    if (typeof window !== 'undefined') {
-      try { window.localStorage.removeItem('__apu_cache__pipelines-list') } catch { /* ignore */ }
-    }
-  })
+  apiCache.clear(PIPELINES_LIST_CACHE_KEY)
+  if (typeof window !== 'undefined') {
+    try { window.localStorage.removeItem(PIPELINES_LIST_LOCAL_STORAGE_KEY) } catch { /* ignore */ }
+  }
 }
 
 export async function getPipeline(pipelineId: string): Promise<Pipeline> {
@@ -172,7 +204,10 @@ export async function createPipeline(request: CreatePipelineRequest): Promise<Pi
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(request)
   })
-  return response.json()
+  const pipeline = await response.json() as Pipeline
+  const existing = readCachedPipelinesList()
+  writeCachedPipelinesList([pipeline, ...existing.filter((item) => item.id !== pipeline.id)])
+  return pipeline
 }
 
 export async function updatePipeline(pipelineId: string, request: UpdatePipelineRequest): Promise<Pipeline> {
@@ -188,6 +223,8 @@ export async function deletePipeline(pipelineId: string): Promise<void> {
   await fetchWithError(`${API_BASE_URL}/pipelines/${encodeURIComponent(pipelineId)}`, {
     method: 'DELETE'
   })
+  const existing = readCachedPipelinesList()
+  writeCachedPipelinesList(existing.filter((pipeline) => pipeline.id !== pipelineId))
 }
 
 /**
