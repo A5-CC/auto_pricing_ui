@@ -861,7 +861,14 @@ export function PipelineBuilderChatbot({
 
   const renderMessage = (message: Message) => {
     const isUser = message.role === "user";
-    const isLongAssistantMessage = !isUser && (message.content.length > 900 || message.content.split("\n").length > 12);
+    // Only show per-message expand/scroll for very long responses (roughly
+    // around a full viewport of text), not normal short answers.
+    const PAGE_LENGTH_CHAR_THRESHOLD = 2600;
+    const PAGE_LENGTH_LINE_THRESHOLD = 42;
+    const isLongAssistantMessage = !isUser && (
+      message.content.length > PAGE_LENGTH_CHAR_THRESHOLD ||
+      message.content.split("\n").length > PAGE_LENGTH_LINE_THRESHOLD
+    );
     const isExpanded = expandedMessageIds.has(message.id);
     const toggleExpanded = () => {
       setExpandedMessageIds((prev) => {
