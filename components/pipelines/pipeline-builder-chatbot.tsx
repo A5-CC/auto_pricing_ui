@@ -74,6 +74,13 @@ interface PipelineBuilderChatbotProps {
   mode?: 'floating' | 'fullpage' | 'embedded';
 }
 
+const LEGACY_TO_CANONICAL_FILTER_KEY: Record<string, string> = {
+  competitors: "competitor_name",
+  locations: "modstorage_location",
+  dimensions: "unit_dimensions",
+  unit_categories: "unit_category",
+};
+
 // =============================================================================
 // Phase Labels & Icons
 // =============================================================================
@@ -173,12 +180,65 @@ export function PipelineBuilderChatbot({
       throw new Error("Pipeline name is required");
     }
 
+    const canonicalFilters = Object.fromEntries(
+      Object.entries(state.filters ?? {}).flatMap(([key, values]) => {
+        if (!Array.isArray(values) || values.length === 0) return [];
+        const canonicalKey = LEGACY_TO_CANONICAL_FILTER_KEY[key] ?? key;
+        return [[canonicalKey, values]];
+      })
+    ) as Record<string, string[]>;
+
+    const filterModes = Object.fromEntries(
+      (state.dimensions ?? [])
+        .filter((d) => d?.enabled && d?.name)
+        .map((d) => [
+          LEGACY_TO_CANONICAL_FILTER_KEY[d.name] ?? d.name,
+          d.mode === "combinatorial" ? "combinatoric" : "subset",
+        ])
+    ) as Record<string, "combinatoric" | "subset">;
+
+    const normalizedAdjusters = (state.adjusters ?? []).map((adj) => {
+      if (adj.type === "competitive") {
+        return {
+          type: "competitive" as const,
+          price_columns: Array.isArray(adj.price_columns) && adj.price_columns.length > 0
+            ? adj.price_columns
+            : ["monthly_rate_online", "monthly_rate_regular", "monthly_rate_instore"],
+          aggregation: adj.aggregation ?? "min",
+          multiplier: typeof adj.multiplier === "number" ? adj.multiplier : 1,
+        };
+      }
+
+      if (adj.type === "function") {
+        return {
+          type: "function" as const,
+          variable: adj.variable ?? "available_units",
+          function_string: adj.function_string ?? "1.0",
+          domain_min: typeof adj.domain_min === "number" ? adj.domain_min : 0,
+          domain_max: typeof adj.domain_max === "number" ? adj.domain_max : 100,
+        };
+      }
+
+      return {
+        type: "temporal" as const,
+        granularity: adj.granularity ?? "weekly",
+        multipliers: Array.isArray(adj.multipliers) && adj.multipliers.length > 0
+          ? adj.multipliers
+          : [1, 1, 1, 1, 1, 1, 1],
+      };
+    });
+
     await createPipeline({
       name: trimmedName,
+      // Backward compatibility: keep legacy keys for older readers.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       filters: state.filters as any,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      adjusters: state.adjusters as any[],
+      adjusters: normalizedAdjusters as any,
+      settings: {
+        ...(Object.keys(canonicalFilters).length > 0 ? { universal_filters: canonicalFilters } : {}),
+        ...(Object.keys(filterModes).length > 0 ? { filter_modes: filterModes } : {}),
+      },
     });
   }, []);
 
