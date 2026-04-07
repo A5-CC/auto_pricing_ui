@@ -152,7 +152,10 @@ export function PipelineBuilderChatbot({
 
   // Scroll to bottom when messages change
   const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    messagesEndRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "end",
+    });
   }, []);
 
   useEffect(() => {
@@ -951,7 +954,7 @@ export function PipelineBuilderChatbot({
 
         {/* Messages Area */}
         <div className="flex-1 min-h-0 overflow-hidden bg-white">
-          <div className="flex-1 min-h-0 pt-8 px-6 pb-6 overflow-y-auto">
+          <div className="flex-1 min-h-0 pt-8 px-6 pb-6 overflow-y-auto scroll-pb-32">
             <div className="max-w-4xl mx-auto space-y-5">
               {messages.map(renderMessage)}
               
@@ -970,7 +973,7 @@ export function PipelineBuilderChatbot({
                 </div>
               )}
               
-              <div ref={messagesEndRef} />
+              <div ref={messagesEndRef} className="h-24 shrink-0" />
             </div>
           </div>
 
@@ -1176,7 +1179,7 @@ export function PipelineBuilderChatbot({
 
           {/* Messages Area */}
           <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
-            <div className="flex-1 min-h-0 pt-12 px-8 pb-8 overflow-y-auto bg-white">
+            <div className="flex-1 min-h-0 pt-12 px-8 pb-8 overflow-y-auto bg-white scroll-pb-32">
               <div className="max-w-4xl mx-auto space-y-5">
                 {messages.map(renderMessage)}
                 
@@ -1195,7 +1198,7 @@ export function PipelineBuilderChatbot({
                   </div>
                 )}
                 
-                <div ref={messagesEndRef} />
+                <div ref={messagesEndRef} className="h-24 shrink-0" />
               </div>
             </div>
 
@@ -1435,7 +1438,7 @@ export function PipelineBuilderChatbot({
             <>
               {/* Messages Area */}
               <CardContent className="p-0 flex-1 min-h-0 overflow-hidden">
-                <div className="flex-1 min-h-0 p-4 overflow-y-auto bg-muted/30">
+                <div className="flex-1 min-h-0 p-4 overflow-y-auto bg-muted/30 scroll-pb-28">
                   <div className="space-y-4">
                     {messages.map(renderMessage)}
                     
@@ -1455,7 +1458,7 @@ export function PipelineBuilderChatbot({
                       </div>
                     )}
                     
-                    <div ref={messagesEndRef} />
+                    <div ref={messagesEndRef} className="h-20 shrink-0" />
                   </div>
                 </div>
 
