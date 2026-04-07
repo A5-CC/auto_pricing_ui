@@ -167,6 +167,34 @@ export function PipelineBuilderChatbot({
   // API Interactions
   // =============================================================================
 
+  const savePipelineToPipelinesStore = useCallback(async (state: PipelineState, name: string) => {
+    const trimmedName = (name ?? "").trim();
+    if (!trimmedName) {
+      throw new Error("Pipeline name is required");
+    }
+
+    await createPipeline({
+      name: trimmedName,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      filters: state.filters as any,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      adjusters: state.adjusters as any[],
+    });
+  }, []);
+
+  // Load saved pipelines list
+  const refreshSavedPipelines = useCallback(async () => {
+    setIsLoadingPipelines(true);
+    try {
+      const pipelines = await listPipelines();
+      setSavedPipelines(pipelines);
+    } catch (error) {
+      console.error("Error loading pipelines:", error);
+    } finally {
+      setIsLoadingPipelines(false);
+    }
+  }, []);
+
   const handleAgentResponse = useCallback((response: AgentChatResponse) => {
     // Update session
     setSessionId(response.session_id);
@@ -194,9 +222,35 @@ export function PipelineBuilderChatbot({
         if (action.type === "show_preview") {
           setShowPipelinePreview(true);
         }
+
+        if (action.type === "save_pipeline") {
+          const actionName = typeof action.payload?.name === "string" ? action.payload.name.trim() : "";
+          const derivedName = actionName || (response.pipeline_state?.name ?? "").trim() || `Pipeline ${new Date().toISOString().slice(0, 10)}`;
+
+          setPipelineName(derivedName);
+
+          void (async () => {
+            setIsSaving(true);
+            try {
+              await savePipelineToPipelinesStore(response.pipeline_state, derivedName);
+              toast.success("✅ Pipeline saved", {
+                description: `"${derivedName}" is now available on the Pipelines page`
+              });
+              setCurrentPhase("complete");
+              await refreshSavedPipelines();
+            } catch (error) {
+              console.error("Error auto-saving pipeline:", error);
+              toast.error("Auto-save failed", {
+                description: error instanceof Error ? error.message : "Unknown error"
+              });
+            } finally {
+              setIsSaving(false);
+            }
+          })();
+        }
       });
     }
-  }, [onActionExecute]);
+  }, [onActionExecute, refreshSavedPipelines, savePipelineToPipelinesStore]);
 
   // Load E1 data summary
   const loadE1DataSummary = useCallback(async () => {
@@ -255,6 +309,38 @@ export function PipelineBuilderChatbot({
     };
     setMessages(prev => [...prev, userMessage]);
     setInputValue("");
+
+    const saveIntent = /\bsave\b/i.test(cleanedMessage);
+    const canDirectSave = saveIntent && !!pipelineState;
+    if (canDirectSave && pipelineState) {
+      const inferredName = (pipelineName ?? "").trim() || (pipelineState.name ?? "").trim() || `Pipeline ${new Date().toISOString().slice(0, 10)}`;
+      setPipelineName(inferredName);
+      setIsSaving(true);
+      try {
+        await savePipelineToPipelinesStore(pipelineState, inferredName);
+        toast.success("✅ Pipeline saved", {
+          description: `"${inferredName}" is now available on the Pipelines page`
+        });
+        setCurrentPhase("complete");
+        await refreshSavedPipelines();
+        setMessages(prev => [...prev, {
+          id: generateMessageId("assistant"),
+          role: "assistant",
+          content: `✅ Saved. I stored this pipeline as "${inferredName}" and it should now appear on the Pipelines page.`,
+          timestamp: new Date(),
+          suggestions: ["Load saved pipeline", "Continue editing"]
+        }]);
+      } catch (error) {
+        console.error("Error saving pipeline from chat command:", error);
+        toast.error("Error saving", {
+          description: error instanceof Error ? error.message : "Unknown error"
+        });
+      } finally {
+        setIsSaving(false);
+      }
+      return;
+    }
+
     setIsTyping(true);
 
     try {
@@ -299,14 +385,10 @@ export function PipelineBuilderChatbot({
 
     setIsSaving(true);
     try {
-      await createPipeline({
-        name: (pipelineName ?? "").trim(),
-        filters: pipelineState.filters,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        adjusters: pipelineState.adjusters as any[],
-      });
+      const trimmedName = (pipelineName ?? "").trim();
+      await savePipelineToPipelinesStore(pipelineState, trimmedName);
       toast.success("✅ Pipeline saved", {
-        description: `"${(pipelineName ?? "").trim()}" is now available on the Pipelines page`
+        description: `"${trimmedName}" is now available on the Pipelines page`
       });
       // Update phase to complete
       setCurrentPhase("complete");
@@ -321,19 +403,6 @@ export function PipelineBuilderChatbot({
       setIsSaving(false);
     }
   };
-
-  // Load saved pipelines list
-  const refreshSavedPipelines = useCallback(async () => {
-    setIsLoadingPipelines(true);
-    try {
-      const pipelines = await listPipelines();
-      setSavedPipelines(pipelines);
-    } catch (error) {
-      console.error("Error loading pipelines:", error);
-    } finally {
-      setIsLoadingPipelines(false);
-    }
-  }, []);
 
   // Initialize conversation when opened (floating mode) or when component mounts (fullpage mode)
   useEffect(() => {
