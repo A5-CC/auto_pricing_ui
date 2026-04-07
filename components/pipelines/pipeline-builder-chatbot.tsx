@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/select";
 import {
     createPipeline,
-  getAgentSession,
+    getAgentSession,
     getE1DataSummary,
     listPipelines,
     loadPipelineIntoSession,
