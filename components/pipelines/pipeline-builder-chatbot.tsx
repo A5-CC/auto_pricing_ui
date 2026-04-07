@@ -25,7 +25,7 @@ import {
   type PipelineAction,
   type PipelineState,
 } from "@/lib/api/client/pipelines";
-import type { Pipeline } from "@/lib/api/types";
+import type { Pipeline, PipelineSettings } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 import {
   Bot,
@@ -129,6 +129,7 @@ export function PipelineBuilderChatbot({
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [savePromptedSessionId, setSavePromptedSessionId] = useState<string | null>(null);
   const [expandedMessageIds, setExpandedMessageIds] = useState<Set<string>>(new Set());
+  const [loadedPipelineSettings, setLoadedPipelineSettings] = useState<PipelineSettings | null>(null);
   
   // Saved pipelines state
   const [savedPipelines, setSavedPipelines] = useState<Pipeline[]>([]);
@@ -222,7 +223,7 @@ export function PipelineBuilderChatbot({
       })
     ) as Record<string, string[]>;
 
-    const filterModes = Object.fromEntries(
+    const explicitFilterModes = Object.fromEntries(
       (stateToSave.dimensions ?? [])
         .filter((d) => d?.enabled && d?.name)
         .map((d) => [
@@ -230,6 +231,30 @@ export function PipelineBuilderChatbot({
           d.mode === "combinatorial" ? "combinatoric" : "subset",
         ])
     ) as Record<string, "combinatoric" | "subset">;
+
+    const loadedFilterModes = (loadedPipelineSettings?.filter_modes ?? {}) as Record<string, "combinatoric" | "subset">;
+    const loadedCombinatoricFlags = (loadedPipelineSettings?.combinatoric_flags ?? {}) as Record<string, boolean>;
+
+    const activeFilterKeys = Object.keys(canonicalFilters);
+    const filterModes = Object.fromEntries(
+      activeFilterKeys.map((key) => {
+        const explicitMode = explicitFilterModes[key];
+        if (explicitMode) return [key, explicitMode];
+
+        const loadedMode = loadedFilterModes[key];
+        if (loadedMode) return [key, loadedMode];
+
+        if (key in loadedCombinatoricFlags) {
+          return [key, loadedCombinatoricFlags[key] ? "combinatoric" : "subset"];
+        }
+
+        return [key, "subset"];
+      })
+    ) as Record<string, "combinatoric" | "subset">;
+
+    const combinatoricFlags = Object.fromEntries(
+      Object.entries(filterModes).map(([key, mode]) => [key, mode === "combinatoric"])
+    ) as Record<string, boolean>;
 
     const normalizedAdjusters = (stateToSave.adjusters ?? []).map((adj) => {
       if (adj.type === "competitive") {
@@ -271,6 +296,7 @@ export function PipelineBuilderChatbot({
       adjusters: normalizedAdjusters as any,
       settings: {
         ...(Object.keys(canonicalFilters).length > 0 ? { universal_filters: canonicalFilters } : {}),
+        ...(Object.keys(combinatoricFlags).length > 0 ? { combinatoric_flags: combinatoricFlags } : {}),
         ...(Object.keys(filterModes).length > 0 ? { filter_modes: filterModes } : {}),
       },
     };
@@ -286,7 +312,7 @@ export function PipelineBuilderChatbot({
       await createPipeline({ ...requestPayload, name: uniqueName });
       setPipelineName(uniqueName);
     }
-  }, [sessionId]);
+  }, [loadedPipelineSettings, sessionId]);
 
   // Load saved pipelines list
   const refreshSavedPipelines = useCallback(async () => {
@@ -590,6 +616,8 @@ export function PipelineBuilderChatbot({
     setShowLoadDialog(false);
     
     try {
+      const loadedPipeline = savedPipelines.find((pipeline: Pipeline) => pipeline.id === pipelineId) ?? null;
+      setLoadedPipelineSettings(loadedPipeline?.settings ?? null);
       const response = await loadPipelineIntoSession(pipelineId, sessionId || undefined);
       handleAgentResponse(response);
       setSelectedPipelineId("");
@@ -632,6 +660,7 @@ export function PipelineBuilderChatbot({
     setCurrentPhase("welcome");
     setPipelineState(null);
     setPipelineName("");
+    setLoadedPipelineSettings(null);
     setShowPipelinePreview(false);
     setShowSaveDialog(false);
     setSavePromptedSessionId(null);
