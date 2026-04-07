@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { SavePipelineDialog } from "@/components/pipelines/save-pipeline-dialog";
 import {
     Select,
     SelectContent,
@@ -125,6 +126,8 @@ export function PipelineBuilderChatbot({
   const [pipelineState, setPipelineState] = useState<PipelineState | null>(null);
   const [pipelineName, setPipelineName] = useState("");
   const [showPipelinePreview, setShowPipelinePreview] = useState(false);
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [savePromptedSessionId, setSavePromptedSessionId] = useState<string | null>(null);
   
   // Saved pipelines state
   const [savedPipelines, setSavedPipelines] = useState<Pipeline[]>([]);
@@ -174,6 +177,8 @@ export function PipelineBuilderChatbot({
   // =============================================================================
   // API Interactions
   // =============================================================================
+
+  const canSavePipeline = Boolean(pipelineState && (pipelineState.adjusters?.length ?? 0) > 0);
 
   const savePipelineToPipelinesStore = useCallback(async (state: PipelineState, name: string) => {
     const trimmedName = (name ?? "").trim();
@@ -464,8 +469,10 @@ export function PipelineBuilderChatbot({
     }
   };
 
-  const handleSavePipeline = async () => {
-    if (!pipelineState || !(pipelineName ?? "").trim()) {
+  const handleSavePipeline = async (nameOverride?: string) => {
+    const nameToUse = (nameOverride ?? pipelineName ?? "").trim();
+
+    if (!pipelineState || !nameToUse) {
       toast.error("Name required", {
         description: "Please enter a name for the pipeline"
       });
@@ -474,15 +481,16 @@ export function PipelineBuilderChatbot({
 
     setIsSaving(true);
     try {
-      const trimmedName = (pipelineName ?? "").trim();
-      await savePipelineToPipelinesStore(pipelineState, trimmedName);
+      setPipelineName(nameToUse);
+      await savePipelineToPipelinesStore(pipelineState, nameToUse);
       toast.success("✅ Pipeline saved", {
-        description: `"${trimmedName}" is now available on the Pipelines page`
+        description: `"${nameToUse}" is now available on the Pipelines page`
       });
       // Update phase to complete
       setCurrentPhase("complete");
       // Refresh saved pipelines list
       await refreshSavedPipelines();
+      setShowSaveDialog(false);
     } catch (error) {
       console.error("Error saving pipeline:", error);
       toast.error("Error saving", {
@@ -544,6 +552,20 @@ export function PipelineBuilderChatbot({
     }
   }, [mode, e1DataSummary, messages.length, onReady]);
 
+  // Auto-open save dialog once per session when pipeline becomes savable
+  useEffect(() => {
+    if (!canSavePipeline) return;
+    if (currentPhase !== "review" && currentPhase !== "complete") return;
+    if (!sessionId) return;
+    if (savePromptedSessionId === sessionId) return;
+
+    if (!(pipelineName ?? "").trim()) {
+      setPipelineName((pipelineState?.name ?? "").trim() || `Pipeline ${new Date().toISOString().replace("T", " ").slice(0, 19)}`);
+    }
+    setShowSaveDialog(true);
+    setSavePromptedSessionId(sessionId);
+  }, [canSavePipeline, currentPhase, pipelineName, pipelineState?.name, savePromptedSessionId, sessionId]);
+
   // Load a specific pipeline into the session
   const handleLoadPipeline = async (pipelineId: string) => {
     if (!pipelineId) {
@@ -600,6 +622,8 @@ export function PipelineBuilderChatbot({
     setPipelineState(null);
     setPipelineName("");
     setShowPipelinePreview(false);
+    setShowSaveDialog(false);
+    setSavePromptedSessionId(null);
     initializeConversation();
   };
 
@@ -802,6 +826,16 @@ export function PipelineBuilderChatbot({
   if (mode === 'embedded') {
     return (
       <div className="w-full h-[700px] flex flex-col bg-white">
+        <SavePipelineDialog
+          open={showSaveDialog}
+          onOpenChange={setShowSaveDialog}
+          onSave={async (name: string) => {
+            setPipelineName(name);
+            await handleSavePipeline(name);
+          }}
+          defaultName={pipelineName}
+        />
+
         {/* Header */}
         <div className="px-6 py-5 border-b border-slate-200/80 bg-white/80 backdrop-blur-sm flex-shrink-0">
           <div className="flex items-center justify-between">
@@ -944,18 +978,11 @@ export function PipelineBuilderChatbot({
         {/* Save Pipeline Section */}
         {(currentPhase === "review" || currentPhase === "complete") && pipelineState && (
           <div className="px-6 py-4 border-t bg-gradient-to-r from-green-50 to-emerald-50 flex-shrink-0 shadow-inner">
-            <div className="max-w-4xl mx-auto flex gap-3">
-              <div className="flex-1 relative">
-                <Input
-                  placeholder="Enter pipeline name..."
-                  value={pipelineName}
-                  onChange={(e) => setPipelineName(e.target.value)}
-                  className="h-11 text-sm border-2 border-green-200 focus:border-green-500 rounded-xl shadow-sm bg-white"
-                />
-              </div>
+            <div className="max-w-4xl mx-auto flex items-center justify-between gap-3">
+              <p className="text-sm text-emerald-900/80">Pipeline is ready to save.</p>
               <Button
-                onClick={handleSavePipeline}
-                disabled={isSaving || !(pipelineName ?? "").trim()}
+                onClick={() => setShowSaveDialog(true)}
+                disabled={isSaving || !canSavePipeline}
                 className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white h-11 px-6 rounded-xl shadow-lg shadow-green-600/25 font-semibold transition-all hover:scale-105 disabled:opacity-50 disabled:hover:scale-100"
                 size="sm"
               >
@@ -964,7 +991,7 @@ export function PipelineBuilderChatbot({
                 ) : (
                   <>
                     <Save className="h-4 w-4 mr-2" />
-                    Save Pipeline
+                    Name & Save
                   </>
                 )}
               </Button>
@@ -1033,6 +1060,16 @@ export function PipelineBuilderChatbot({
   if (mode === 'fullpage') {
     return (
       <div className="flex flex-col h-[calc(100dvh-4rem)] bg-white">
+        <SavePipelineDialog
+          open={showSaveDialog}
+          onOpenChange={setShowSaveDialog}
+          onSave={async (name: string) => {
+            setPipelineName(name);
+            await handleSavePipeline(name);
+          }}
+          defaultName={pipelineName}
+        />
+
         <div className="flex-1 flex flex-col max-w-7xl mx-auto w-full">
           {/* Header */}
           <div className="px-6 py-5 border-b border-slate-200/80 bg-white/80 backdrop-blur-sm flex-shrink-0 shadow-sm">
@@ -1166,22 +1203,15 @@ export function PipelineBuilderChatbot({
           {/* Save Pipeline Section */}
           {(currentPhase === "review" || currentPhase === "complete") && pipelineState && (
             <div className="px-6 py-4 border-t bg-gradient-to-r from-green-50 to-emerald-50 flex-shrink-0 shadow-inner">
-              <div className="max-w-4xl mx-auto flex gap-3">
-                <div className="flex-1 relative">
-                  <Input
-                    placeholder="Enter pipeline name..."
-                    value={pipelineName}
-                    onChange={(e) => setPipelineName(e.target.value)}
-                    className="h-11 text-sm border-2 border-green-200 focus:border-green-500 rounded-xl shadow-sm bg-white"
-                  />
-                </div>
+              <div className="max-w-4xl mx-auto flex items-center justify-between gap-3">
+                <p className="text-sm text-emerald-900/80">Pipeline is ready to save.</p>
                 <Button
-                  onClick={handleSavePipeline}
-                  disabled={isSaving || !(pipelineName ?? "").trim()}
+                  onClick={() => setShowSaveDialog(true)}
+                  disabled={isSaving || !canSavePipeline}
                   className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white h-11 px-6 rounded-xl shadow-lg shadow-green-600/25 font-semibold transition-all hover:scale-105 disabled:opacity-50 disabled:hover:scale-100"
                   size="sm"
                 >
-                  {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Save className="h-4 w-4 mr-2" />Save Pipeline</>}
+                  {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Save className="h-4 w-4 mr-2" />Name & Save</>}
                 </Button>
               </div>
             </div>
@@ -1240,6 +1270,16 @@ export function PipelineBuilderChatbot({
   // Floating mode - widget on pipelines page
   return (
     <>
+      <SavePipelineDialog
+        open={showSaveDialog}
+        onOpenChange={setShowSaveDialog}
+        onSave={async (name: string) => {
+          setPipelineName(name);
+          await handleSavePipeline(name);
+        }}
+        defaultName={pipelineName}
+      />
+
       {/* Floating Button */}
       <Button
         onClick={() => setIsOpen(!isOpen)}
@@ -1423,16 +1463,11 @@ export function PipelineBuilderChatbot({
               {/* Save Pipeline Section (shown in review/complete phase) */}
               {(currentPhase === "review" || currentPhase === "complete") && pipelineState && (
                 <div className="px-4 py-3 border-t bg-card">
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="Pipeline name..."
-                      value={pipelineName}
-                      onChange={(e) => setPipelineName(e.target.value)}
-                      className="flex-1"
-                    />
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs text-muted-foreground">Pipeline is ready to save.</p>
                     <Button
-                      onClick={handleSavePipeline}
-                      disabled={isSaving || !(pipelineName ?? "").trim()}
+                      onClick={() => setShowSaveDialog(true)}
+                      disabled={isSaving || !canSavePipeline}
                       className="gap-2"
                     >
                       {isSaving ? (
@@ -1440,7 +1475,7 @@ export function PipelineBuilderChatbot({
                       ) : (
                         <>
                           <Save className="h-4 w-4" />
-                          Save
+                          Name & Save
                         </>
                       )}
                     </Button>

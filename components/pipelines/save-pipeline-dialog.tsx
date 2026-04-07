@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 interface SavePipelineDialogProps {
@@ -29,6 +29,12 @@ export function SavePipelineDialog({
 }: SavePipelineDialogProps) {
   const [name, setName] = useState(defaultName);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setName(defaultName);
+    }
+  }, [defaultName, open]);
 
   const handleSave = async () => {
     if (!name.trim()) return;
