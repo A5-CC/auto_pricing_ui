@@ -200,10 +200,9 @@ export function PipelineBuilderChatbot({
   // API Interactions
   // =============================================================================
 
-  // True as soon as the agent has created a session — actual adjuster data is
-  // always fetched fresh from the session endpoint before saving, so we don't
-  // require local pipeline_state.adjusters to be non-empty here.
-  const canSavePipeline = Boolean(pipelineState && sessionId);
+  // Save is only enabled when we have a session and at least one adjuster in
+  // the current pipeline snapshot.
+  const canSavePipeline = Boolean(sessionId && (pipelineState?.adjusters?.length ?? 0) > 0);
 
   const savePipelineToPipelinesStore = useCallback(async (state: PipelineState, name: string) => {
     const trimmedName = (name ?? "").trim();
@@ -603,22 +602,37 @@ export function PipelineBuilderChatbot({
   }, [mode, e1DataSummary, messages.length, onReady]);
 
   // Auto-open save dialog once per session when pipeline becomes savable.
-  // Triggers on adjuster_config/review/complete — not just review/complete —
-  // because the backend pipeline_state.adjusters is often empty in chat
-  // responses even after adjuster configuration is done.
+  // Uses backend-confirmed session state to avoid showing save for empty drafts.
   useEffect(() => {
-    if (!canSavePipeline) return;
-    const triggerPhases: ConversationPhase[] = ["adjuster_config", "review", "complete"];
+    const triggerPhases: ConversationPhase[] = ["review", "complete"];
     if (!triggerPhases.includes(currentPhase)) return;
     if (!sessionId) return;
     if (savePromptedSessionId === sessionId) return;
 
-    if (!(pipelineName ?? "").trim()) {
-      setPipelineName((pipelineState?.name ?? "").trim() || `Pipeline ${new Date().toISOString().replace("T", " ").slice(0, 19)}`);
-    }
-    setShowSaveDialog(true);
-    setSavePromptedSessionId(sessionId);
-  }, [canSavePipeline, currentPhase, pipelineName, pipelineState?.name, savePromptedSessionId, sessionId]);
+    void (async () => {
+      try {
+        const latest = await getAgentSession(sessionId);
+        const latestPipeline = latest?.pipeline ?? null;
+        if (!latestPipeline) return;
+
+        // Keep local preview in sync with what will actually be saved.
+        setPipelineState(latestPipeline);
+
+        if ((latestPipeline.adjusters?.length ?? 0) === 0) {
+          return;
+        }
+
+        if (!(pipelineName ?? "").trim()) {
+          setPipelineName((latestPipeline.name ?? "").trim() || `Pipeline ${new Date().toISOString().replace("T", " ").slice(0, 19)}`);
+        }
+
+        setShowSaveDialog(true);
+        setSavePromptedSessionId(sessionId);
+      } catch (error) {
+        console.warn("Could not confirm session pipeline before showing save dialog:", error);
+      }
+    })();
+  }, [currentPhase, pipelineName, savePromptedSessionId, sessionId]);
 
   // Load a specific pipeline into the session
   const handleLoadPipeline = async (pipelineId: string) => {
