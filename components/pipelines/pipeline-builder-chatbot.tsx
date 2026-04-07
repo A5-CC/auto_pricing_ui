@@ -97,6 +97,23 @@ const PHASE_CONFIG: Record<ConversationPhase, { label: string; icon: React.React
   complete: { label: "Complete", icon: <Check className="h-4 w-4" />, color: "bg-emerald-500" },
 };
 
+function normalizeConversationPhase(phase: string | ConversationPhase | null | undefined): ConversationPhase {
+  const next = String(phase ?? "").toLowerCase();
+  const allowed: ConversationPhase[] = [
+    "welcome",
+    "scope_dimensions",
+    "scope_values",
+    "adjuster_type",
+    "adjuster_config",
+    "review",
+    "complete",
+  ];
+  if (allowed.includes(next as ConversationPhase)) {
+    return next as ConversationPhase;
+  }
+  return "welcome";
+}
+
 // =============================================================================
 // Main Component
 // =============================================================================
@@ -330,7 +347,7 @@ export function PipelineBuilderChatbot({
   const handleAgentResponse = useCallback((response: AgentChatResponse) => {
     // Update session
     setSessionId(response.session_id);
-    setCurrentPhase(response.phase);
+    setCurrentPhase(normalizeConversationPhase(response.phase));
     setPipelineState(response.pipeline_state);
 
     // Add assistant message
@@ -614,6 +631,9 @@ export function PipelineBuilderChatbot({
 
     setIsTyping(true);
     setShowLoadDialog(false);
+    // Allow save prompt to re-open for loaded pipelines, even when backend
+    // keeps the same session_id.
+    setSavePromptedSessionId(null);
     
     try {
       const loadedPipeline = savedPipelines.find((pipeline: Pipeline) => pipeline.id === pipelineId) ?? null;
