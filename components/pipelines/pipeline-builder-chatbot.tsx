@@ -869,15 +869,14 @@ export function PipelineBuilderChatbot({
 
   const renderMessage = (message: Message) => {
     const isUser = message.role === "user";
-    // Only show per-message expand/scroll for very long responses (roughly
-    // around a full viewport of text), not normal short answers.
-    const PAGE_LENGTH_CHAR_THRESHOLD = 2600;
-    const PAGE_LENGTH_LINE_THRESHOLD = 42;
+    const LONG_MESSAGE_CHAR_THRESHOLD = 1200;
+    const LONG_MESSAGE_LINE_THRESHOLD = 18;
     const isLongAssistantMessage = !isUser && (
-      message.content.length > PAGE_LENGTH_CHAR_THRESHOLD ||
-      message.content.split("\n").length > PAGE_LENGTH_LINE_THRESHOLD
+      message.content.length > LONG_MESSAGE_CHAR_THRESHOLD ||
+      message.content.split("\n").length > LONG_MESSAGE_LINE_THRESHOLD
     );
     const isExpanded = expandedMessageIds.has(message.id);
+
     const toggleExpanded = () => {
       setExpandedMessageIds((prev) => {
         const next = new Set(prev);
@@ -914,11 +913,12 @@ export function PipelineBuilderChatbot({
         >
           <div className={cn(
             "text-[15px] leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
-            isLongAssistantMessage && !isExpanded && "max-h-64 overflow-y-auto pr-1",
+            isLongAssistantMessage && !isExpanded && "max-h-[16.5rem] overflow-hidden",
             isUser ? "text-white" : "text-slate-800"
           )}>
             {message.content}
           </div>
+
           {isLongAssistantMessage && (
             <div className="mt-3 flex justify-end">
               <Button
@@ -928,7 +928,7 @@ export function PipelineBuilderChatbot({
                 className="h-7 px-2 text-xs"
                 onClick={toggleExpanded}
               >
-                {isExpanded ? "Collapse" : "Expand / Scroll"}
+                {isExpanded ? "Show less" : "Show more"}
               </Button>
             </div>
           )}
