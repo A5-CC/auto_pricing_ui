@@ -1,4 +1,4 @@
-import { ColumnStatistics, CreatePipelineRequest, E1DataResponse, E1Snapshot, Pipeline, UpdatePipelineRequest } from '@/lib/api/types'
+import { ColumnStatistics, CreatePipelineRequest, E1DataResponse, E1Snapshot, Pipeline, PipelineSettings, UpdatePipelineRequest } from '@/lib/api/types'
 import { apiCache, cachedFetch } from '../cache'
 import { API_BASE_URL, fetchWithError } from './shared'
 
@@ -354,6 +354,7 @@ export interface PipelineState {
   created_at: string;
   updated_at: string;
   filters: PipelineFiltersConfig;
+  settings?: PipelineSettings;
   dimensions: DimensionConfig[];
   adjusters: AdjusterConfig[];
   is_valid: boolean;

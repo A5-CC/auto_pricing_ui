@@ -231,13 +231,18 @@ export function PipelineBuilderChatbot({
       throw new Error("Pipeline has no adjusters yet. Finish configuring at least one adjuster, then save again.");
     }
 
-    const canonicalFilters = Object.fromEntries(
+    const settingsUniversalFilters = (stateToSave.settings?.universal_filters ?? {}) as Record<string, string[]>;
+    const canonicalFiltersFromLegacy = Object.fromEntries(
       Object.entries(stateToSave.filters ?? {}).flatMap(([key, values]) => {
         if (!Array.isArray(values) || values.length === 0) return [];
         const canonicalKey = LEGACY_TO_CANONICAL_FILTER_KEY[key] ?? key;
         return [[canonicalKey, values]];
       })
     ) as Record<string, string[]>;
+    const canonicalFilters = {
+      ...canonicalFiltersFromLegacy,
+      ...settingsUniversalFilters,
+    } as Record<string, string[]>;
 
     const explicitFilterModes = Object.fromEntries(
       (stateToSave.dimensions ?? [])
@@ -248,17 +253,26 @@ export function PipelineBuilderChatbot({
         ])
     ) as Record<string, "combinatoric" | "subset">;
 
+    const settingsFilterModes = (stateToSave.settings?.filter_modes ?? {}) as Record<string, "combinatoric" | "subset">;
+    const settingsCombinatoricFlags = (stateToSave.settings?.combinatoric_flags ?? {}) as Record<string, boolean>;
     const loadedFilterModes = (loadedPipelineSettings?.filter_modes ?? {}) as Record<string, "combinatoric" | "subset">;
     const loadedCombinatoricFlags = (loadedPipelineSettings?.combinatoric_flags ?? {}) as Record<string, boolean>;
 
     const activeFilterKeys = Object.keys(canonicalFilters);
     const filterModes = Object.fromEntries(
       activeFilterKeys.map((key) => {
+        const settingsMode = settingsFilterModes[key];
+        if (settingsMode) return [key, settingsMode];
+
         const explicitMode = explicitFilterModes[key];
         if (explicitMode) return [key, explicitMode];
 
         const loadedMode = loadedFilterModes[key];
         if (loadedMode) return [key, loadedMode];
+
+        if (key in settingsCombinatoricFlags) {
+          return [key, settingsCombinatoricFlags[key] ? "combinatoric" : "subset"];
+        }
 
         if (key in loadedCombinatoricFlags) {
           return [key, loadedCombinatoricFlags[key] ? "combinatoric" : "subset"];
