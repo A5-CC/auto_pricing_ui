@@ -12,10 +12,10 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import {
+    createPipeline,
     getE1DataSummary,
     listPipelines,
     loadPipelineIntoSession,
-    saveAgentPipeline,
     sendAgentMessage,
     type AgentChatResponse,
     type ConversationPhase,
@@ -290,7 +290,7 @@ export function PipelineBuilderChatbot({
   };
 
   const handleSavePipeline = async () => {
-    if (!sessionId || !(pipelineName ?? "").trim()) {
+    if (!pipelineState || !(pipelineName ?? "").trim()) {
       toast.error("Name required", {
         description: "Please enter a name for the pipeline"
       });
@@ -299,21 +299,19 @@ export function PipelineBuilderChatbot({
 
     setIsSaving(true);
     try {
-      const result = await saveAgentPipeline(sessionId, (pipelineName ?? "").trim());
-      
-      if (result.success) {
-        toast.success("✅ Pipeline saved", {
-          description: result.message
-        });
-        // Update phase to complete
-        setCurrentPhase("complete");
-        // Refresh saved pipelines list
-        await refreshSavedPipelines();
-      } else {
-        toast.error("Error saving", {
-          description: result.message
-        });
-      }
+      await createPipeline({
+        name: (pipelineName ?? "").trim(),
+        filters: pipelineState.filters,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        adjusters: pipelineState.adjusters as any[],
+      });
+      toast.success("✅ Pipeline saved", {
+        description: `"${(pipelineName ?? "").trim()}" is now available on the Pipelines page`
+      });
+      // Update phase to complete
+      setCurrentPhase("complete");
+      // Refresh saved pipelines list
+      await refreshSavedPipelines();
     } catch (error) {
       console.error("Error saving pipeline:", error);
       toast.error("Error saving", {
