@@ -1,7 +1,7 @@
 "use client"
 
-import { useRef } from "react"
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react"
+import { useRef } from "react"
 
 type SortDirection = "asc" | "desc"
 
