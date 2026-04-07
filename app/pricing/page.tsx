@@ -147,14 +147,17 @@ export default function PricingPage() {
     return { keys, map };
   }, [displayedRows, groupBy]);
 
-  // Filter columns based on sparse threshold (unless toggle is on)
+  // Filter columns based on sparse threshold (unless toggle is on).
+  // While columnsStats is still loading (empty object) show everything so the
+  // table isn't blank — sparse columns get quietly hidden once stats arrive.
   const displayColumns = useMemo(() => {
     if (showSparseColumns) return visibleColumns;
+    if (Object.keys(columnsStats).length === 0) return visibleColumns;
 
     return visibleColumns.filter(col => {
       const stats = columnsStats[col];
-      // Only show columns WITH stats AND high fill rate
-      return stats && stats.fill_rate >= sparseThreshold;
+      // Show if stats missing (newly discovered column) or fill-rate is sufficient
+      return !stats || stats.fill_rate >= sparseThreshold;
     });
   }, [visibleColumns, columnsStats, showSparseColumns, sparseThreshold]);
 

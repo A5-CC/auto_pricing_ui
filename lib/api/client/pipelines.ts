@@ -138,7 +138,8 @@ export async function getE1Client(
       const url = `${API_BASE_URL}/competitors/e1-data/${encodeURIComponent(snapshot)}/client${queryString ? `?${queryString}` : ""}`
       const response = await fetchWithError(url)
       return response.json()
-    }
+    },
+    { persist: true }
   )
 }
 

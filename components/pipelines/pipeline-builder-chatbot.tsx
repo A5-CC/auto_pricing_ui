@@ -950,8 +950,8 @@ export function PipelineBuilderChatbot({
         )}
 
         {/* Messages Area */}
-        <div className="flex-1 overflow-hidden bg-white">
-          <div className="h-full pt-8 px-6 pb-6 overflow-y-auto">
+        <div className="flex-1 min-h-0 overflow-hidden bg-white">
+          <div className="flex-1 min-h-0 pt-8 px-6 pb-6 overflow-y-auto">
             <div className="max-w-4xl mx-auto space-y-5">
               {messages.map(renderMessage)}
               
@@ -1077,7 +1077,7 @@ export function PipelineBuilderChatbot({
           defaultName={pipelineName}
         />
 
-        <div className="flex-1 flex flex-col max-w-7xl mx-auto w-full">
+        <div className="flex-1 min-h-0 flex flex-col max-w-7xl mx-auto w-full">
           {/* Header */}
           <div className="px-6 py-5 border-b border-slate-200/80 bg-white/80 backdrop-blur-sm flex-shrink-0 shadow-sm">
             <div className="flex items-center justify-between">
@@ -1175,8 +1175,8 @@ export function PipelineBuilderChatbot({
           )}
 
           {/* Messages Area */}
-          <div className="flex-1 overflow-hidden flex flex-col">
-            <div className="flex-1 pt-12 px-8 pb-8 overflow-y-auto bg-white">
+          <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+            <div className="flex-1 min-h-0 pt-12 px-8 pb-8 overflow-y-auto bg-white">
               <div className="max-w-4xl mx-auto space-y-5">
                 {messages.map(renderMessage)}
                 
@@ -1307,7 +1307,7 @@ export function PipelineBuilderChatbot({
       {isOpen && (
         <Card
           className={cn(
-            "fixed bottom-24 right-6 w-[460px] shadow-2xl border z-50",
+            "fixed bottom-24 right-6 w-[460px] shadow-2xl border z-50 flex flex-col",
             "animate-in slide-in-from-bottom-5 fade-in duration-300",
             isMinimized ? "h-auto" : "h-[72vh] min-h-[620px] max-h-[860px]",
             className
@@ -1434,7 +1434,7 @@ export function PipelineBuilderChatbot({
           {!isMinimized && (
             <>
               {/* Messages Area */}
-              <CardContent className="p-0 flex-1 overflow-hidden">
+              <CardContent className="p-0 flex-1 min-h-0 overflow-hidden">
                 <div className="flex-1 min-h-0 p-4 overflow-y-auto bg-muted/30">
                   <div className="space-y-4">
                     {messages.map(renderMessage)}
