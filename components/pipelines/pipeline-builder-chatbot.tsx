@@ -1,10 +1,10 @@
 "use client";
 
+import { SavePipelineDialog } from "@/components/pipelines/save-pipeline-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { SavePipelineDialog } from "@/components/pipelines/save-pipeline-dialog";
 import {
     Select,
     SelectContent,
