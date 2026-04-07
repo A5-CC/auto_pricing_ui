@@ -128,6 +128,7 @@ export function PipelineBuilderChatbot({
   const [showPipelinePreview, setShowPipelinePreview] = useState(false);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [savePromptedSessionId, setSavePromptedSessionId] = useState<string | null>(null);
+  const [expandedMessageIds, setExpandedMessageIds] = useState<Set<string>>(new Set());
   
   // Saved pipelines state
   const [savedPipelines, setSavedPipelines] = useState<Pipeline[]>([]);
@@ -783,6 +784,19 @@ export function PipelineBuilderChatbot({
 
   const renderMessage = (message: Message) => {
     const isUser = message.role === "user";
+    const isLongAssistantMessage = !isUser && (message.content.length > 900 || message.content.split("\n").length > 12);
+    const isExpanded = expandedMessageIds.has(message.id);
+    const toggleExpanded = () => {
+      setExpandedMessageIds((prev) => {
+        const next = new Set(prev);
+        if (next.has(message.id)) {
+          next.delete(message.id);
+        } else {
+          next.add(message.id);
+        }
+        return next;
+      });
+    };
     
     return (
       <div
@@ -808,10 +822,24 @@ export function PipelineBuilderChatbot({
         >
           <div className={cn(
             "text-[15px] leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
+            isLongAssistantMessage && !isExpanded && "max-h-64 overflow-y-auto pr-1",
             isUser ? "text-white" : "text-slate-800"
           )}>
             {message.content}
           </div>
+          {isLongAssistantMessage && (
+            <div className="mt-3 flex justify-end">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs"
+                onClick={toggleExpanded}
+              >
+                {isExpanded ? "Collapse" : "Expand / Scroll"}
+              </Button>
+            </div>
+          )}
         </div>
         
         {isUser && (
