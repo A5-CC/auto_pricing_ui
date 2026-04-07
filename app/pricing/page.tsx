@@ -33,6 +33,8 @@ import { PricingOverview } from "./components/pricing-overview";
 
 const INITIAL_LOAD_LIMIT = 250
 const FULL_LOAD_LIMIT = 1000
+const DEFAULT_COLUMN_WIDTH = 180
+const MIN_COLUMN_WIDTH = 120
 
 export default function PricingPage() {
   const [snapshots, setSnapshots] = useState<PricingSnapshot[]>([]);
@@ -58,6 +60,46 @@ export default function PricingPage() {
   const hasLoadedDataRef = useRef(false)
 
   const [selectedFilters, setSelectedFilters] = useState<Record<string, string[]>>({})
+  const [columnWidths, setColumnWidths] = useState<Record<string, number>>({
+    competitor_name: 280,
+    modstorage_location: 240,
+    unit_dimensions: 180,
+  })
+  const resizeStateRef = useRef<{ columnId: string; startX: number; startWidth: number } | null>(null)
+
+  const getColumnWidth = useCallback((columnId: string) => {
+    return columnWidths[columnId] ?? DEFAULT_COLUMN_WIDTH
+  }, [columnWidths])
+
+  const getColumnCellStyle = useCallback((columnId: string) => {
+    const width = getColumnWidth(columnId)
+    return { width: `${width}px`, minWidth: `${width}px`, maxWidth: `${width}px` }
+  }, [getColumnWidth])
+
+  const handleResizeStart = useCallback((columnId: string, startX: number, startWidth: number) => {
+    resizeStateRef.current = { columnId, startX, startWidth }
+  }, [])
+
+  useEffect(() => {
+    const onMouseMove = (event: MouseEvent) => {
+      const state = resizeStateRef.current
+      if (!state) return
+      const delta = event.clientX - state.startX
+      const nextWidth = Math.max(MIN_COLUMN_WIDTH, Math.round(state.startWidth + delta))
+      setColumnWidths((prev) => ({ ...prev, [state.columnId]: nextWidth }))
+    }
+
+    const onMouseUp = () => {
+      resizeStateRef.current = null
+    }
+
+    window.addEventListener("mousemove", onMouseMove)
+    window.addEventListener("mouseup", onMouseUp)
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove)
+      window.removeEventListener("mouseup", onMouseUp)
+    }
+  }, [])
 
   // Client-side filtering (generic filters)
   const filteredRows = useMemo(() => {
@@ -354,7 +396,10 @@ export default function PricingPage() {
                   sortBy={sortBy}
                   sortDir={sortDir}
                   onSortClick={handleSortClick}
-                  className="px-4 py-2 w-[280px] min-w-[280px] max-w-[280px]"
+                  onResizeStart={handleResizeStart}
+                  width={getColumnWidth("competitor_name")}
+                  minWidth={MIN_COLUMN_WIDTH}
+                  className="px-4 py-2"
                 />
                 <SortableTh
                   columnId="modstorage_location"
@@ -362,7 +407,10 @@ export default function PricingPage() {
                   sortBy={sortBy}
                   sortDir={sortDir}
                   onSortClick={handleSortClick}
-                  className="px-4 py-2 w-[240px] min-w-[240px] max-w-[240px]"
+                  onResizeStart={handleResizeStart}
+                  width={getColumnWidth("modstorage_location")}
+                  minWidth={MIN_COLUMN_WIDTH}
+                  className="px-4 py-2"
                 />
                 <SortableTh
                   columnId="unit_dimensions"
@@ -370,6 +418,9 @@ export default function PricingPage() {
                   sortBy={sortBy}
                   sortDir={sortDir}
                   onSortClick={handleSortClick}
+                  onResizeStart={handleResizeStart}
+                  width={getColumnWidth("unit_dimensions")}
+                  minWidth={MIN_COLUMN_WIDTH}
                   className="px-4 py-2"
                 />
                 {displayColumns.map((c) => (
@@ -380,6 +431,9 @@ export default function PricingPage() {
                     sortBy={sortBy}
                     sortDir={sortDir}
                     onSortClick={handleSortClick}
+                    onResizeStart={handleResizeStart}
+                    width={getColumnWidth(c)}
+                    minWidth={MIN_COLUMN_WIDTH}
                     className="px-4 py-2 whitespace-nowrap"
                   />
                 ))}
@@ -440,7 +494,7 @@ export default function PricingPage() {
                           className="border-t align-top"
                           id={`group-body-${key}`}
                         >
-                          <td className="px-4 py-2 whitespace-nowrap w-[280px] min-w-[280px] max-w-[280px]">
+                          <td className="px-4 py-2 whitespace-nowrap" style={getColumnCellStyle("competitor_name")}>
                             <div className="space-y-0.5">
                               <div className="flex min-w-0 items-center gap-2">
                                 <span
@@ -467,14 +521,14 @@ export default function PricingPage() {
                               </div>
                             </div>
                           </td>
-                          <td className="px-4 py-2">
+                          <td className="px-4 py-2" style={getColumnCellStyle("modstorage_location")}>
                             <AddressCell address={row.modstorage_location} />
                           </td>
-                          <td className="px-4 py-2 whitespace-nowrap">
+                          <td className="px-4 py-2 whitespace-nowrap" style={getColumnCellStyle("unit_dimensions")}>
                             {row.unit_dimensions || "—"}
                           </td>
                           {displayColumns.map((c) => (
-                            <td key={`${idx}-${c}`} className="px-4 py-2">
+                            <td key={`${idx}-${c}`} className="px-4 py-2" style={getColumnCellStyle(c)}>
                               <TableCell
                                 value={row[c]}
                                 type={columnsStats[c]?.data_type}
@@ -492,7 +546,7 @@ export default function PricingPage() {
                     key={`${row.modstorage_location}-${idx}`}
                     className="border-t align-top"
                   >
-                    <td className="px-4 py-2 whitespace-nowrap w-[280px] min-w-[280px] max-w-[280px]">
+                    <td className="px-4 py-2 whitespace-nowrap" style={getColumnCellStyle("competitor_name")}>
                       <div className="space-y-0.5">
                         <div className="flex min-w-0 items-center gap-2">
                           <span
@@ -519,14 +573,14 @@ export default function PricingPage() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-2">
+                    <td className="px-4 py-2" style={getColumnCellStyle("modstorage_location")}>
                       <AddressCell address={row.modstorage_location} />
                     </td>
-                    <td className="px-4 py-2 whitespace-nowrap">
+                    <td className="px-4 py-2 whitespace-nowrap" style={getColumnCellStyle("unit_dimensions")}>
                       {row.unit_dimensions || "—"}
                     </td>
                     {displayColumns.map((c) => (
-                      <td key={`${idx}-${c}`} className="px-4 py-2">
+                      <td key={`${idx}-${c}`} className="px-4 py-2" style={getColumnCellStyle(c)}>
                         <TableCell
                           value={row[c]}
                           type={columnsStats[c]?.data_type}
