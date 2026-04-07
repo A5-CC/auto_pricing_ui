@@ -797,7 +797,7 @@ export function PipelineBuilderChatbot({
           )}
         >
           <div className={cn(
-            "text-[15px] leading-relaxed whitespace-pre-wrap",
+            "text-[15px] leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
             isUser ? "text-white" : "text-slate-800"
           )}>
             {message.content}
@@ -1302,7 +1302,7 @@ export function PipelineBuilderChatbot({
           className={cn(
             "fixed bottom-24 right-6 w-[460px] shadow-2xl border z-50",
             "animate-in slide-in-from-bottom-5 fade-in duration-300",
-            isMinimized ? "h-auto" : "h-[650px]",
+            isMinimized ? "h-auto" : "h-[72vh] min-h-[620px] max-h-[860px]",
             className
           )}
         >
@@ -1428,7 +1428,7 @@ export function PipelineBuilderChatbot({
             <>
               {/* Messages Area */}
               <CardContent className="p-0 flex-1 overflow-hidden">
-                <div className="h-[350px] p-4 overflow-y-auto bg-muted/30">
+                <div className="flex-1 min-h-0 p-4 overflow-y-auto bg-muted/30">
                   <div className="space-y-4">
                     {messages.map(renderMessage)}
                     
