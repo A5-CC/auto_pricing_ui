@@ -836,11 +836,17 @@ export function PipelineBuilderChatbot({
   const renderPipelinePreview = () => {
     if (!pipelineState) return null;
 
-    const hasFilters = pipelineState.filters && (
-      pipelineState.filters.competitors?.length > 0 ||
-      pipelineState.filters.locations?.length > 0 ||
-      pipelineState.filters.dimensions?.length > 0 ||
-      pipelineState.filters.unit_categories?.length > 0
+    const universalFilters = (pipelineState.settings?.universal_filters ?? {}) as Record<string, string[]>;
+    const previewCompetitors = Array.isArray(universalFilters.competitor_name) ? universalFilters.competitor_name : [];
+    const previewLocations = Array.isArray(universalFilters.client_location) ? universalFilters.client_location : [];
+    const previewDimensions = Array.isArray(universalFilters.unit_dimensions) ? universalFilters.unit_dimensions : [];
+    const previewUnitCategories = Array.isArray(universalFilters.unit_category) ? universalFilters.unit_category : [];
+
+    const hasFilters = (
+      previewCompetitors.length > 0 ||
+      previewLocations.length > 0 ||
+      previewDimensions.length > 0 ||
+      previewUnitCategories.length > 0
     );
 
     return (
@@ -871,39 +877,39 @@ export function PipelineBuilderChatbot({
           <span className="text-xs text-slate-500 uppercase">Filters</span>
           {hasFilters ? (
             <ul className="mt-1 space-y-1">
-              {pipelineState.filters?.competitors?.length > 0 && (
+              {previewCompetitors.length > 0 && (
                 <li className="flex items-center gap-2">
                   <Badge variant="outline" className="text-xs">Competitors</Badge>
                   <span className="text-slate-600 text-xs">
-                    {pipelineState.filters.competitors.slice(0, 3).join(", ")}
-                    {pipelineState.filters.competitors.length > 3 && ` +${pipelineState.filters.competitors.length - 3} more`}
+                    {previewCompetitors.slice(0, 3).join(", ")}
+                    {previewCompetitors.length > 3 && ` +${previewCompetitors.length - 3} more`}
                   </span>
                 </li>
               )}
-              {pipelineState.filters?.locations?.length > 0 && (
+              {previewLocations.length > 0 && (
                 <li className="flex items-center gap-2">
                   <Badge variant="outline" className="text-xs">Locations</Badge>
                   <span className="text-slate-600 text-xs">
-                    {pipelineState.filters.locations.slice(0, 3).join(", ")}
-                    {pipelineState.filters.locations.length > 3 && ` +${pipelineState.filters.locations.length - 3} more`}
+                    {previewLocations.slice(0, 3).join(", ")}
+                    {previewLocations.length > 3 && ` +${previewLocations.length - 3} more`}
                   </span>
                 </li>
               )}
-              {pipelineState.filters?.dimensions?.length > 0 && (
+              {previewDimensions.length > 0 && (
                 <li className="flex items-center gap-2">
                   <Badge variant="outline" className="text-xs">Dimensions</Badge>
                   <span className="text-slate-600 text-xs">
-                    {pipelineState.filters.dimensions.slice(0, 3).join(", ")}
-                    {pipelineState.filters.dimensions.length > 3 && ` +${pipelineState.filters.dimensions.length - 3} more`}
+                    {previewDimensions.slice(0, 3).join(", ")}
+                    {previewDimensions.length > 3 && ` +${previewDimensions.length - 3} more`}
                   </span>
                 </li>
               )}
-              {pipelineState.filters?.unit_categories?.length > 0 && (
+              {previewUnitCategories.length > 0 && (
                 <li className="flex items-center gap-2">
                   <Badge variant="outline" className="text-xs">Categories</Badge>
                   <span className="text-slate-600 text-xs">
-                    {pipelineState.filters.unit_categories.slice(0, 3).join(", ")}
-                    {pipelineState.filters.unit_categories.length > 3 && ` +${pipelineState.filters.unit_categories.length - 3} more`}
+                    {previewUnitCategories.slice(0, 3).join(", ")}
+                    {previewUnitCategories.length > 3 && ` +${previewUnitCategories.length - 3} more`}
                   </span>
                 </li>
               )}
