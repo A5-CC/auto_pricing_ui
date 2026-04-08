@@ -85,6 +85,10 @@ const LEGACY_TO_CANONICAL_FILTER_KEY: Record<string, string> = {
   unit_categories: "unit_category",
 };
 
+const CONTINUATION_MAX_ATTEMPTS = 2;
+const CONTINUATION_PROMPT =
+  "Continue your previous response from exactly where you stopped. Do not repeat prior text. Return only the continuation.";
+
 // =============================================================================
 // Phase Labels & Icons
 // =============================================================================
@@ -436,6 +440,88 @@ export function PipelineBuilderChatbot({
     }
   }, [e1DataSummary, isLoadingE1Data]);
 
+  const isLikelyTruncatedAssistantMessage = useCallback((content: string | null | undefined) => {
+    const text = (content ?? "").trim();
+    if (!text) return false;
+
+    const codeFenceCount = (text.match(/```/g) ?? []).length;
+    if (codeFenceCount % 2 === 1) return true;
+
+    if (/(\.\.\.|…)$/.test(text)) return true;
+
+    const hasNaturalEnding = /[.!?)](?:["'])?$/.test(text);
+    if (text.length >= 900 && !hasNaturalEnding) return true;
+
+    const endsAbruptly = /[\w\]}`"']$/.test(text) && !hasNaturalEnding;
+    if (text.length >= 220 && endsAbruptly) return true;
+
+    return false;
+  }, []);
+
+  const ensureFullAssistantResponse = useCallback(async (
+    initialResponse: AgentChatResponse,
+    context: Record<string, unknown>
+  ): Promise<AgentChatResponse> => {
+    let mergedMessage = initialResponse.message ?? "";
+    let latestSessionId = initialResponse.session_id;
+    let latestPhase = initialResponse.phase;
+    let latestPipelineState = initialResponse.pipeline_state;
+    let latestTimestamp = initialResponse.timestamp;
+    const mergedSuggestions = [...(initialResponse.suggestions ?? [])];
+    const mergedActions: PipelineAction[] = [...(initialResponse.actions ?? [])];
+
+    let attempts = 0;
+    while (attempts < CONTINUATION_MAX_ATTEMPTS && isLikelyTruncatedAssistantMessage(mergedMessage)) {
+      attempts += 1;
+
+      const continuation = await sendAgentMessage(
+        CONTINUATION_PROMPT,
+        latestSessionId || undefined,
+        context
+      );
+
+      latestSessionId = continuation.session_id || latestSessionId;
+      latestPhase = continuation.phase ?? latestPhase;
+      latestPipelineState = continuation.pipeline_state ?? latestPipelineState;
+      latestTimestamp = continuation.timestamp ?? latestTimestamp;
+
+      const continuationText = (continuation.message ?? "").trim();
+      if (!continuationText) break;
+
+      if (!mergedMessage.trim()) {
+        mergedMessage = continuationText;
+      } else if (!mergedMessage.includes(continuationText)) {
+        mergedMessage = `${mergedMessage.replace(/\s+$/, "")}\n${continuationText}`;
+      } else {
+        break;
+      }
+
+      if (Array.isArray(continuation.suggestions)) {
+        mergedSuggestions.push(...continuation.suggestions);
+      }
+      if (Array.isArray(continuation.actions)) {
+        mergedActions.push(...continuation.actions);
+      }
+    }
+
+    const dedupedSuggestions = Array.from(new Set(mergedSuggestions.filter(Boolean)));
+    const dedupedActions = mergedActions.filter((action, index, arr) => {
+      const key = `${action.type}:${JSON.stringify(action.payload ?? {})}`;
+      return index === arr.findIndex((candidate) => `${candidate.type}:${JSON.stringify(candidate.payload ?? {})}` === key);
+    });
+
+    return {
+      ...initialResponse,
+      session_id: latestSessionId,
+      phase: latestPhase,
+      pipeline_state: latestPipelineState,
+      timestamp: latestTimestamp,
+      message: mergedMessage,
+      suggestions: dedupedSuggestions,
+      actions: dedupedActions,
+    };
+  }, [isLikelyTruncatedAssistantMessage]);
+
   const initializeConversation = useCallback(async () => {
     setIsTyping(true);
     try {
@@ -444,8 +530,9 @@ export function PipelineBuilderChatbot({
         undefined,
         { availableColumns }
       );
-      
-      handleAgentResponse(response);
+
+      const completeResponse = await ensureFullAssistantResponse(response, { availableColumns });
+      handleAgentResponse(completeResponse);
     } catch (error) {
       console.error("Error initializing conversation:", error);
       // Add a fallback welcome message
@@ -463,7 +550,7 @@ export function PipelineBuilderChatbot({
     } finally {
       setIsTyping(false);
     }
-  }, [availableColumns, componentId, handleAgentResponse]);
+  }, [availableColumns, componentId, ensureFullAssistantResponse, handleAgentResponse]);
 
   const sendMessage = async (messageText: string | null | undefined) => {
     const cleanedMessage = (messageText ?? "").trim();
@@ -495,17 +582,19 @@ export function PipelineBuilderChatbot({
         context
       );
 
-      const responseTriggeredSave = response.actions?.some((action) => action.type === "save_pipeline") ?? false;
-      handleAgentResponse(response);
+      const completeResponse = await ensureFullAssistantResponse(response, context);
+
+      const responseTriggeredSave = completeResponse.actions?.some((action) => action.type === "save_pipeline") ?? false;
+      handleAgentResponse(completeResponse);
 
       // If user asked to save but the agent didn't emit save action,
       // save the latest pipeline state returned by this response.
       if (saveIntent && !responseTriggeredSave) {
-        const inferredName = (pipelineName ?? "").trim() || (response.pipeline_state?.name ?? "").trim() || `Pipeline ${new Date().toISOString().replace("T", " ").slice(0, 19)}`;
+        const inferredName = (pipelineName ?? "").trim() || (completeResponse.pipeline_state?.name ?? "").trim() || `Pipeline ${new Date().toISOString().replace("T", " ").slice(0, 19)}`;
         setPipelineName(inferredName);
         setIsSaving(true);
         try {
-          await savePipelineToPipelinesStore(response.pipeline_state, inferredName);
+          await savePipelineToPipelinesStore(completeResponse.pipeline_state, inferredName);
           toast.success("✅ Pipeline saved", {
             description: `"${inferredName}" is now available on the Pipelines page`
           });
@@ -675,10 +764,15 @@ export function PipelineBuilderChatbot({
       const loadedPipeline = savedPipelines.find((pipeline: Pipeline) => pipeline.id === pipelineId) ?? null;
       setLoadedPipelineSettings(loadedPipeline?.settings ?? null);
       const response = await loadPipelineIntoSession(pipelineId, sessionId || undefined);
-      handleAgentResponse(response);
+      const continuationContext: Record<string, unknown> = { availableColumns };
+      if (e1DataSummary) {
+        continuationContext.e1DataSummary = e1DataSummary;
+      }
+      const completeResponse = await ensureFullAssistantResponse(response, continuationContext);
+      handleAgentResponse(completeResponse);
       setSelectedPipelineId("");
       toast.success("Pipeline loaded", {
-        description: `Loaded "${response.pipeline_state.name || 'pipeline'}"`
+        description: `Loaded "${completeResponse.pipeline_state.name || 'pipeline'}"`
       });
     } catch (error) {
       console.error("Error loading pipeline:", error);
