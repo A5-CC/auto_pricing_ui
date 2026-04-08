@@ -147,7 +147,7 @@ export function PipelineBuilderChatbot({
   const [showPipelinePreview, setShowPipelinePreview] = useState(false);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [savePromptedSessionId, setSavePromptedSessionId] = useState<string | null>(null);
-  const [expandedMessageIds, setExpandedMessageIds] = useState<Set<string>>(new Set());
+
   const [loadedPipelineSettings, setLoadedPipelineSettings] = useState<PipelineSettings | null>(null);
 
   const openSaveDialog = useCallback(() => {
@@ -869,25 +869,6 @@ export function PipelineBuilderChatbot({
 
   const renderMessage = (message: Message) => {
     const isUser = message.role === "user";
-    const LONG_MESSAGE_CHAR_THRESHOLD = 1800;
-    const LONG_MESSAGE_LINE_THRESHOLD = 28;
-    const isLongAssistantMessage = !isUser && (
-      message.content.length > LONG_MESSAGE_CHAR_THRESHOLD ||
-      message.content.split("\n").length > LONG_MESSAGE_LINE_THRESHOLD
-    );
-    const isExpanded = expandedMessageIds.has(message.id);
-
-    const toggleExpanded = () => {
-      setExpandedMessageIds((prev) => {
-        const next = new Set(prev);
-        if (next.has(message.id)) {
-          next.delete(message.id);
-        } else {
-          next.add(message.id);
-        }
-        return next;
-      });
-    };
     
     return (
       <div
@@ -913,26 +894,10 @@ export function PipelineBuilderChatbot({
         >
           <div className={cn(
             "text-[15px] leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
-            isLongAssistantMessage && !isExpanded && "max-h-[22rem] overflow-hidden",
-            isLongAssistantMessage && isExpanded && "max-h-none overflow-visible",
             isUser ? "text-white" : "text-slate-800"
           )}>
             {message.content}
           </div>
-
-          {isLongAssistantMessage && (
-            <div className="mt-3 flex justify-end">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-9 px-3 text-sm"
-                onClick={toggleExpanded}
-              >
-                {isExpanded ? "Show less" : "Show more"}
-              </Button>
-            </div>
-          )}
         </div>
         
         {isUser && (
