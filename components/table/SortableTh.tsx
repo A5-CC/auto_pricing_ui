@@ -41,18 +41,18 @@ export function SortableTh({
     >
       <button
         type="button"
-        className="inline-flex items-center gap-1 hover:underline"
+        className="flex w-full items-start gap-1 text-left hover:underline"
         onClick={() => onSortClick(columnId)}
       >
-        <span>{label}</span>
+        <span className="whitespace-normal break-words leading-tight">{label}</span>
         {isActive ? (
           sortDir === "asc" ? (
-            <ArrowUp className="h-3.5 w-3.5" />
+            <ArrowUp className="h-3.5 w-3.5 shrink-0" />
           ) : (
-            <ArrowDown className="h-3.5 w-3.5" />
+            <ArrowDown className="h-3.5 w-3.5 shrink-0" />
           )
         ) : (
-          <ArrowUpDown className="h-3.5 w-3.5 opacity-50" />
+          <ArrowUpDown className="h-3.5 w-3.5 shrink-0 opacity-50" />
         )}
       </button>
       {onResizeStart && (

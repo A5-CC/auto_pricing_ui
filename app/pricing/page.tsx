@@ -437,7 +437,7 @@ export default function PricingPage() {
                     onResizeStart={handleResizeStart}
                     width={getColumnWidth(c)}
                     minWidth={MIN_COLUMN_WIDTH}
-                    className="px-4 py-2 whitespace-nowrap"
+                    className="px-4 py-2 align-top"
                   />
                 ))}
               </tr>
@@ -531,7 +531,7 @@ export default function PricingPage() {
                             {row.unit_dimensions || "—"}
                           </td>
                           {displayColumns.map((c) => (
-                            <td key={`${idx}-${c}`} className="px-4 py-2" style={getColumnCellStyle(c)}>
+                            <td key={`${idx}-${c}`} className="px-4 py-2 align-top whitespace-normal break-words" style={getColumnCellStyle(c)}>
                               <TableCell
                                 value={row[c]}
                                 type={columnsStats[c]?.data_type}
@@ -583,7 +583,7 @@ export default function PricingPage() {
                       {row.unit_dimensions || "—"}
                     </td>
                     {displayColumns.map((c) => (
-                      <td key={`${idx}-${c}`} className="px-4 py-2" style={getColumnCellStyle(c)}>
+                      <td key={`${idx}-${c}`} className="px-4 py-2 align-top whitespace-normal break-words" style={getColumnCellStyle(c)}>
                         <TableCell
                           value={row[c]}
                           type={columnsStats[c]?.data_type}

@@ -1,4 +1,3 @@
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { formatNumericValue, isCurrencyColumn } from "@/lib/pricing/formatters"
 
 interface TableCellProps {
@@ -9,7 +8,7 @@ interface TableCellProps {
 
 /**
  * Renders a table cell with type-aware formatting
- * Handles nulls, numbers, currency, booleans, and strings with truncation
+ * Handles nulls, numbers, currency, booleans, and strings with wrapping
  */
 export function TableCell({ value, type, columnId }: TableCellProps) {
   // Empty values
@@ -40,15 +39,5 @@ export function TableCell({ value, type, columnId }: TableCellProps) {
   }
 
   const str = String(value)
-  if (str.length > 40) {
-    return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <span className="inline-block max-w-[28ch] truncate align-top" aria-label={str}>{str}</span>
-        </TooltipTrigger>
-        <TooltipContent sideOffset={4}>{str}</TooltipContent>
-      </Tooltip>
-    )
-  }
-  return str
+  return <span className="whitespace-normal break-words">{str}</span>
 }
