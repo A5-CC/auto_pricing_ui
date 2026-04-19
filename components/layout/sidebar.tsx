@@ -14,10 +14,8 @@ import {
     MapPin,
     Menu,
     MessageCircle,
-    Moon,
     PlayCircle,
     Settings,
-    Sun,
     TrendingUp,
     Wrench,
     Zap
