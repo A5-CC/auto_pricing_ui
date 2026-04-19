@@ -20,6 +20,7 @@ import {
   getE1Client,
 } from "@/lib/api/client/pipelines";
 import { getColumnStatistics, getPricingData, getPricingSchemas, getPricingSnapshots } from "@/lib/api/client/pricing";
+import { getCachedValue } from "@/lib/api/cache";
 import type {
   ColumnStatistics,
   Pipeline,
@@ -36,6 +37,10 @@ import { PricingOverview } from "../pricing/components/pricing-overview";
 
 const INITIAL_LOAD_LIMIT = 250
 const FULL_LOAD_LIMIT = 1000
+const getPricingDataCacheKey = (snapshot: string, limit: number) =>
+  `pricing-data-${snapshot}-limit=${limit}`
+const getE1ClientCacheKey = (snapshot: string, limit: number) =>
+  `e1-client-${snapshot}-limit=${limit}`
 
 export default function PipelinesPage() {
   const LEGACY_TO_COLUMN: Record<string, string> = {
@@ -138,13 +143,32 @@ export default function PipelinesPage() {
 
   const loadData = useCallback(async () => {
     const loadId = ++activeLoadRef.current
+
+    const cachedInitial = getCachedValue<PricingDataResponse>(
+      getPricingDataCacheKey(selectedSnapshot, INITIAL_LOAD_LIMIT),
+      { persist: true }
+    )
+    if (cachedInitial) {
+      setDataResponse(cachedInitial)
+      hasLoadedDataRef.current = true
+    }
+
+    const cachedClient = getCachedValue<PricingDataResponse>(
+      getE1ClientCacheKey(selectedSnapshot, FULL_LOAD_LIMIT),
+      { persist: true }
+    )
+    if (cachedClient) {
+      setClientDataResponse(cachedClient)
+    }
+
     setError(null);
     setColumnsStats({})
 
     // If we already have data (from a previous load or stale cache), show it
     // immediately and only show the refreshing banner.
-    const alreadyHasData = hasLoadedDataRef.current
+    const alreadyHasData = hasLoadedDataRef.current || Boolean(cachedInitial)
     if (alreadyHasData) {
+      setLoading(false)
       setIsRefreshing(true)
     } else {
       setLoading(true);

@@ -108,6 +108,28 @@ function lsSet<T>(key: string, data: T): void {
 }
 
 /**
+ * Read cached value synchronously (memory first, then localStorage when enabled).
+ * Useful for instant UI hydration before an async fetch resolves.
+ */
+export function getCachedValue<T>(
+  key: string,
+  options?: { persist?: boolean }
+): T | null {
+  const memory = apiCache.get<T>(key)
+  if (memory !== null) return memory
+
+  if (options?.persist) {
+    const persisted = lsGet<T>(key)
+    if (persisted !== null) {
+      apiCache.set(key, persisted)
+      return persisted
+    }
+  }
+
+  return null
+}
+
+/**
  * Wrapper function to cache API calls.
  * Options:
  *   persist   – also read/write localStorage so data survives page refreshes (stale-while-revalidate)

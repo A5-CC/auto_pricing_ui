@@ -175,7 +175,6 @@ export async function getE1ClientStatistics(
  *
  * CRUD operations for saved pipeline configurations (filters + adjusters).
  */
-
 export async function listPipelines(): Promise<Pipeline[]> {
   return cachedFetch(
     PIPELINES_LIST_CACHE_KEY,

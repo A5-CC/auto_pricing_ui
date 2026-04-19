@@ -18,6 +18,7 @@ import {
     getPricingSchemas,
     getPricingSnapshots,
 } from "@/lib/api/client/pricing";
+import { getCachedValue } from "@/lib/api/cache";
 import type {
     ColumnStatistics,
     PricingDataResponse,
@@ -35,6 +36,8 @@ const INITIAL_LOAD_LIMIT = 250
 const FULL_LOAD_LIMIT = 1000
 const DEFAULT_COLUMN_WIDTH = 180
 const MIN_COLUMN_WIDTH = 120
+const getPricingDataCacheKey = (snapshot: string, limit: number) =>
+  `pricing-data-${snapshot}-limit=${limit}`
 
 export default function PricingPage() {
   const [snapshots, setSnapshots] = useState<PricingSnapshot[]>([]);
@@ -209,9 +212,33 @@ export default function PricingPage() {
 
   const loadData = useCallback(async () => {
     const loadId = ++activeLoadRef.current
+    const cachedInitial = getCachedValue<PricingDataResponse>(
+      getPricingDataCacheKey(selectedSnapshot, INITIAL_LOAD_LIMIT),
+      { persist: true }
+    )
+
+    if (cachedInitial) {
+      setDataResponse(cachedInitial)
+      hasLoadedDataRef.current = true
+      if (cachedInitial.columns?.length) {
+        const fixedColumns = [
+          "competitor_name",
+          "competitor_address",
+          "client_location",
+          "snapshot_date",
+          "unit_dimensions",
+        ]
+        const filteredColumns = cachedInitial.columns.filter(
+          (col) => !fixedColumns.includes(col)
+        )
+        setVisibleColumns((prev) => (prev.length ? prev : filteredColumns))
+      }
+    }
+
     setError(null);
     setColumnsStats({})
-    if (hasLoadedDataRef.current) {
+    if (cachedInitial || hasLoadedDataRef.current) {
+      setLoading(false)
       setIsRefreshing(true)
     } else {
       setLoading(true)

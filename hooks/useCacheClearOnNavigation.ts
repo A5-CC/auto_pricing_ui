@@ -5,21 +5,20 @@ import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
 
 /**
- * Hook to clear API cache when navigating between pages
- * This ensures fresh data is fetched when switching routes
+ * Keep API cache warm across route navigation.
+ *
+ * We intentionally do NOT clear cache on route changes so previously loaded
+ * pages can paint instantly from memory/localStorage and then revalidate.
  */
 export function useCacheClearOnNavigation() {
   const pathname = usePathname();
 
   useEffect(() => {
-    // Log cache stats before clearing
-    const stats = apiCache.getStats();
-    if (stats.size > 0) {
-      console.log(`[Cache] Clearing ${stats.size} entries on navigation to ${pathname}`);
-      
-      // Clear all cache on route change
-      // This ensures fresh data when switching between pages
-      apiCache.clear();
+    if (process.env.NODE_ENV === 'development') {
+      const stats = apiCache.getStats();
+      if (stats.size > 0) {
+        console.log(`[Cache] Retaining ${stats.size} entries on navigation to ${pathname}`);
+      }
     }
   }, [pathname]);
 }
