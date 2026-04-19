@@ -16,18 +16,18 @@ import { Input } from "@/components/ui/input";
 import { SectionLabel } from "@/components/ui/section-label";
 import type { Adjuster } from "@/lib/adjusters";
 import { getPriceDiagnostics, hasValidCompetitorPrices } from "@/lib/adjusters";
+import { getCachedValue } from "@/lib/api/cache";
 import {
-  getE1Client,
+    getE1Client,
 } from "@/lib/api/client/pipelines";
 import { getColumnStatistics, getPricingData, getPricingSchemas, getPricingSnapshots } from "@/lib/api/client/pricing";
-import { getCachedValue } from "@/lib/api/cache";
 import type {
-  ColumnStatistics,
-  Pipeline,
-  PipelineFilters as PipelineFiltersType,
-  PricingDataResponse,
-  PricingSchemas,
-  PricingSnapshot,
+    ColumnStatistics,
+    Pipeline,
+    PipelineFilters as PipelineFiltersType,
+    PricingDataResponse,
+    PricingSchemas,
+    PricingSnapshot,
 } from "@/lib/api/types";
 import { Calculator, Clock, Plus, TrendingDown } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
