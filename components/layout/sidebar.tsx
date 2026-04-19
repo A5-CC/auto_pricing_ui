@@ -180,17 +180,6 @@ export function Sidebar() {
 
       {/* Settings and Logout at Bottom */}
       <div className="p-3 border-t border-white/10 space-y-1">
-        <button
-          onClick={toggleNightMode}
-          title={isCollapsed ? (isNightMode ? "Switch to day mode" : "Switch to night mode") : undefined}
-          className={cn(
-            'w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all text-white/90 hover:bg-white/5 hover:text-white',
-            isCollapsed && 'justify-center'
-          )}
-        >
-          {isNightMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-          {!isCollapsed && <span>{isNightMode ? 'Day mode' : 'Night mode'}</span>}
-        </button>
         <Link
           href="/settings"
           title={isCollapsed ? "Settings" : undefined}
