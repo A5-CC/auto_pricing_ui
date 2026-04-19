@@ -550,19 +550,10 @@ export default function PipelinesPage() {
           Refreshing pricing data in background…
         </div>
       )}
-      {loading && (
-        <div className="space-y-3 animate-pulse">
-          <div className="h-8 w-48 rounded bg-muted" />
-          <div className="grid grid-cols-3 gap-3">
-            <div className="h-24 rounded bg-muted" />
-            <div className="h-24 rounded bg-muted" />
-            <div className="h-24 rounded bg-muted" />
-          </div>
-          <div className="h-32 rounded bg-muted" />
-          <div className="h-32 rounded bg-muted" />
-        </div>
+      {loading && !dataResponse && (
+        <div className="text-xs text-muted-foreground">Loading pricing data…</div>
       )}
-      <header className={loading ? 'hidden' : undefined}>
+      <header>
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div className="min-w-0">
           </div>
@@ -612,7 +603,7 @@ export default function PipelinesPage() {
         </div>
       </header>
 
-      <div className={loading ? 'hidden' : undefined}>
+      <div>
       {error && (
         <Alert variant="destructive">
           <AlertTitle>Error</AlertTitle>

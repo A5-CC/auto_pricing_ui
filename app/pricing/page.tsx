@@ -470,28 +470,7 @@ export default function PricingPage() {
               </tr>
             </thead>
             <tbody>
-              {loading ? (
-                Array.from({ length: 8 }).map((_, i) => (
-                  <tr key={`skeleton-${i}`} className="border-t">
-                    <td className="px-4 py-2">
-                      <div className="h-4 w-28 animate-pulse rounded bg-muted" />
-                    </td>
-                    <td className="px-4 py-2">
-                      <div className="h-4 w-40 animate-pulse rounded bg-muted" />
-                    </td>
-                    <td className="px-4 py-2">
-                      <div className="h-4 w-16 animate-pulse rounded bg-muted" />
-                    </td>
-                    {Array.from({
-                      length: Math.min(displayColumns.length || 6, 6),
-                    }).map((_, j) => (
-                      <td key={`s-${i}-${j}`} className="px-4 py-2">
-                        <div className="h-4 w-24 animate-pulse rounded bg-muted" />
-                      </td>
-                    ))}
-                  </tr>
-                ))
-              ) : groupBy && grouped ? (
+              {groupBy && grouped ? (
                 grouped.keys.map((key) => (
                   <Fragment key={`group-frag-${key}`}>
                     <tr className="border-t bg-muted/30">
@@ -626,7 +605,7 @@ export default function PricingPage() {
                     className="px-4 py-6 text-center text-muted-foreground"
                     colSpan={3 + (displayColumns.length || 0)}
                   >
-                    No results. Broaden filters.
+                    {loading ? "Loading pricing data…" : "No results. Broaden filters."}
                   </td>
                 </tr>
               )}
