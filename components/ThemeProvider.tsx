@@ -56,8 +56,13 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!mounted) return;
 
-    const root = document.documentElement;
-    root.classList.toggle('dark', isNightMode);
+    // Apply .dark to <html> for Tailwind and CSS variable compatibility
+    const html = document.documentElement;
+    if (isNightMode) {
+      html.classList.add('dark');
+    } else {
+      html.classList.remove('dark');
+    }
 
     try {
       window.localStorage.setItem(NIGHT_MODE_STORAGE_KEY, String(isNightMode));
