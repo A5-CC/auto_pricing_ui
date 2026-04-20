@@ -526,7 +526,7 @@ export function PipelineBuilderChatbot({
     setIsTyping(true);
     try {
       const response = await sendAgentMessage(
-        "Hello, I want to create a new pricing pipeline",
+        "Hello",
         undefined,
         { availableColumns }
       );
