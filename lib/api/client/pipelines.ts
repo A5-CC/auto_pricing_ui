@@ -267,27 +267,6 @@ export interface ChatResponse {
   timestamp: string;
 }
 
-export async function sendChatMessage(
-  message: string,
-  conversationHistory: ChatMessage[],
-  context: ChatContext
-): Promise<ChatResponse> {
-  const response = await fetchWithError(`${API_BASE_URL}/chatbot/chat`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      message,
-      conversation_history: conversationHistory.map(m => ({
-        role: m.role,
-        content: m.content,
-        timestamp: m.timestamp
-      })),
-      context
-    })
-  })
-  return response.json()
-}
-
 // =============================================================================
 // Agentic Pipeline Builder API
 // =============================================================================
