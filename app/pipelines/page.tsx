@@ -239,7 +239,7 @@ export default function PipelinesPage() {
   // Reload when snapshot changes
   useEffect(() => {
     loadData();
-  }, [selectedSnapshot]); // Only depend on selectedSnapshot to avoid duplicate calls
+  }, [selectedSnapshot, loadData]); // Only depend on selectedSnapshot and loadData to avoid duplicate calls
 
   /* ---------------- Pipeline load/save handlers ---------------- */
   const handleLoadPipeline = (filters: PipelineFiltersType) => {

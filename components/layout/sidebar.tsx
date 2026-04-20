@@ -136,7 +136,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { logout } = useAuth();
-  const { isNightMode, toggleNightMode } = useTheme();
+  // const { isNightMode, toggleNightMode } = useTheme();
   const [isCollapsed, setIsCollapsed] = useState(true);
   
   const isSettingsActive = pathname.startsWith('/settings');
