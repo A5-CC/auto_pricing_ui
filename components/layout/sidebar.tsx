@@ -1,7 +1,6 @@
 'use client';
 
 import { useAuth } from '@/components/AuthContext';
-import { useTheme } from '@/components/ThemeProvider';
 import { cn } from '@/lib/utils';
 import {
     ChevronDown,
