@@ -26,6 +26,7 @@ import {
     type PipelineState,
 } from "@/lib/api/client/pipelines";
 import type { Pipeline, PipelineSettings } from "@/lib/api/types";
+import type { Adjuster } from "@/lib/adjusters/types";
 import { cn } from "@/lib/utils";
 import {
     Bot,
@@ -336,8 +337,8 @@ export function PipelineBuilderChatbot({
       : { enabled: false, offset: 0 };
     const requestPayload = {
       name: trimmedName,
-      filters: stateToSave.filters as any,
-      adjusters: normalizedAdjusters as any,
+      filters: stateToSave.filters as import("@/lib/api/types/pipelines").PipelineFilters,
+      adjusters: normalizedAdjusters as Adjuster[],
       settings: {
         ...(stateToSave.settings ?? {}),
         rounding,
