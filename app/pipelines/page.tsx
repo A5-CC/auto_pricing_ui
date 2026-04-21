@@ -284,8 +284,9 @@ export default function PipelinesPage() {
     }, {} as Record<string, boolean>)
     setUniversalCombinatoric(alignedFlags)
 
-    setRoundingEnabled(Boolean(pipeline.settings?.rounding?.enabled))
-    setRoundingOffset(Number(pipeline.settings?.rounding?.offset ?? 0))
+    const rounding = pipeline.settings?.rounding as { enabled?: boolean; offset?: number } | undefined;
+    setRoundingEnabled(Boolean(rounding?.enabled));
+    setRoundingOffset(Number(rounding?.offset ?? 0));
   };
 
   /* ---------------- Adjuster actions ---------------- */
