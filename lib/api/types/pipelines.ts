@@ -131,43 +131,34 @@ export interface PipelineRoundingSettings {
 
 export type PipelineFilterMode = 'combinatoric' | 'subset'
 
-export interface PipelineSettings {
-  rounding?: PipelineRoundingSettings
-  universal_filters?: Record<string, string[]>
-  combinatoric_flags?: Record<string, boolean>
-  filter_modes?: Record<string, PipelineFilterMode>
-}
 
 /**
  * Pipeline Configuration
  * Persisted pipeline combining E1 adjusters
  */
-export interface Pipeline {
   id: string
   name: string
   created_at: string
   updated_at: string
   // filters removed
   adjusters: Adjuster[]  // E2 price adjusters (sequential pipeline)
-  settings?: PipelineSettings
+  settings?: Record<string, unknown>
 }
 
 /**
  * Request body for creating a new pipeline
  */
-export interface CreatePipelineRequest {
   name: string
   // filters removed
   adjusters?: Adjuster[]  // Optional, can be added later
-  settings?: PipelineSettings
+  settings?: Record<string, unknown>
 }
 
 /**
  * Request body for updating an existing pipeline
  */
-export interface UpdatePipelineRequest {
   name: string
   // filters removed
   adjusters?: Adjuster[]  // Optional, can be updated independently
-  settings?: PipelineSettings
+  settings?: Record<string, unknown>
 }
