@@ -22,12 +22,11 @@ import {
 } from "@/lib/api/client/pipelines";
 import { getColumnStatistics, getPricingData, getPricingSchemas, getPricingSnapshots } from "@/lib/api/client/pricing";
 import type {
-    ColumnStatistics,
-    Pipeline,
-    PipelineFilters as PipelineFiltersType,
-    PricingDataResponse,
-    PricingSchemas,
-    PricingSnapshot,
+  ColumnStatistics,
+  Pipeline,
+  PricingDataResponse,
+  PricingSchemas,
+  PricingSnapshot,
 } from "@/lib/api/types";
 import { Calculator, Clock, Plus, TrendingDown } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
