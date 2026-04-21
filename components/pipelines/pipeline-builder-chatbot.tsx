@@ -26,7 +26,7 @@ import {
   type PipelineAction,
   type PipelineState,
 } from "@/lib/api/client/pipelines";
-import type { Pipeline, PipelineSettings } from "@/lib/api/types";
+import type { Pipeline } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 import {
   Bot,
