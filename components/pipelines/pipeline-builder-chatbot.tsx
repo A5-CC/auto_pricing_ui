@@ -329,14 +329,15 @@ export function PipelineBuilderChatbot({
       };
     });
 
+    // Merge all settings, preserving existing keys (like rounding) and updating universal_filters, combinatoric_flags, filter_modes
+    const rounding = stateToSave.settings?.rounding ?? {};
     const requestPayload = {
       name: trimmedName,
-      // Backward compatibility: keep legacy keys for older readers.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       filters: stateToSave.filters as any,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       adjusters: normalizedAdjusters as any,
       settings: {
+        ...(stateToSave.settings ?? {}),
+        rounding,
         ...(Object.keys(canonicalFilters).length > 0 ? { universal_filters: canonicalFilters } : {}),
         ...(Object.keys(combinatoricFlags).length > 0 ? { combinatoric_flags: combinatoricFlags } : {}),
         ...(Object.keys(filterModes).length > 0 ? { filter_modes: filterModes } : {}),
