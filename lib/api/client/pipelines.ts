@@ -1,4 +1,4 @@
-import { ColumnStatistics, CreatePipelineRequest, E1DataResponse, E1Snapshot, Pipeline, PipelineSettings, UpdatePipelineRequest } from '@/lib/api/types'
+import { ColumnStatistics, CreatePipelineRequest, E1DataResponse, E1Snapshot, Pipeline, UpdatePipelineRequest } from '@/lib/api/types'
 import { apiCache, cachedFetch } from '../cache'
 import { API_BASE_URL, fetchWithError } from './shared'
 
@@ -296,12 +296,6 @@ export interface DimensionConfig {
 /**
  * Pipeline Filters - matches backend PipelineFilters
  */
-export interface PipelineFiltersConfig {
-  competitors: string[];
-  locations: string[];
-  dimensions: string[];
-  unit_categories: string[];
-}
 
 /**
  * Adjuster configuration in a pipeline - matches backend AdjusterConfig
@@ -323,6 +317,7 @@ export interface AdjusterConfig {
 }
 
 /**
+/**
  * Complete pipeline state from the agent
  */
 export interface PipelineState {
@@ -331,8 +326,8 @@ export interface PipelineState {
   version: number;
   created_at: string;
   updated_at: string;
-  filters: PipelineFiltersConfig;
-  settings?: PipelineSettings;
+  universal_filters: Record<string, string[]>;
+  settings?: Record<string, unknown>;
   dimensions: DimensionConfig[];
   adjusters: AdjusterConfig[];
   is_valid: boolean;
@@ -422,7 +417,7 @@ export async function getAgentSession(sessionId: string): Promise<{
 export async function updateAgentPipeline(
   sessionId: string,
   updates: {
-    filters?: Partial<PipelineFiltersConfig>;
+    universal_filters?: Record<string, string[]>;
     adjusters?: Array<{
       action: 'add' | 'remove' | 'update';
       index?: number;
