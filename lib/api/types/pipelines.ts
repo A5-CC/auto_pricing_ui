@@ -3,7 +3,7 @@
  *
  * DEPENDENCIES - BLOCKING ON ALEX'S E1:
  * - E1 norm-E1 dataset (A2 competitors + ModStorage client data merged & normalized v2)
- * - E1 filtering endpoint (server-side categorical filters)
+ *
  * - E1 snapshot listing endpoint
  *
  * ASSUMPTIONS (TBC with Alex):
@@ -97,17 +97,11 @@ export interface E1DataResponse {
  * Server-side categorical filtering
  *
  * CONTRACT TBD WITH ALEX - this is speculative
- * Likely similar to A2 filters but server-side instead of client-side
+ *
  */
 export interface E1FilterRequest {
   snapshot: string
-  filters?: {
-    competitors?: string[]
-    locations?: string[]
-    dimensions?: string[]
-    unit_categories?: string[]
-    // Additional ModStorage filters TBD
-  }
+  // (filters removed)
   limit?: number
   offset?: number
 }
@@ -124,20 +118,11 @@ export interface E1FilterResponse {
   total_facilities: number
   columns: string[]
   data: E1DataRow[]
-  filters_applied: Record<string, unknown>
+  // filters_applied: Record<string, unknown>
 }
 
 /**
- * Pipeline Filters Configuration
- * Client-side filter state for /pipelines page
- */
-export interface PipelineFilters {
-  competitors: string[]
-  locations: string[]
-  dimensions: string[]
-  unit_categories: string[]
-  [key: string]: string[]
-}
+// PipelineFilters interface removed
 
 export interface PipelineRoundingSettings {
   enabled: boolean
@@ -155,14 +140,14 @@ export interface PipelineSettings {
 
 /**
  * Pipeline Configuration
- * Persisted pipeline combining E1 filters and E2 adjusters
+ * Persisted pipeline combining E1 adjusters
  */
 export interface Pipeline {
   id: string
   name: string
   created_at: string
   updated_at: string
-  filters?: PipelineFilters
+  // filters removed
   adjusters: Adjuster[]  // E2 price adjusters (sequential pipeline)
   settings?: PipelineSettings
 }
@@ -172,7 +157,7 @@ export interface Pipeline {
  */
 export interface CreatePipelineRequest {
   name: string
-  filters?: PipelineFilters
+  // filters removed
   adjusters?: Adjuster[]  // Optional, can be added later
   settings?: PipelineSettings
 }
@@ -182,7 +167,7 @@ export interface CreatePipelineRequest {
  */
 export interface UpdatePipelineRequest {
   name: string
-  filters?: PipelineFilters
+  // filters removed
   adjusters?: Adjuster[]  // Optional, can be updated independently
   settings?: PipelineSettings
 }

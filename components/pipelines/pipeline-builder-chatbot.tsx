@@ -244,60 +244,7 @@ export function PipelineBuilderChatbot({
       throw new Error("Pipeline has no adjusters yet. Finish configuring at least one adjuster, then save again.");
     }
 
-    const settingsUniversalFilters = (stateToSave.settings?.universal_filters ?? {}) as Record<string, string[]>;
-    const canonicalFiltersFromLegacy = Object.fromEntries(
-      Object.entries(stateToSave.filters ?? {}).flatMap(([key, values]) => {
-        if (!Array.isArray(values) || values.length === 0) return [];
-        const canonicalKey = LEGACY_TO_CANONICAL_FILTER_KEY[key] ?? key;
-        return [[canonicalKey, values]];
-      })
-    ) as Record<string, string[]>;
-    const canonicalFilters = {
-      ...canonicalFiltersFromLegacy,
-      ...settingsUniversalFilters,
-    } as Record<string, string[]>;
-
-    const explicitFilterModes = Object.fromEntries(
-      (stateToSave.dimensions ?? [])
-        .filter((d) => d?.enabled && d?.name)
-        .map((d) => [
-          LEGACY_TO_CANONICAL_FILTER_KEY[d.name] ?? d.name,
-          d.mode === "combinatorial" ? "combinatoric" : "subset",
-        ])
-    ) as Record<string, "combinatoric" | "subset">;
-
-    const settingsFilterModes = (stateToSave.settings?.filter_modes ?? {}) as Record<string, "combinatoric" | "subset">;
-    const settingsCombinatoricFlags = (stateToSave.settings?.combinatoric_flags ?? {}) as Record<string, boolean>;
-    const loadedFilterModes = (loadedPipelineSettings?.filter_modes ?? {}) as Record<string, "combinatoric" | "subset">;
-    const loadedCombinatoricFlags = (loadedPipelineSettings?.combinatoric_flags ?? {}) as Record<string, boolean>;
-
-    const activeFilterKeys = Object.keys(canonicalFilters);
-    const filterModes = Object.fromEntries(
-      activeFilterKeys.map((key) => {
-        const settingsMode = settingsFilterModes[key];
-        if (settingsMode) return [key, settingsMode];
-
-        const explicitMode = explicitFilterModes[key];
-        if (explicitMode) return [key, explicitMode];
-
-        const loadedMode = loadedFilterModes[key];
-        if (loadedMode) return [key, loadedMode];
-
-        if (key in settingsCombinatoricFlags) {
-          return [key, settingsCombinatoricFlags[key] ? "combinatoric" : "subset"];
-        }
-
-        if (key in loadedCombinatoricFlags) {
-          return [key, loadedCombinatoricFlags[key] ? "combinatoric" : "subset"];
-        }
-
-        return [key, "subset"];
-      })
-    ) as Record<string, "combinatoric" | "subset">;
-
-    const combinatoricFlags = Object.fromEntries(
-      Object.entries(filterModes).map(([key, mode]) => [key, mode === "combinatoric"])
-    ) as Record<string, boolean>;
+    // All filter logic removed; only settings.universal_filters is used now
 
     const normalizedAdjusters = (stateToSave.adjusters ?? []).map((adj) => {
       if (adj.type === "competitive") {
@@ -337,14 +284,10 @@ export function PipelineBuilderChatbot({
       : { enabled: false, offset: 0 };
     const requestPayload = {
       name: trimmedName,
-      filters: stateToSave.filters as import("@/lib/api/types/pipelines").PipelineFilters,
       adjusters: normalizedAdjusters as Adjuster[],
       settings: {
         ...(stateToSave.settings ?? {}),
         rounding,
-        ...(Object.keys(canonicalFilters).length > 0 ? { universal_filters: canonicalFilters } : {}),
-        ...(Object.keys(combinatoricFlags).length > 0 ? { combinatoric_flags: combinatoricFlags } : {}),
-        ...(Object.keys(filterModes).length > 0 ? { filter_modes: filterModes } : {}),
       },
     };
     
@@ -838,19 +781,7 @@ export function PipelineBuilderChatbot({
   const renderPipelinePreview = () => {
     if (!pipelineState) return null;
 
-    const universalFilters = (pipelineState.settings?.universal_filters ?? {}) as Record<string, string[]>;
-    const previewCompetitors = Array.isArray(universalFilters.competitor_name) ? universalFilters.competitor_name : [];
-    const previewLocations = Array.isArray(universalFilters.client_location) ? universalFilters.client_location : [];
-    const previewDimensions = Array.isArray(universalFilters.unit_dimensions) ? universalFilters.unit_dimensions : [];
-    const previewUnitCategories = Array.isArray(universalFilters.unit_category) ? universalFilters.unit_category : [];
-
-    const hasFilters = (
-      previewCompetitors.length > 0 ||
-      previewLocations.length > 0 ||
-      previewDimensions.length > 0 ||
-      previewUnitCategories.length > 0
-    );
-
+    // Filter preview removed; only show pipeline name and adjusters/validation
     return (
       <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 text-sm space-y-2">
         <div className="flex items-center justify-between">
@@ -863,7 +794,6 @@ export function PipelineBuilderChatbot({
             <X className="h-4 w-4" />
           </Button>
         </div>
-        
         {/* Name */}
         {pipelineState.name && (
           <div className="text-sm">
@@ -871,56 +801,6 @@ export function PipelineBuilderChatbot({
             <span className="font-medium">{pipelineState.name}</span>
           </div>
         )}
-        
-        <hr className="my-2 border-slate-200" />
-        
-        {/* Filters */}
-        <div>
-          <span className="text-xs text-slate-500 uppercase">Filters</span>
-          {hasFilters ? (
-            <ul className="mt-1 space-y-1">
-              {previewCompetitors.length > 0 && (
-                <li className="flex items-center gap-2">
-                  <Badge variant="outline" className="text-xs">Competitors</Badge>
-                  <span className="text-slate-600 text-xs">
-                    {previewCompetitors.slice(0, 3).join(", ")}
-                    {previewCompetitors.length > 3 && ` +${previewCompetitors.length - 3} more`}
-                  </span>
-                </li>
-              )}
-              {previewLocations.length > 0 && (
-                <li className="flex items-center gap-2">
-                  <Badge variant="outline" className="text-xs">Locations</Badge>
-                  <span className="text-slate-600 text-xs">
-                    {previewLocations.slice(0, 3).join(", ")}
-                    {previewLocations.length > 3 && ` +${previewLocations.length - 3} more`}
-                  </span>
-                </li>
-              )}
-              {previewDimensions.length > 0 && (
-                <li className="flex items-center gap-2">
-                  <Badge variant="outline" className="text-xs">Dimensions</Badge>
-                  <span className="text-slate-600 text-xs">
-                    {previewDimensions.slice(0, 3).join(", ")}
-                    {previewDimensions.length > 3 && ` +${previewDimensions.length - 3} more`}
-                  </span>
-                </li>
-              )}
-              {previewUnitCategories.length > 0 && (
-                <li className="flex items-center gap-2">
-                  <Badge variant="outline" className="text-xs">Categories</Badge>
-                  <span className="text-slate-600 text-xs">
-                    {previewUnitCategories.slice(0, 3).join(", ")}
-                    {previewUnitCategories.length > 3 && ` +${previewUnitCategories.length - 3} more`}
-                  </span>
-                </li>
-              )}
-            </ul>
-          ) : (
-            <p className="text-slate-400 italic text-xs">No filters (all data)</p>
-          )}
-        </div>
-
         {/* Adjusters */}
         <div>
           <span className="text-xs text-slate-500 uppercase">Adjusters</span>
@@ -953,7 +833,6 @@ export function PipelineBuilderChatbot({
             <p className="text-slate-400 italic text-xs">No adjusters configured</p>
           )}
         </div>
-
         {/* Validation */}
         {pipelineState.validation_errors.length > 0 && (
           <div className="p-2 bg-amber-50 rounded border border-amber-200">
