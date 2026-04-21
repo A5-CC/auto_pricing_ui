@@ -261,7 +261,7 @@ export default function PipelinesPage() {
       return
     }
 
-    const settingsFilters = normalizeFilterKeys(pipeline.settings?.universal_filters)
+    const settingsFilters = normalizeFilterKeys(pipeline.settings?.universal_filters as Record<string, string[]> | undefined)
     setUniversalFilters(settingsFilters)
 
     const normalizedFlags = normalizeCombinatoricFlagKeys(pipeline.settings?.combinatoric_flags)
