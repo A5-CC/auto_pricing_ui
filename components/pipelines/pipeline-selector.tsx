@@ -25,7 +25,7 @@ interface PipelineSelectorProps {
   currentAdjusters: Adjuster[];
   currentSettings?: {
     universal_filters?: Record<string, string[]>;
-    [key: string]: any;
+    [key: string]: unknown;
   };
   onLoadPipeline: (filters: Record<string, string[]>) => void;
   onPipelineChange?: (pipeline: Pipeline | null) => void;
