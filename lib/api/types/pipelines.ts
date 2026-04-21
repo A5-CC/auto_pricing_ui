@@ -132,33 +132,39 @@ export interface PipelineRoundingSettings {
 export type PipelineFilterMode = 'combinatoric' | 'subset'
 
 
+
 /**
  * Pipeline Configuration
  * Persisted pipeline combining E1 adjusters
  */
-  id: string
-  name: string
-  created_at: string
-  updated_at: string
+export interface Pipeline {
+  id: string;
+  name: string;
+  created_at: string;
+  updated_at: string;
   // filters removed
-  adjusters: Adjuster[]  // E2 price adjusters (sequential pipeline)
-  settings?: Record<string, unknown>
+  adjusters: Adjuster[];  // E2 price adjusters (sequential pipeline)
+  settings?: Record<string, unknown>;
 }
+
 
 /**
  * Request body for creating a new pipeline
  */
-  name: string
+export interface CreatePipelineRequest {
+  name: string;
   // filters removed
-  adjusters?: Adjuster[]  // Optional, can be added later
-  settings?: Record<string, unknown>
+  adjusters?: Adjuster[];  // Optional, can be added later
+  settings?: Record<string, unknown>;
 }
+
 
 /**
  * Request body for updating an existing pipeline
  */
-  name: string
+export interface UpdatePipelineRequest {
+  name: string;
   // filters removed
-  adjusters?: Adjuster[]  // Optional, can be updated independently
-  settings?: Record<string, unknown>
+  adjusters?: Adjuster[];  // Optional, can be updated independently
+  settings?: Record<string, unknown>;
 }
