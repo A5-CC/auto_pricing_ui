@@ -149,7 +149,7 @@ export function PipelineBuilderChatbot({
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [savePromptedSessionId, setSavePromptedSessionId] = useState<string | null>(null);
 
-  const [loadedPipelineSettings, setLoadedPipelineSettings] = useState<PipelineSettings | null>(null);
+
 
   const openSaveDialog = useCallback(() => {
     if (SAVE_DIALOG_DISABLED) return;
@@ -702,7 +702,7 @@ export function PipelineBuilderChatbot({
     
     try {
       const loadedPipeline = savedPipelines.find((pipeline: Pipeline) => pipeline.id === pipelineId) ?? null;
-      setLoadedPipelineSettings(loadedPipeline?.settings ?? null);
+
       const response = await loadPipelineIntoSession(pipelineId, sessionId || undefined);
       const continuationContext: Record<string, unknown> = { availableColumns };
       if (e1DataSummary) {
@@ -750,7 +750,7 @@ export function PipelineBuilderChatbot({
     setCurrentPhase("welcome");
     setPipelineState(null);
     setPipelineName("");
-    setLoadedPipelineSettings(null);
+
     setShowPipelinePreview(false);
     setShowSaveDialog(false);
     setSavePromptedSessionId(null);
