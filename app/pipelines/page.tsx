@@ -18,7 +18,7 @@ import type { Adjuster } from "@/lib/adjusters";
 import { getPriceDiagnostics, hasValidCompetitorPrices } from "@/lib/adjusters";
 import { getCachedValue } from "@/lib/api/cache";
 import {
-    getE1Client,
+  getE1Client,
 } from "@/lib/api/client/pipelines";
 import { getColumnStatistics, getPricingData, getPricingSchemas, getPricingSnapshots } from "@/lib/api/client/pricing";
 import type {
@@ -241,7 +241,7 @@ export default function PipelinesPage() {
   }, [selectedSnapshot, loadData]); // Only depend on selectedSnapshot and loadData to avoid duplicate calls
 
   /* ---------------- Pipeline load/save handlers ---------------- */
-  const handleLoadPipeline = (filters: PipelineFiltersType) => {
+  const handleLoadPipeline = (filters: Record<string, string[]>) => {
     setUniversalFilters(normalizeFilterKeys(filters))
 
     // Clear legacy filter state so it cannot create accidental combinatoric combinations.
@@ -262,18 +262,11 @@ export default function PipelinesPage() {
     }
 
     const settingsFilters = normalizeFilterKeys(pipeline.settings?.universal_filters)
-    const baseFilters = normalizeFilterKeys(pipeline.filters)
-    // Keep all saved dimensions: backend `filters` is the durable source,
-    // while `settings.universal_filters` may be partial on older pipelines.
-    const effectiveFilters = {
-      ...baseFilters,
-      ...settingsFilters,
-    }
-    setUniversalFilters(effectiveFilters)
+    setUniversalFilters(settingsFilters)
 
     const normalizedFlags = normalizeCombinatoricFlagKeys(pipeline.settings?.combinatoric_flags)
     const normalizedModes = normalizeFilterModeKeys(pipeline.settings?.filter_modes)
-    const alignedFlags = Object.keys(effectiveFilters).reduce((acc, key) => {
+    const alignedFlags = Object.keys(settingsFilters).reduce((acc, key) => {
       const mode = normalizedModes[key]
       if (mode === 'combinatoric') {
         acc[key] = true
@@ -585,7 +578,7 @@ export default function PipelinesPage() {
               }}
             />
             <PipelineSelector
-              currentFilters={{} as PipelineFiltersType}
+              currentFilters={{}}
               currentAdjusters={localAdjusters}
               currentSettings={{
                 rounding: {
