@@ -65,39 +65,16 @@ function normalizeFlagKeys(flags?: Record<string, boolean>): Record<string, bool
   return next;
 }
 
-function normalizeModeKeys(modes?: Record<string, PipelineFilterMode>): Record<string, PipelineFilterMode> {
-  const next: Record<string, PipelineFilterMode> = {};
 
-  for (const [key, value] of Object.entries(modes ?? {})) {
-    const resolvedKey = LEGACY_TO_CANONICAL[key] ?? key;
-    next[resolvedKey] = value;
-  }
-
-  return next;
-}
-
-function compactFilters(filters: Record<string, string[]>): Record<string, string[]> {
-  return Object.fromEntries(
-    Object.entries(filters).filter(([, values]) => Array.isArray(values) && values.length > 0)
-  );
-}
-
-function buildLegacyFilters(filters?: Record<string, string[]>): PipelineFilters {
-  const canonicalFilters = normalizeToCanonicalFilters(filters);
-
-  return compactFilters({
-    competitors: canonicalFilters.competitor_name ?? [],
-    locations: canonicalFilters.client_location ?? [],
-    dimensions: canonicalFilters.unit_dimensions ?? [],
-    unit_categories: canonicalFilters.unit_category ?? [],
-  }) as PipelineFilters;
-}
 
 interface PipelineSelectorProps {
-  currentFilters: PipelineFilters;
+  currentFilters: Record<string, string[]>;
   currentAdjusters: Adjuster[];
-  currentSettings?: PipelineSettings;
-  onLoadPipeline: (filters: PipelineFilters) => void;
+  currentSettings?: {
+    universal_filters?: Record<string, string[]>;
+    [key: string]: any;
+  };
+  onLoadPipeline: (filters: Record<string, string[]>) => void;
   onPipelineChange?: (pipeline: Pipeline | null) => void;
 }
 
@@ -126,18 +103,20 @@ export function PipelineSelector({
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
+
+  // No-op for local extras, as filters/settings are now only universal_filters
   const readLocalExtras = useCallback(() => {
-    if (typeof window === "undefined") return {} as Record<string, { filters: Record<string, string[]>; settings?: PipelineSettings }>;
+    if (typeof window === "undefined") return {} as Record<string, { filters: Record<string, string[]>; settings?: any }>;
     try {
       const raw = window.localStorage.getItem(LOCAL_STORAGE_KEY);
       if (!raw) return {};
-      return JSON.parse(raw) as Record<string, { filters: Record<string, string[]>; settings?: PipelineSettings }>;
+      return JSON.parse(raw) as Record<string, { filters: Record<string, string[]>; settings?: any }>;
     } catch {
-      return {} as Record<string, { filters: Record<string, string[]>; settings?: PipelineSettings }>;
+      return {} as Record<string, { filters: Record<string, string[]>; settings?: any }>;
     }
   }, []);
 
-  const writeLocalExtras = useCallback((extras: Record<string, { filters: Record<string, string[]>; settings?: PipelineSettings }>) => {
+  const writeLocalExtras = useCallback((extras: Record<string, { filters: Record<string, string[]>; settings?: any }>) => {
     if (typeof window === "undefined") return;
     try {
       window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(extras));
@@ -146,96 +125,24 @@ export function PipelineSelector({
     }
   }, []);
 
-  const buildPersistedSettings = useCallback((
-    filters: Record<string, string[]>,
-    settings?: PipelineSettings
-  ): PipelineSettings | undefined => {
-    const canonicalFilters = normalizeToCanonicalFilters(filters);
-    const activeKeys = Object.keys(canonicalFilters).filter(
-      (key) => Array.isArray(canonicalFilters[key]) && canonicalFilters[key].length > 0
-    );
-    const combinatoricFlagsByKey = normalizeFlagKeys(settings?.combinatoric_flags);
-    const filterModesByKey = normalizeModeKeys(settings?.filter_modes);
-    const combinatoricFlags = Object.fromEntries(
-      activeKeys.map((key) => {
-        const mode = filterModesByKey[key];
-        const value = mode === "combinatoric"
-          ? true
-          : mode === "subset"
-            ? false
-            : Boolean(combinatoricFlagsByKey[key]);
-
-        return [key, value];
-      })
-    ) as Record<string, boolean>;
-    const filterModes = Object.fromEntries(
-      activeKeys.map((key) => [key, combinatoricFlags[key] ? "combinatoric" : "subset"])
-    ) as Record<string, PipelineFilterMode>;
-    const universalFilters = Object.fromEntries(
-      activeKeys.map((key) => [key, canonicalFilters[key]])
-    ) as Record<string, string[]>;
-
-    if (!settings && activeKeys.length === 0) return undefined;
-
-    const persisted: PipelineSettings = {
-      ...settings,
-      universal_filters: universalFilters,
-      filter_modes: filterModes,
-    };
-
-    if (!persisted.universal_filters || Object.keys(persisted.universal_filters).length === 0) {
-      delete persisted.universal_filters;
-    }
-    if (!persisted.filter_modes || Object.keys(persisted.filter_modes).length === 0) {
-      delete persisted.filter_modes;
-    }
-
-    // Canonical persistence: keep only filter_modes for combinatoric state.
-    // Backward compatibility on read still supports combinatoric_flags.
-    delete persisted.combinatoric_flags;
-
-    return persisted;
-  }, []);
-
+  // Normalize pipeline for UI: just pass universal_filters
   const normalizePipelineForUi = useCallback((
     pipeline: Pipeline,
-    extra?: { filters: Record<string, string[]>; settings?: PipelineSettings }
+    extra?: { filters: Record<string, string[]>; settings?: any }
   ): Pipeline => {
-    const mergedSettings: PipelineSettings | undefined = extra?.settings || pipeline.settings
-      ? {
-          ...pipeline.settings,
-          ...extra?.settings,
-          universal_filters: {
-            ...(pipeline.settings?.universal_filters ?? {}),
-            ...(extra?.settings?.universal_filters ?? {}),
-          },
-          combinatoric_flags: {
-            ...(pipeline.settings?.combinatoric_flags ?? {}),
-            ...(extra?.settings?.combinatoric_flags ?? {}),
-          },
-          filter_modes: {
-            ...(pipeline.settings?.filter_modes ?? {}),
-            ...(extra?.settings?.filter_modes ?? {}),
-          },
-        }
-      : undefined;
-
-    const legacyFilters = compactFilters({
-      ...((pipeline.filters ?? {}) as Record<string, string[]>),
-      ...(extra?.filters ?? {}),
-    }) as PipelineFilters;
-
-    const canonicalFilters = normalizeToCanonicalFilters({
-      ...legacyFilters,
-      ...(mergedSettings?.universal_filters ?? {}),
-    });
-
+    const mergedUniversalFilters = {
+      ...(pipeline.settings?.universal_filters ?? {}),
+      ...(extra?.settings?.universal_filters ?? {}),
+    };
     return {
       ...pipeline,
-      filters: legacyFilters,
-      settings: buildPersistedSettings(canonicalFilters, mergedSettings),
+      settings: {
+        ...pipeline.settings,
+        ...extra?.settings,
+        universal_filters: mergedUniversalFilters,
+      },
     };
-  }, [buildPersistedSettings]);
+  }, []);
 
   const loadPipelines = useCallback(async () => {
     try {
@@ -253,15 +160,11 @@ export function PipelineSelector({
     loadPipelines();
   }, [loadPipelines]);
 
+
   const handleSelectPipeline = (pipelineId: string) => {
     if (pipelineId === "none") {
       setSelectedPipelineId(null);
-      onLoadPipeline({
-        competitors: [],
-        locations: [],
-        dimensions: [],
-        unit_categories: [],
-      });
+      onLoadPipeline({});
       onPipelineChange?.(null);
       return;
     }
@@ -269,32 +172,25 @@ export function PipelineSelector({
     const pipeline = pipelines.find((p: Pipeline) => p.id === pipelineId);
     if (pipeline) {
       setSelectedPipelineId(pipelineId);
-      onLoadPipeline(
-        buildLegacyFilters(
-          (pipeline.settings?.universal_filters as Record<string, string[]> | undefined)
-          ?? (pipeline.filters as Record<string, string[]> | undefined)
-        )
-      );
+      onLoadPipeline(pipeline.settings?.universal_filters ?? {});
       onPipelineChange?.(pipeline);
     }
   };
 
+
   const handleSavePipeline = async (name: string) => {
     try {
-      const canonicalFilters = normalizeToCanonicalFilters({
+      const mergedUniversalFilters = {
         ...currentFilters,
         ...(currentSettings?.universal_filters ?? {}),
-      });
-      const mergedFilters = {} as PipelineFilters;
-      const persistedSettings = buildPersistedSettings(canonicalFilters, currentSettings);
+      };
       const newPipeline = await createPipeline({
         name,
-        filters: mergedFilters,
         adjusters: currentAdjusters,
-        settings: persistedSettings,
+        settings: { ...currentSettings, universal_filters: mergedUniversalFilters },
       });
       const extras = readLocalExtras();
-      extras[newPipeline.id] = { filters: {}, settings: persistedSettings };
+      extras[newPipeline.id] = { filters: {}, settings: { ...currentSettings, universal_filters: mergedUniversalFilters } };
       writeLocalExtras(extras);
       setPipelines((prev: Pipeline[]) => [normalizePipelineForUi(newPipeline, extras[newPipeline.id]), ...prev]);
       setSelectedPipelineId(newPipeline.id);
