@@ -701,7 +701,7 @@ export function PipelineBuilderChatbot({
     setSavePromptedSessionId(null);
     
     try {
-      const loadedPipeline = savedPipelines.find((pipeline: Pipeline) => pipeline.id === pipelineId) ?? null;
+
 
       const response = await loadPipelineIntoSession(pipelineId, sessionId || undefined);
       const continuationContext: Record<string, unknown> = { availableColumns };
