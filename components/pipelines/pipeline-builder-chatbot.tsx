@@ -79,12 +79,7 @@ interface PipelineBuilderChatbotProps {
 
 const SAVE_DIALOG_DISABLED = true;
 
-const LEGACY_TO_CANONICAL_FILTER_KEY: Record<string, string> = {
-  competitors: "competitor_name",
-  locations: "client_location",
-  dimensions: "unit_dimensions",
-  unit_categories: "unit_category",
-};
+
 
 const CONTINUATION_MAX_ATTEMPTS = 2;
 const CONTINUATION_PROMPT =
@@ -302,7 +297,7 @@ export function PipelineBuilderChatbot({
       await createPipeline({ ...requestPayload, name: uniqueName });
       setPipelineName(uniqueName);
     }
-  }, [loadedPipelineSettings, sessionId]);
+  }, [sessionId]);
 
   // Load saved pipelines list
   const refreshSavedPipelines = useCallback(async () => {
