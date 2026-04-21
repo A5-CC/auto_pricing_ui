@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/select";
 import type { Adjuster } from "@/lib/adjusters";
 import { createPipeline, deletePipeline, listPipelines } from "@/lib/api/client/pipelines";
-import type { Pipeline, PipelineSettings } from "@/lib/api/types";
+import type { Pipeline } from "@/lib/api/types";
 import { Save, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { DeletePipelineDialog } from "./delete-pipeline-dialog";
