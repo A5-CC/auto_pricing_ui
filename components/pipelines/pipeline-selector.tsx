@@ -40,30 +40,6 @@ function dedupeValues(values: string[] | undefined): string[] {
   return next;
 }
 
-function normalizeToCanonicalFilters(filters?: Record<string, string[]>): Record<string, string[]> {
-  const next: Record<string, string[]> = {};
-
-  for (const [key, values] of Object.entries(filters ?? {})) {
-    const normalizedValues = dedupeValues(values);
-    if (normalizedValues.length === 0) continue;
-
-    const resolvedKey = LEGACY_TO_CANONICAL[key] ?? key;
-    next[resolvedKey] = dedupeValues([...(next[resolvedKey] ?? []), ...normalizedValues]);
-  }
-
-  return next;
-}
-
-function normalizeFlagKeys(flags?: Record<string, boolean>): Record<string, boolean> {
-  const next: Record<string, boolean> = {};
-
-  for (const [key, value] of Object.entries(flags ?? {})) {
-    const resolvedKey = LEGACY_TO_CANONICAL[key] ?? key;
-    next[resolvedKey] = Boolean(value);
-  }
-
-  return next;
-}
 
 
 
@@ -106,17 +82,17 @@ export function PipelineSelector({
 
   // No-op for local extras, as filters/settings are now only universal_filters
   const readLocalExtras = useCallback(() => {
-    if (typeof window === "undefined") return {} as Record<string, { filters: Record<string, string[]>; settings?: any }>;
+    if (typeof window === "undefined") return {} as Record<string, { filters: Record<string, string[]>; settings?: Record<string, unknown> }>;
     try {
       const raw = window.localStorage.getItem(LOCAL_STORAGE_KEY);
       if (!raw) return {};
-      return JSON.parse(raw) as Record<string, { filters: Record<string, string[]>; settings?: any }>;
+      return JSON.parse(raw) as Record<string, { filters: Record<string, string[]>; settings?: Record<string, unknown> }>;
     } catch {
-      return {} as Record<string, { filters: Record<string, string[]>; settings?: any }>;
+      return {} as Record<string, { filters: Record<string, string[]>; settings?: Record<string, unknown> }>;
     }
   }, []);
 
-  const writeLocalExtras = useCallback((extras: Record<string, { filters: Record<string, string[]>; settings?: any }>) => {
+  const writeLocalExtras = useCallback((extras: Record<string, { filters: Record<string, string[]>; settings?: Record<string, unknown> }>) => {
     if (typeof window === "undefined") return;
     try {
       window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(extras));
@@ -128,7 +104,7 @@ export function PipelineSelector({
   // Normalize pipeline for UI: just pass universal_filters
   const normalizePipelineForUi = useCallback((
     pipeline: Pipeline,
-    extra?: { filters: Record<string, string[]>; settings?: any }
+    extra?: { filters: Record<string, string[]>; settings?: Record<string, unknown> }
   ): Pipeline => {
     const mergedUniversalFilters = {
       ...(pipeline.settings?.universal_filters ?? {}),
@@ -190,7 +166,7 @@ export function PipelineSelector({
         settings: { ...currentSettings, universal_filters: mergedUniversalFilters },
       });
       const extras = readLocalExtras();
-      extras[newPipeline.id] = { filters: {}, settings: { ...currentSettings, universal_filters: mergedUniversalFilters } };
+      extras[newPipeline.id] = { filters: {}, settings: { ...currentSettings, universal_filters: mergedUniversalFilters } as Record<string, unknown> };
       writeLocalExtras(extras);
       setPipelines((prev: Pipeline[]) => [normalizePipelineForUi(newPipeline, extras[newPipeline.id]), ...prev]);
       setSelectedPipelineId(newPipeline.id);
