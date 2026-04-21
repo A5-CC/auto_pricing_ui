@@ -16,29 +16,6 @@ import { useCallback, useEffect, useState } from "react";
 import { DeletePipelineDialog } from "./delete-pipeline-dialog";
 import { SavePipelineDialog } from "./save-pipeline-dialog";
 
-const LEGACY_TO_CANONICAL: Record<string, string> = {
-  competitors: "competitor_name",
-  locations: "client_location",
-  client_location: "client_location",
-  dimensions: "unit_dimensions",
-  unit_categories: "unit_category",
-};
-
-function dedupeValues(values: string[] | undefined): string[] {
-  if (!Array.isArray(values)) return [];
-
-  const seen = new Set<string>();
-  const next: string[] = [];
-
-  for (const value of values) {
-    const normalized = String(value);
-    if (seen.has(normalized)) continue;
-    seen.add(normalized);
-    next.push(normalized);
-  }
-
-  return next;
-}
 
 
 
