@@ -59,15 +59,15 @@ export function PipelineSelector({
 
   // No-op for local extras, as filters/settings are now only universal_filters
   const readLocalExtras = useCallback(() => {
-    if (typeof window === "undefined") return {} as Record<string, { filters: Record<string, string[]>; settings?: Record<string, unknown> }>;
-    try {
-      const raw = window.localStorage.getItem(LOCAL_STORAGE_KEY);
-      if (!raw) return {};
-      return JSON.parse(raw) as Record<string, { filters: Record<string, string[]>; settings?: Record<string, unknown> }>;
-    } catch {
-      return {} as Record<string, { filters: Record<string, string[]>; settings?: Record<string, unknown> }>;
-    }
-  }, []);
+      if (typeof window === "undefined") return {} as Record<string, { filters: Record<string, string[]>; settings?: Record<string, unknown> }>;
+      try {
+        const raw = window.localStorage.getItem(LOCAL_STORAGE_KEY);
+        if (!raw) return {};
+        return JSON.parse(raw) as Record<string, { filters: Record<string, string[]>; settings?: Record<string, unknown> }>;
+      } catch {
+        return {} as Record<string, { filters: Record<string, string[]>; settings?: Record<string, unknown> }>;
+      }
+    }, []);
 
   const writeLocalExtras = useCallback((extras: Record<string, { filters: Record<string, string[]>; settings?: Record<string, unknown> }>) => {
     if (typeof window === "undefined") return;
