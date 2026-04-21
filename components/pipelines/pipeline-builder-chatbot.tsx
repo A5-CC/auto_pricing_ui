@@ -146,6 +146,7 @@ export function PipelineBuilderChatbot({
   const [isLoadingPipelines, setIsLoadingPipelines] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [currentPhase, setCurrentPhase] = useState<ConversationPhase>("welcome");
+  // pipelineState holds the latest pipeline configuration, updated from agent responses
   const [pipelineState, setPipelineState] = useState<PipelineState | null>(null);
   const [pipelineName, setPipelineName] = useState("");
   const [showPipelinePreview, setShowPipelinePreview] = useState(false);
@@ -341,7 +342,7 @@ export function PipelineBuilderChatbot({
         ...(Object.keys(filterModes).length > 0 ? { filter_modes: filterModes } : {}),
       },
     };
-
+    
     try {
       await createPipeline(requestPayload);
     } catch (error) {
@@ -628,26 +629,22 @@ export function PipelineBuilderChatbot({
     }
   };
 
-  const handleSavePipeline = async (nameOverride?: string) => {
-    const nameToUse = (nameOverride ?? pipelineName ?? "").trim();
-
+  // handleSavePipeline saves the current pipelineState using the existing pipelineName
+  const handleSavePipeline = async () => {
+    const nameToUse = (pipelineName ?? "").trim();
     if (!pipelineState || !nameToUse) {
       toast.error("Name required", {
         description: "Please enter a name for the pipeline"
       });
       return;
     }
-
     setIsSaving(true);
     try {
-      setPipelineName(nameToUse);
       await savePipelineToPipelinesStore(pipelineState, nameToUse);
       toast.success("✅ Pipeline saved", {
         description: `"${nameToUse}" is now available on the Pipelines page`
       });
-      // Update phase to complete
       setCurrentPhase("complete");
-      // Refresh saved pipelines list
       await refreshSavedPipelines();
       setShowSaveDialog(false);
     } catch (error) {
@@ -1028,7 +1025,7 @@ export function PipelineBuilderChatbot({
             onOpenChange={setShowSaveDialog}
             onSave={async (name: string) => {
               setPipelineName(name);
-              await handleSavePipeline(name);
+              await handleSavePipeline();
             }}
             defaultName={pipelineName}
           />
@@ -1264,7 +1261,7 @@ export function PipelineBuilderChatbot({
             onOpenChange={setShowSaveDialog}
             onSave={async (name: string) => {
               setPipelineName(name);
-              await handleSavePipeline(name);
+              await handleSavePipeline();
             }}
             defaultName={pipelineName}
           />
@@ -1476,7 +1473,7 @@ export function PipelineBuilderChatbot({
           onOpenChange={setShowSaveDialog}
           onSave={async (name: string) => {
             setPipelineName(name);
-            await handleSavePipeline(name);
+            await handleSavePipeline();
           }}
           defaultName={pipelineName}
         />
