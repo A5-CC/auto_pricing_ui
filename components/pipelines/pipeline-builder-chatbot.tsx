@@ -330,7 +330,10 @@ export function PipelineBuilderChatbot({
     });
 
     // Merge all settings, preserving existing keys (like rounding) and updating universal_filters, combinatoric_flags, filter_modes
-    const rounding = stateToSave.settings?.rounding ?? {};
+    // Ensure rounding is always a valid object
+    const rounding = stateToSave.settings?.rounding && typeof stateToSave.settings.rounding === 'object'
+      ? stateToSave.settings.rounding
+      : { enabled: false, offset: 0 };
     const requestPayload = {
       name: trimmedName,
       filters: stateToSave.filters as any,
