@@ -125,7 +125,7 @@ export function PipelineSelector({
     const pipeline = pipelines.find((p: Pipeline) => p.id === pipelineId);
     if (pipeline) {
       setSelectedPipelineId(pipelineId);
-      onLoadPipeline(pipeline.settings?.universal_filters ?? ({} as Record<string, string[]>));
+      onLoadPipeline(pipeline.settings?.universal_filters ?? Object.create(null));
       onPipelineChange?.(pipeline);
     }
   };
