@@ -1,5 +1,6 @@
 "use client";
 import { CalculatedPrice } from "@/components/pipelines/calculated-price";
+import type { FilterSelection } from "@/components/pipelines/calculated-price";
 import { listPipelines } from "@/lib/api/client/pipelines";
 import { getColumnStatistics, getPricingData, getPricingSnapshots } from "@/lib/api/client/pricing";
 import type { ColumnStatistics, Pipeline, PricingDataResponse, PricingSnapshot } from "@/lib/api/types";
@@ -106,7 +107,7 @@ export default function PipelineBundlesPage() {
             const adjusters = pipeline.adjusters || [];
             const settings = pipeline.settings || {};
             // Defensive extraction and type casting for settings fields
-            const filters = (settings.universal_filters as Record<string, any>) || {};
+            const filters = (settings.universal_filters as Record<string, FilterSelection>) || {};
             const combinatoricFlags = (settings.combinatoric_flags as Record<string, boolean>) || {};
             const rounding = (settings.rounding as { enabled?: boolean; offset?: number }) || {};
             const roundingEnabled = Boolean(rounding.enabled);
@@ -121,8 +122,8 @@ export default function PipelineBundlesPage() {
                   clientAvailableUnits={0}
                   adjusters={adjusters}
                   currentDate={new Date()}
-                  filters={filters as any}
-                  combinatoricFlags={combinatoricFlags as any}
+                  filters={filters}
+                  combinatoricFlags={combinatoricFlags}
                   roundingEnabled={roundingEnabled}
                   roundingOffset={roundingOffset}
                 />

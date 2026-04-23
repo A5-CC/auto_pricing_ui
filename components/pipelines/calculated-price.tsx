@@ -38,7 +38,7 @@ function cartesianProduct<T>(arrays: T[][]): T[][] {
   )
 }
 
-type FilterSelection<T = FilterValue> =
+export type FilterSelection<T = FilterValue> =
   | { mode: 'all' }
   | { mode: 'subset'; values: T[] }
 
