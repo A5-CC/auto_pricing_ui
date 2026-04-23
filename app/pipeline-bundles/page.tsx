@@ -1,6 +1,9 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
+import type { Pipeline, PricingSnapshot, PricingDataResponse, ColumnStatistics } from "@/lib/api/types";
 import { PricingOverview } from "../pricing/components/pricing-overview";
+import { listPipelines } from "@/lib/api/client/pipelines";
+import { getPricingSnapshots, getPricingData, getColumnStatistics } from "@/lib/api/client/pricing";
 export default function PipelineBundlesPage() {
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [selectedPipelineIds, setSelectedPipelineIds] = useState<string[]>([]);
@@ -23,9 +26,9 @@ export default function PipelineBundlesPage() {
   useEffect(() => {
     if (!selectedSnapshot) return;
     getPricingData(selectedSnapshot).then(setDataResponse);
-    getColumnStatistics(selectedSnapshot).then((stats) => {
+    getColumnStatistics(selectedSnapshot).then((stats: ColumnStatistics[]) => {
       const statsObj: Record<string, ColumnStatistics> = {};
-      stats.forEach((s) => { statsObj[s.column] = s; });
+      stats.forEach((s: ColumnStatistics) => { statsObj[s.column] = s; });
       setColumnsStats(statsObj);
     });
   }, [selectedSnapshot]);
