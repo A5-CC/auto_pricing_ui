@@ -97,21 +97,3 @@ export default function PipelineBundlesPage() {
       </main>
     );
   }
-              {eligiblePipelines.map((p) => (
-                <li
-                  key={p.id}
-                  className="py-1 px-2 rounded hover:bg-accent cursor-pointer"
-                  onClick={() => setSelectedPipelineIds(ids => [...ids, p.id])}
-                >
-                  {p.name}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <div className="text-muted-foreground">No eligible pipelines available for bundling.</div>
-          )}
-        </div>
-      </div>
-    </main>
-  );
-}
