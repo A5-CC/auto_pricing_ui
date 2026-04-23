@@ -5,26 +5,18 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import type { Adjuster } from "@/lib/adjusters/types";
 import {
   createPipeline,
   getAgentSession,
   getE1DataSummary,
   listPipelines,
-  loadPipelineIntoSession,
   sendAgentMessage,
   type AgentChatResponse,
   type ConversationPhase,
   type E1DataSummary,
   type PipelineAction,
-  type PipelineState,
+  type PipelineState
 } from "@/lib/api/client/pipelines";
 import type { Pipeline } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
