@@ -25,6 +25,7 @@ interface PipelineSelectorProps {
   currentAdjusters: Adjuster[];
   currentSettings?: {
     universal_filters?: Record<string, string[]>;
+    combinatoric_flags?: Record<string, boolean>;
     [key: string]: unknown;
   };
   onLoadPipeline: (filters: Record<string, string[]>) => void;
@@ -137,13 +138,20 @@ export function PipelineSelector({
         ...currentFilters,
         ...(currentSettings?.universal_filters ?? {}),
       };
+      const mergedCombinatoricFlags = {
+        ...(currentSettings?.combinatoric_flags ?? {}),
+      };
       const newPipeline = await createPipeline({
         name,
         adjusters: currentAdjusters,
-        settings: { ...currentSettings, universal_filters: mergedUniversalFilters },
+        settings: {
+          ...currentSettings,
+          universal_filters: mergedUniversalFilters,
+          combinatoric_flags: mergedCombinatoricFlags,
+        },
       });
       const extras = readLocalExtras();
-      extras[newPipeline.id] = { filters: {}, settings: { ...currentSettings, universal_filters: mergedUniversalFilters } as Record<string, unknown> };
+      extras[newPipeline.id] = { filters: {}, settings: { ...currentSettings, universal_filters: mergedUniversalFilters, combinatoric_flags: mergedCombinatoricFlags } as Record<string, unknown> };
       writeLocalExtras(extras);
       setPipelines((prev: Pipeline[]) => [normalizePipelineForUi(newPipeline, extras[newPipeline.id]), ...prev]);
       setSelectedPipelineId(newPipeline.id);
