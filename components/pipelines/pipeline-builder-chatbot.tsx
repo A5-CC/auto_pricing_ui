@@ -255,12 +255,25 @@ export function PipelineBuilderChatbot({
     const rounding = stateToSave.settings?.rounding && typeof stateToSave.settings.rounding === 'object'
       ? stateToSave.settings.rounding
       : { enabled: false, offset: 0 };
+
+    const rawUniversalFilters = (stateToSave.settings?.universal_filters ?? {}) as Record<string, unknown>;
+    const normalizedUniversalFilters = Object.entries(rawUniversalFilters).reduce((acc, [key, value]) => {
+      if (!Array.isArray(value)) return acc;
+      const normalized = value
+        .map((v) => String(v))
+        .map((v) => v.trim())
+        .filter(Boolean);
+      if (normalized.length === 0) return acc;
+      acc[key] = normalized;
+      return acc;
+    }, {} as Record<string, string[]>);
     const requestPayload = {
       name: trimmedName,
       adjusters: normalizedAdjusters as Adjuster[],
       settings: {
         ...(stateToSave.settings ?? {}),
         rounding,
+        universal_filters: normalizedUniversalFilters,
       },
     };
     
