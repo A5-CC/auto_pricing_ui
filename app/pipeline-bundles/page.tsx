@@ -132,7 +132,7 @@ export default function PipelineBundlesPage() {
         seen.add(canonical);
         next.push(canonical);
       }
-      return next;
+      return next.length > 0 ? next : values;
     };
 
     return selectedPipelines.map((pipeline) => {
