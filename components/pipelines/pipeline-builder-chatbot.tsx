@@ -131,7 +131,6 @@ export function PipelineBuilderChatbot({
   const [inputValue, setInputValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [isLoadingPipelines, setIsLoadingPipelines] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [currentPhase, setCurrentPhase] = useState<ConversationPhase>("welcome");
   // pipelineState holds the latest pipeline configuration, updated from agent responses
@@ -141,7 +140,6 @@ export function PipelineBuilderChatbot({
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [savePromptedSessionId, setSavePromptedSessionId] = useState<string | null>(null);
   // Saved pipelines state
-  const [savedPipelines, setSavedPipelines] = useState<Pipeline[]>([]);
   
   // E1 Data Summary state for interactive suggestions
   const [e1DataSummary, setE1DataSummary] = useState<E1DataSummary | null>(null);
@@ -283,15 +281,7 @@ export function PipelineBuilderChatbot({
 
   // Load saved pipelines list
   const refreshSavedPipelines = useCallback(async () => {
-    setIsLoadingPipelines(true);
-    try {
-      const pipelines = await listPipelines();
-      setSavedPipelines(pipelines);
-    } catch (error) {
-      console.error("Error loading pipelines:", error);
-    } finally {
-      setIsLoadingPipelines(false);
-    }
+    // No-op: pipelines loading removed
   }, []);
 
   const handleAgentResponse = useCallback((response: AgentChatResponse) => {
