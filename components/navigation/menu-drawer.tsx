@@ -46,6 +46,7 @@ const NAV_SECTIONS: NavSection[] = [
   {
     title: 'Main',
     items: [
+      { label: 'Pipeline Bundles', href: '/pipeline-bundles', icon: <Zap className="h-4 w-4 rotate-45" /> },
       { label: 'Pipelines', href: '/pipelines', icon: <Zap className="h-4 w-4" /> },
       { label: 'Competitor Pricing', href: '/pricing', icon: <TrendingUp className="h-4 w-4" /> },
     ],
