@@ -276,13 +276,15 @@ export default function PipelineBundlesPage() {
       const csvFilters: Record<string, FilterSelection<string>> = { ...filters };
       const csvCombinatoricFlags: Record<string, boolean> = { ...mergedCombinatoricFlags };
 
-      let rowsForCsvCalc = subsetFilteredRows as Array<Record<string, unknown>>;
+      const baseRowsForCsv = baseRows.length > 0 ? baseRows : (subsetFilteredRows as Array<Record<string, unknown>>);
+      let rowsForCsvCalc = (subsetFilteredRows.length > 0 ? subsetFilteredRows : baseRowsForCsv) as Array<Record<string, unknown>>;
 
       const ensureCombinatoricKey = (key: string) => {
         const existing = csvFilters[key];
         const existingVals = existing && existing.mode === "subset" ? existing.values : [];
         const fallbackVals = getDistinctValues(subsetFilteredRows, key);
-        const values = (existingVals?.length ? existingVals : fallbackVals).map(String).filter(Boolean);
+        const fallbackFromBase = fallbackVals.length > 0 ? fallbackVals : getDistinctValues(baseRowsForCsv, key);
+        const values = (existingVals?.length ? existingVals : fallbackFromBase).map(String).filter(Boolean);
         if (values.length === 0) return;
         csvFilters[key] = { mode: "subset", values };
         csvCombinatoricFlags[key] = true;
