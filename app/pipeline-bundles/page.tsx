@@ -46,12 +46,7 @@ function getCombinatoricTuples(pipeline: Pipeline): string[][] {
   return cartesianProduct(arrays);
 }
 
-// New intersection: only if there is a full tuple match
-function pipelinesIntersect(a: Pipeline, b: Pipeline): boolean {
-  const aTuples = getCombinatoricTuples(a).map((tuple) => tuple.join("|"));
-  const bTuples = new Set(getCombinatoricTuples(b).map((tuple) => tuple.join("|")));
-  return aTuples.some((tuple) => bTuples.has(tuple));
-}
+// (Removed duplicate pipelinesIntersect definition)
 
 function pipelinesIntersect(a: Pipeline, b: Pipeline): boolean {
   const aVals = getCombinatoricValues(a);
