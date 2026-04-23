@@ -1,6 +1,6 @@
 "use client";
-import { CalculatedPrice } from "@/components/pipelines/calculated-price";
 import type { FilterSelection } from "@/components/pipelines/calculated-price";
+import { CalculatedPrice } from "@/components/pipelines/calculated-price";
 import { listPipelines } from "@/lib/api/client/pipelines";
 import { getColumnStatistics, getPricingData, getPricingSnapshots } from "@/lib/api/client/pricing";
 import type { ColumnStatistics, Pipeline, PricingDataResponse, PricingSnapshot } from "@/lib/api/types";
