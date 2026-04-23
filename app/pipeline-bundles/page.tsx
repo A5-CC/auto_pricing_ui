@@ -180,12 +180,17 @@ export default function PipelineBundlesPage() {
                 next.push(canonical);
               }
 
-              return next.length > 0 ? next : values;
+              // Mirror pipelines page behavior: drop stale values that don't
+              // exist in current snapshot rows rather than keeping impossible
+              // selections that force "No matching combinations".
+              return next;
             };
 
             const normalizedSettingsFilters = Object.entries(settingsFilters).reduce((acc, [key, values]) => {
               if (!Array.isArray(values) || values.length === 0) return acc;
-              acc[key] = normalizeValuesForColumn(key, values);
+              const normalizedValues = normalizeValuesForColumn(key, values);
+              if (!Array.isArray(normalizedValues) || normalizedValues.length === 0) return acc;
+              acc[key] = normalizedValues;
               return acc;
             }, {} as Record<string, string[]>);
 
@@ -267,7 +272,7 @@ export default function PipelineBundlesPage() {
                 <h2 className="text-xl font-semibold mb-2">{pipeline.name}</h2>
                 {/* Optionally, add summary numbers here if needed */}
                 <CalculatedPrice
-                  competitorData={dataResponse?.data || []}
+                  competitorData={subsetFilteredRows as PricingDataResponse["data"]}
                   clientAvailableUnits={clientDataResponse?.data.length || 0}
                   adjusters={adjusters}
                   currentDate={new Date()}
