@@ -536,8 +536,8 @@ function applyCalculatedPricesToCsv(
   const newStandardRateIndex = findColumnIndex(headers, NEW_STANDARD_RATE_COLUMNS)
   let matchedUnitAreaIndex = findColumnIndex(headers, MATCHED_UNIT_AREA_COLUMNS)
 
-  if (locationIndex < 0 || unitSizeIndex < 0) {
-    throw new Error("CSV must include facility/location and size columns to map frontend pricing.")
+  if (locationIndex < 0 || (unitSizeIndex < 0 && areaIndex < 0)) {
+    throw new Error("CSV must include facility/location and size or area columns to map frontend pricing.")
   }
   if (newWebRateIndex < 0 || newStandardRateIndex < 0) {
     throw new Error("CSV must include New Web Rate and New Standard Rate columns.")
@@ -623,7 +623,7 @@ function applyCalculatedPricesToCsv(
     const locationKey = normalizeLocationKey(getCellValue(row, locationIndex))
     const city = normalizeCityValue(getCellValue(row, locationIndex))
     const cityKey = normalizeLocationKey(city)
-    const dimensionToken = getDimensionLookupToken(getCellValue(row, unitSizeIndex))
+    const dimensionToken = unitSizeIndex >= 0 ? getDimensionLookupToken(getCellValue(row, unitSizeIndex)) : ""
     const areaToken = areaIndex >= 0 ? getAreaLookupToken(getCellValue(row, areaIndex)) : ""
     const driveUpAccess = unitTypeIndex >= 0 ? normalizeDriveUpAccessValue(getCellValue(row, unitTypeIndex)) : ""
     let matchedAreaValue = ""
@@ -700,7 +700,7 @@ function applyCalculatedPricesToCsv(
   }
 
   if (matchedRows === 0) {
-    throw new Error("No uploaded CSV rows matched the current pipeline table by location + size.")
+    throw new Error("No uploaded CSV rows matched the current pipeline table by location + size/area.")
   }
 
   return { headers, rows }
