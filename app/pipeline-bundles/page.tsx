@@ -18,9 +18,11 @@ const COMBINATORIC_KEYS = [
 
 function getCombinatoricValues(pipeline: Pipeline): Record<string, string[]> {
   const filters = pipeline.settings?.universal_filters ?? {};
+  const filtersObj = filters as Record<string, unknown>;
   const result: Record<string, string[]> = {};
   for (const key of COMBINATORIC_KEYS) {
-    result[key] = Array.isArray(filters[key]) ? filters[key] : [];
+    const val = filtersObj[key];
+    result[key] = Array.isArray(val) ? (val as string[]) : [];
   }
   return result;
 }
