@@ -148,18 +148,8 @@ export function PipelineBuilderChatbot({
   const [showPipelinePreview, setShowPipelinePreview] = useState(false);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [savePromptedSessionId, setSavePromptedSessionId] = useState<string | null>(null);
-
-
-
-  const openSaveDialog = useCallback(() => {
-    if (SAVE_DIALOG_DISABLED) return;
-    setShowSaveDialog(true);
-  }, []);
-  
   // Saved pipelines state
   const [savedPipelines, setSavedPipelines] = useState<Pipeline[]>([]);
-  const [showLoadDialog, setShowLoadDialog] = useState(false);
-  const [selectedPipelineId, setSelectedPipelineId] = useState<string>("");
   
   // E1 Data Summary state for interactive suggestions
   const [e1DataSummary, setE1DataSummary] = useState<E1DataSummary | null>(null);
@@ -677,52 +667,15 @@ export function PipelineBuilderChatbot({
           setPipelineName((latestPipeline.name ?? "").trim() || `Pipeline ${new Date().toISOString().replace("T", " ").slice(0, 19)}`);
         }
 
-        openSaveDialog();
+        // openSaveDialog removed
         setSavePromptedSessionId(sessionId);
       } catch (error) {
         console.warn("Could not confirm session pipeline before showing save dialog:", error);
       }
     })();
-  }, [currentPhase, openSaveDialog, pipelineName, savePromptedSessionId, sessionId]);
-
-  // Load a specific pipeline into the session
-  const handleLoadPipeline = async (pipelineId: string) => {
-    if (!pipelineId) {
-      toast.error("Select a pipeline", {
-        description: "Please select a pipeline to load"
-      });
-      return;
-    }
-
-    setIsTyping(true);
-    setShowLoadDialog(false);
-    // Allow save prompt to re-open for loaded pipelines, even when backend
-    // keeps the same session_id.
-    setSavePromptedSessionId(null);
-    
-    try {
+  }, [currentPhase, pipelineName, savePromptedSessionId, sessionId]);
 
 
-      const response = await loadPipelineIntoSession(pipelineId, sessionId || undefined);
-      const continuationContext: Record<string, unknown> = { availableColumns };
-      if (e1DataSummary) {
-        continuationContext.e1DataSummary = e1DataSummary;
-      }
-      const completeResponse = await ensureFullAssistantResponse(response, continuationContext);
-      handleAgentResponse(completeResponse);
-      setSelectedPipelineId("");
-      toast.success("Pipeline loaded", {
-        description: `Loaded "${completeResponse.pipeline_state.name || 'pipeline'}"`
-      });
-    } catch (error) {
-      console.error("Error loading pipeline:", error);
-      toast.error("Error loading pipeline", {
-        description: error instanceof Error ? error.message : "Unknown error"
-      });
-    } finally {
-      setIsTyping(false);
-    }
-  };
 
   // =============================================================================
   // Event Handlers
@@ -938,15 +891,7 @@ export function PipelineBuilderChatbot({
                   <span>Live</span>
                 </div>
               )}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowLoadDialog(!showLoadDialog)}
-                className="text-xs font-medium border-slate-300 hover:bg-slate-50 hover:border-slate-400 transition-all"
-              >
-                <FolderOpen className="h-3.5 w-3.5 mr-1.5" />
-                Load
-              </Button>
+              {/* Load button removed */}
               <Button
                 variant="outline"
                 size="sm"
@@ -967,54 +912,7 @@ export function PipelineBuilderChatbot({
           )}
         </div>
 
-        {/* Load Pipeline Dialog */}
-        {showLoadDialog && (
-          <div className="px-6 py-4 border-b bg-gradient-to-r from-slate-50 to-slate-100/50 shadow-inner">
-            <div className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
-              <FolderOpen className="h-4 w-4" />
-              Load Saved Pipeline
-            </div>
-            <div className="flex gap-3">
-              <Select value={selectedPipelineId} onValueChange={setSelectedPipelineId}>
-                <SelectTrigger className="flex-1 h-10 text-sm border-2 border-slate-200 rounded-xl bg-white shadow-sm hover:border-slate-300 transition-all">
-                  <SelectValue placeholder={isLoadingPipelines ? "Loading..." : "Select a pipeline"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {savedPipelines.map((pipeline) => (
-                    <SelectItem key={pipeline.id} value={pipeline.id}>
-                      {pipeline.name || `Pipeline ${pipeline.id.substring(0, 8)}`}
-                    </SelectItem>
-                  ))}
-                  {savedPipelines.length === 0 && !isLoadingPipelines && (
-                    <SelectItem value="_none" disabled>No saved pipelines</SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
-              <Button
-                size="sm"
-                onClick={() => refreshSavedPipelines()}
-                variant="outline"
-                disabled={isLoadingPipelines}
-                className="h-10 px-4 border-2 border-slate-200 hover:border-slate-300 rounded-xl transition-all"
-              >
-                {isLoadingPipelines ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <RefreshCw className="h-4 w-4" />
-                )}
-              </Button>
-              <Button
-                size="sm"
-                onClick={() => handleLoadPipeline(selectedPipelineId)}
-                disabled={!selectedPipelineId || isTyping}
-                className="h-10 px-5 bg-gradient-to-r from-primary to-primary/90 text-white shadow-md rounded-xl font-medium hover:scale-105 transition-all disabled:opacity-50 disabled:hover:scale-100"
-              >
-                <FolderOpen className="h-4 w-4 mr-1.5" />
-                Load
-              </Button>
-            </div>
-          </div>
-        )}
+        {/* Load Pipeline Dialog removed */}
 
         {/* Messages Area */}
         <div className="flex-1 min-h-0 overflow-hidden bg-white">
@@ -1055,7 +953,7 @@ export function PipelineBuilderChatbot({
             <div className="max-w-4xl mx-auto flex items-center justify-between gap-3">
               <p className="text-sm text-emerald-900/80">Pipeline is ready to save.</p>
               <Button
-                onClick={openSaveDialog}
+                // onClick={openSaveDialog} removed
                 disabled={isSaving || !canSavePipeline}
                 className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white h-11 px-6 rounded-xl shadow-lg shadow-green-600/25 font-semibold transition-all hover:scale-105 disabled:opacity-50 disabled:hover:scale-100"
                 size="sm"
@@ -1175,15 +1073,7 @@ export function PipelineBuilderChatbot({
                     Connected
                   </div>
                 )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowLoadDialog(!showLoadDialog)}
-                  className="gap-2 text-xs font-medium border-slate-300 hover:bg-slate-50 hover:border-slate-400 transition-all"
-                >
-                  <FolderOpen className="h-4 w-4" />
-                  Load
-                </Button>
+                {/* Load button removed */}
                 <Button
                   variant="outline"
                   size="sm"
@@ -1204,44 +1094,7 @@ export function PipelineBuilderChatbot({
             )}
           </div>
 
-          {/* Load Pipeline Dialog */}
-          {showLoadDialog && (
-            <div className="px-6 py-3 border-b bg-muted/50 flex-shrink-0">
-              <div className="text-sm font-medium text-foreground mb-2">Load Saved Pipeline</div>
-              <div className="flex gap-2">
-                <Select value={selectedPipelineId} onValueChange={setSelectedPipelineId}>
-                  <SelectTrigger className="flex-1">
-                    <SelectValue placeholder={isLoadingPipelines ? "Loading..." : "Select a pipeline"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {savedPipelines.map((pipeline) => (
-                      <SelectItem key={pipeline.id} value={pipeline.id}>
-                        {pipeline.name || `Pipeline ${pipeline.id.substring(0, 8)}`}
-                      </SelectItem>
-                    ))}
-                    {savedPipelines.length === 0 && !isLoadingPipelines && (
-                      <SelectItem value="_none" disabled>No saved pipelines</SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
-                <Button
-                  size="sm"
-                  onClick={() => refreshSavedPipelines()}
-                  variant="outline"
-                  disabled={isLoadingPipelines}
-                >
-                  {isLoadingPipelines ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={() => handleLoadPipeline(selectedPipelineId)}
-                  disabled={!selectedPipelineId || isTyping}
-                >
-                  Load
-                </Button>
-              </div>
-            </div>
-          )}
+          {/* Load Pipeline Dialog removed */}
 
           {/* Messages Area */}
           <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
@@ -1282,7 +1135,7 @@ export function PipelineBuilderChatbot({
               <div className="max-w-4xl mx-auto flex items-center justify-between gap-3">
                 <p className="text-sm text-emerald-900/80">Pipeline is ready to save.</p>
                 <Button
-                  onClick={openSaveDialog}
+                  // onClick={openSaveDialog} removed
                   disabled={isSaving || !canSavePipeline}
                   className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white h-11 px-6 rounded-xl shadow-lg shadow-green-600/25 font-semibold transition-all hover:scale-105 disabled:opacity-50 disabled:hover:scale-100"
                   size="sm"
@@ -1439,7 +1292,7 @@ export function PipelineBuilderChatbot({
                     variant="ghost"
                     size="sm"
                     className="text-xs"
-                    onClick={() => setShowLoadDialog(!showLoadDialog)}
+                    // onClick for showLoadDialog removed
                     title="Load saved pipeline"
                   >
                     <FolderOpen className="h-3 w-3 mr-1" />
@@ -1459,48 +1312,7 @@ export function PipelineBuilderChatbot({
             )}
           </CardHeader>
 
-          {/* Load Pipeline Dialog */}
-          {showLoadDialog && !isMinimized && (
-            <div className="px-4 py-3 border-b bg-muted/50">
-              <div className="text-sm font-medium text-slate-700 mb-2">Load Saved Pipeline</div>
-              <div className="flex gap-2">
-                <Select value={selectedPipelineId} onValueChange={setSelectedPipelineId}>
-                  <SelectTrigger className="flex-1">
-                    <SelectValue placeholder={isLoadingPipelines ? "Loading..." : "Select a pipeline"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {savedPipelines.map((pipeline) => (
-                      <SelectItem key={pipeline.id} value={pipeline.id}>
-                        {pipeline.name || `Pipeline ${pipeline.id.substring(0, 8)}`}
-                      </SelectItem>
-                    ))}
-                    {savedPipelines.length === 0 && !isLoadingPipelines && (
-                      <SelectItem value="_none" disabled>No saved pipelines</SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
-                <Button
-                  size="sm"
-                  onClick={() => refreshSavedPipelines()}
-                  variant="outline"
-                  disabled={isLoadingPipelines}
-                >
-                  {isLoadingPipelines ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <RefreshCw className="h-4 w-4" />
-                  )}
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={() => handleLoadPipeline(selectedPipelineId)}
-                  disabled={!selectedPipelineId || isTyping}
-                >
-                  Load
-                </Button>
-              </div>
-            </div>
-          )}
+          {/* Load Pipeline Dialog fully removed */}
 
           {!isMinimized && (
             <>
@@ -1544,7 +1356,7 @@ export function PipelineBuilderChatbot({
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-xs text-muted-foreground">Pipeline is ready to save.</p>
                     <Button
-                      onClick={openSaveDialog}
+                      // onClick={openSaveDialog} removed
                       disabled={isSaving || !canSavePipeline}
                       className="gap-2"
                     >
