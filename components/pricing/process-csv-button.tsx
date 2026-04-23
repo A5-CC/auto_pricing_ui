@@ -106,6 +106,7 @@ const UNIT_TYPE_COLUMNS = new Set(["unittype", "unittypecode", "unittypecategory
 const LOCATION_COLUMNS = new Set(["facilityname", "storagename", "propertyname", "sitename", "location", "address", "clientlocation", "modstoragelocation"])
 const NEW_WEB_RATE_COLUMNS = new Set(["newwebrate"])
 const NEW_STANDARD_RATE_COLUMNS = new Set(["newstandardrate"])
+const MATCHED_UNIT_AREA_COLUMNS = new Set(["matchedunitarea", "unitareamatch"])
 const RATE_VARIABLE_EXCLUSIONS = new Set([
   "currentwebrate",
   "newwebrate",
@@ -148,6 +149,38 @@ function normalizeDimensionValue(value: unknown): string {
   const leadingPair = extractLeadingDimensionPair(value)
   if (leadingPair) return leadingPair
   return normalizeMatchValue(value).replace(/\s+/g, "")
+}
+
+function normalizeUnitAreaValue(value: unknown): string {
+  const asNumber = Number(String(value ?? "").replace(/[^0-9.\-]/g, ""))
+  if (Number.isFinite(asNumber) && asNumber > 0) {
+    return Number.isInteger(asNumber) ? String(Math.trunc(asNumber)) : String(asNumber)
+  }
+  return ""
+}
+
+function computeAreaFromDimensionLikeValue(value: unknown): string {
+  const raw = String(value ?? "").toLowerCase().replace(/×/g, "x")
+  const match = raw.match(/(\d+(?:\.\d+)?)\s*x\s*(\d+(?:\.\d+)?)/)
+  if (!match) return ""
+  const a = Number(match[1])
+  const b = Number(match[2])
+  if (!Number.isFinite(a) || !Number.isFinite(b) || a <= 0 || b <= 0) return ""
+  const area = a * b
+  return Number.isInteger(area) ? String(Math.trunc(area)) : String(area)
+}
+
+function getDimensionLookupToken(value: unknown): string {
+  const dimension = normalizeDimensionValue(value)
+  return dimension ? `dim:${dimension}` : ""
+}
+
+function getAreaLookupToken(value: unknown): string {
+  const explicitArea = normalizeUnitAreaValue(value)
+  if (explicitArea) return `area:${explicitArea}`
+
+  const derivedArea = computeAreaFromDimensionLikeValue(value)
+  return derivedArea ? `area:${derivedArea}` : ""
 }
 
 function normalizeDriveUpAccessValue(value: unknown): "true" | "false" | "" {
@@ -486,6 +519,7 @@ function applyCalculatedPricesToCsv(
   const unitTypeIndex = findColumnIndex(headers, UNIT_TYPE_COLUMNS)
   const newWebRateIndex = findColumnIndex(headers, NEW_WEB_RATE_COLUMNS)
   const newStandardRateIndex = findColumnIndex(headers, NEW_STANDARD_RATE_COLUMNS)
+  let matchedUnitAreaIndex = findColumnIndex(headers, MATCHED_UNIT_AREA_COLUMNS)
 
   if (locationIndex < 0 || unitSizeIndex < 0) {
     throw new Error("CSV must include facility/location and size columns to map frontend pricing.")
@@ -494,25 +528,36 @@ function applyCalculatedPricesToCsv(
     throw new Error("CSV must include New Web Rate and New Standard Rate columns.")
   }
 
+  if (matchedUnitAreaIndex < 0) {
+    headers.push("Matched Unit Area")
+    matchedUnitAreaIndex = headers.length - 1
+    for (const row of rows) row.push("")
+  }
+
   const priceLookup = new Map<string, number>()
   const cityPriceLookup = new Map<string, number>()
   for (const calculatedRow of calculatedRows) {
     if (typeof calculatedRow.price !== "number" || Number.isNaN(calculatedRow.price)) continue
     const location = normalizeMatchValue(calculatedRow.comboMap.client_location)
     const city = normalizeCityValue(calculatedRow.comboMap.client_location)
-    const dimension = normalizeDimensionValue(calculatedRow.comboMap.unit_dimensions)
+    const dimensionToken = getDimensionLookupToken(calculatedRow.comboMap.unit_dimensions)
+    const areaToken = getAreaLookupToken(calculatedRow.comboMap.unit_area ?? calculatedRow.comboMap.unit_dimensions)
     const driveUpAccess = normalizeDriveUpAccessValue(calculatedRow.comboMap.has_drive_up_access)
-    if (!location || !dimension) continue
+    if (!location || (!dimensionToken && !areaToken)) continue
     const webPrice = applyConfiguredRounding(calculatedRow.price, rounding)
     const price = webPrice
-    priceLookup.set(buildPriceLookupKey(location, dimension, driveUpAccess), price)
-    if (city) {
-      cityPriceLookup.set(buildPriceLookupKey(city, dimension, driveUpAccess), price)
+    if (dimensionToken) {
+      priceLookup.set(buildPriceLookupKey(location, dimensionToken, driveUpAccess), price)
+      if (city) cityPriceLookup.set(buildPriceLookupKey(city, dimensionToken, driveUpAccess), price)
+    }
+    if (areaToken) {
+      priceLookup.set(buildPriceLookupKey(location, areaToken, driveUpAccess), price)
+      if (city) cityPriceLookup.set(buildPriceLookupKey(city, areaToken, driveUpAccess), price)
     }
   }
 
   if (priceLookup.size === 0) {
-    throw new Error("No frontend price rows available. Make sure location and unit dimensions are combinatoric in the pipeline table.")
+    throw new Error("No frontend price rows available. Make sure location and unit_dimensions or unit_area are combinatoric in the pipeline table.")
   }
 
   let matchedRows = 0
@@ -520,13 +565,18 @@ function applyCalculatedPricesToCsv(
     const csvRow = rowToRecord(headers, row)
     const location = normalizeMatchValue(getCellValue(row, locationIndex))
     const city = normalizeCityValue(getCellValue(row, locationIndex))
-    const dimension = normalizeDimensionValue(getCellValue(row, unitSizeIndex))
+    const dimensionToken = getDimensionLookupToken(getCellValue(row, unitSizeIndex))
+    const areaToken = getAreaLookupToken(getCellValue(row, unitSizeIndex))
     const driveUpAccess = unitTypeIndex >= 0 ? normalizeDriveUpAccessValue(getCellValue(row, unitTypeIndex)) : ""
     const mappedPrice =
-      (driveUpAccess ? priceLookup.get(buildPriceLookupKey(location, dimension, driveUpAccess)) : undefined) ??
-      priceLookup.get(buildPriceLookupKey(location, dimension)) ??
-      (driveUpAccess && city ? cityPriceLookup.get(buildPriceLookupKey(city, dimension, driveUpAccess)) : undefined) ??
-      (city ? cityPriceLookup.get(buildPriceLookupKey(city, dimension)) : undefined)
+      (areaToken && driveUpAccess ? priceLookup.get(buildPriceLookupKey(location, areaToken, driveUpAccess)) : undefined) ??
+      (areaToken ? priceLookup.get(buildPriceLookupKey(location, areaToken)) : undefined) ??
+      (dimensionToken && driveUpAccess ? priceLookup.get(buildPriceLookupKey(location, dimensionToken, driveUpAccess)) : undefined) ??
+      (dimensionToken ? priceLookup.get(buildPriceLookupKey(location, dimensionToken)) : undefined) ??
+      (areaToken && driveUpAccess && city ? cityPriceLookup.get(buildPriceLookupKey(city, areaToken, driveUpAccess)) : undefined) ??
+      (areaToken && city ? cityPriceLookup.get(buildPriceLookupKey(city, areaToken)) : undefined) ??
+      (dimensionToken && driveUpAccess && city ? cityPriceLookup.get(buildPriceLookupKey(city, dimensionToken, driveUpAccess)) : undefined) ??
+      (dimensionToken && city ? cityPriceLookup.get(buildPriceLookupKey(city, dimensionToken)) : undefined)
     if (!mappedPrice) continue
 
     const baseWebRate = mappedPrice
@@ -537,9 +587,11 @@ function applyCalculatedPricesToCsv(
 
     const finalWebRate = formatCurrency(roundedEffectiveWebRate)
     const standardRate = formatCurrency(standardRateValue)
+    const matchedArea = areaToken.replace(/^area:/, "")
 
     row[newWebRateIndex] = finalWebRate
     row[newStandardRateIndex] = standardRate
+    row[matchedUnitAreaIndex] = matchedArea
     matchedRows += 1
   }
 
@@ -607,6 +659,7 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
   // All other filters must be empty.
 
   const allowedKeys = new Set(["unit_dimensions", "client_location", "competitor_name", "has_drive_up_access"]);
+  allowedKeys.add("unit_area");
   
   // NOTE: 'competitors', 'locations', 'unitCategories' are standard legacy keys.
   // 'locations' is legacy client_location.
@@ -815,7 +868,7 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
                 Upload a client CSV and apply pricing algorithms.
                 <br />
                 <span className="text-xs text-muted-foreground mt-2 block">
-                  Supported filters: client_location, unit_dimensions, has_drive_up_access.
+                  Supported filters: client_location, unit_dimensions or unit_area, has_drive_up_access.
                   <br />
                   Function popup adjusters appear after upload in the review screen.
                   <br />
@@ -1032,7 +1085,7 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
         <TooltipContent side="bottom" className="max-w-xs">
           <div className="text-xs">
             Use this for pricing CSVs. Requires combinatoric filters on
-            <strong> client_location</strong> and <strong>unit_dimensions</strong>.
+            <strong> client_location</strong> and <strong>unit_dimensions</strong> or <strong>unit_area</strong>.
             Optional combinatoric <strong>has_drive_up_access</strong> maps from CSV Unit Type.
           </div>
         </TooltipContent>

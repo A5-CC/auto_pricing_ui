@@ -266,6 +266,7 @@ export default function PipelineBundlesPage() {
 
       ensureCombinatoricKey("client_location");
       ensureCombinatoricKey("unit_dimensions");
+      ensureCombinatoricKey("unit_area");
       // Optional, used when CSV includes Unit Type drive-up signal
       ensureCombinatoricKey("has_drive_up_access");
 
