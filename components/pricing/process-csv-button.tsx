@@ -563,9 +563,15 @@ function applyCalculatedPricesToCsv(
 
   for (const calculatedRow of calculatedRows) {
     if (typeof calculatedRow.price !== "number" || Number.isNaN(calculatedRow.price)) continue
-    const location = normalizeMatchValue(calculatedRow.comboMap.client_location)
-    const locationKey = normalizeLocationKey(calculatedRow.comboMap.client_location)
-    const city = normalizeCityValue(calculatedRow.comboMap.client_location)
+    const rawLocation =
+      calculatedRow.comboMap.client_location ??
+      calculatedRow.comboMap.facility_location_city ??
+      calculatedRow.comboMap.location ??
+      calculatedRow.comboMap.city
+
+    const location = normalizeMatchValue(rawLocation)
+    const locationKey = normalizeLocationKey(rawLocation)
+    const city = normalizeCityValue(rawLocation)
     const cityKey = normalizeLocationKey(city)
     const dimensionToken = getDimensionLookupToken(calculatedRow.comboMap.unit_dimensions)
     const areaToken = getAreaLookupToken(calculatedRow.comboMap.unit_area)
