@@ -42,8 +42,6 @@ const getE1ClientCacheKey = (snapshot: string, limit: number) =>
   `e1-client-${snapshot}-limit=${limit}`
 
 export default function PipelinesPage() {
-    // Pipeline bundle UI state
-    const [showBundleModal, setShowBundleModal] = useState(false);
   const LEGACY_TO_COLUMN: Record<string, string> = {
     competitors: 'competitor_name',
     locations: 'client_location',

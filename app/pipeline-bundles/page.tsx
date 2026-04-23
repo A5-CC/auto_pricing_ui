@@ -3,8 +3,6 @@
 import { useState } from "react";
 
 export default function PipelineBundlesPage() {
-  // Placeholder for bundle selection logic
-  const [selectedPipelines, setSelectedPipelines] = useState<string[]>([]);
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 space-y-4 sm:space-y-5">
