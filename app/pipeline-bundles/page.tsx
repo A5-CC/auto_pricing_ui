@@ -1,9 +1,9 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
-import type { Pipeline, PricingSnapshot, PricingDataResponse, ColumnStatistics } from "@/lib/api/types";
-import { PricingOverview } from "../pricing/components/pricing-overview";
 import { listPipelines } from "@/lib/api/client/pipelines";
-import { getPricingSnapshots, getPricingData, getColumnStatistics } from "@/lib/api/client/pricing";
+import { getColumnStatistics, getPricingData, getPricingSnapshots } from "@/lib/api/client/pricing";
+import type { ColumnStatistics, Pipeline, PricingDataResponse, PricingSnapshot } from "@/lib/api/types";
+import { useEffect, useMemo, useState } from "react";
+import { PricingOverview } from "../pricing/components/pricing-overview";
 export default function PipelineBundlesPage() {
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [selectedPipelineIds, setSelectedPipelineIds] = useState<string[]>([]);
