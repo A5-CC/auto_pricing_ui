@@ -1,12 +1,48 @@
 "use client";
 import type { FilterSelection } from "@/components/pipelines/calculated-price";
 import { CalculatedPrice } from "@/components/pipelines/calculated-price";
-import { listPipelines } from "@/lib/api/client/pipelines";
+import { getE1Client, listPipelines } from "@/lib/api/client/pipelines";
 import { getColumnStatistics, getPricingData, getPricingSnapshots } from "@/lib/api/client/pricing";
-import type { ColumnStatistics, Pipeline, PricingDataResponse, PricingSnapshot } from "@/lib/api/types";
+import type { ColumnStatistics, E1DataResponse, Pipeline, PricingDataResponse, PricingSnapshot } from "@/lib/api/types";
 import { useEffect, useMemo, useState } from "react";
 import { PricingOverview } from "../pricing/components/pricing-overview";
 export default function PipelineBundlesPage() {
+  const LEGACY_TO_COLUMN: Record<string, string> = {
+    competitors: "competitor_name",
+    locations: "client_location",
+    client_location: "client_location",
+    dimensions: "unit_dimensions",
+    unit_categories: "unit_category",
+  };
+
+  const normalizeFilterKeys = (filters?: Record<string, string[]>) => {
+    const next: Record<string, string[]> = {};
+    for (const [key, vals] of Object.entries(filters ?? {})) {
+      if (!Array.isArray(vals) || vals.length === 0) continue;
+      const resolvedKey = LEGACY_TO_COLUMN[key] ?? key;
+      next[resolvedKey] = vals;
+    }
+    return next;
+  };
+
+  const normalizeCombinatoricFlagKeys = (flags?: Record<string, boolean>) => {
+    const next: Record<string, boolean> = {};
+    for (const [key, value] of Object.entries(flags ?? {})) {
+      const resolvedKey = LEGACY_TO_COLUMN[key] ?? key;
+      next[resolvedKey] = Boolean(value);
+    }
+    return next;
+  };
+
+  const normalizeFilterModeKeys = (modes?: Record<string, string>) => {
+    const next: Record<string, string> = {};
+    for (const [key, value] of Object.entries(modes ?? {})) {
+      const resolvedKey = LEGACY_TO_COLUMN[key] ?? key;
+      next[resolvedKey] = value;
+    }
+    return next;
+  };
+
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [selectedPipelineIds, setSelectedPipelineIds] = useState<string[]>([]);
 
@@ -18,6 +54,7 @@ export default function PipelineBundlesPage() {
   const [snapshots, setSnapshots] = useState<PricingSnapshot[]>([]);
   const [selectedSnapshot, setSelectedSnapshot] = useState<string>("latest");
   const [dataResponse, setDataResponse] = useState<PricingDataResponse | null>(null);
+  const [clientDataResponse, setClientDataResponse] = useState<E1DataResponse | null>(null);
   const [columnsStats, setColumnsStats] = useState<Record<string, ColumnStatistics>>({});
 
   useEffect(() => {
@@ -28,6 +65,7 @@ export default function PipelineBundlesPage() {
   useEffect(() => {
     if (!selectedSnapshot) return;
     getPricingData(selectedSnapshot).then(setDataResponse);
+    getE1Client(selectedSnapshot, { limit: 1000 }).then(setClientDataResponse).catch(() => setClientDataResponse(null));
     getColumnStatistics(selectedSnapshot).then((stats: ColumnStatistics[]) => {
       const statsObj: Record<string, ColumnStatistics> = {};
       stats.forEach((s: ColumnStatistics) => { statsObj[s.column] = s; });
@@ -105,11 +143,33 @@ export default function PipelineBundlesPage() {
         <section className="space-y-12 mt-12">
           {selectedPipelines.map((pipeline) => {
             const adjusters = pipeline.adjusters || [];
-            const settings = pipeline.settings || {};
-            // Defensive extraction and type casting for settings fields
-            const filters = (settings.universal_filters as Record<string, FilterSelection>) || {};
-            const combinatoricFlags = (settings.combinatoric_flags as Record<string, boolean>) || {};
-            const rounding = (settings.rounding as { enabled?: boolean; offset?: number }) || {};
+            const settings = (pipeline.settings ?? {}) as Record<string, unknown>;
+            const settingsFilters = normalizeFilterKeys((settings.universal_filters as Record<string, string[]> | undefined));
+            const normalizedFlags = normalizeCombinatoricFlagKeys((settings.combinatoric_flags as Record<string, boolean> | undefined));
+            const normalizedModes = normalizeFilterModeKeys((settings.filter_modes as Record<string, string> | undefined));
+
+            const combinatoricFlags = Object.keys(settingsFilters).reduce((acc, key) => {
+              const mode = normalizedModes[key];
+              if (mode === "combinatoric") {
+                acc[key] = true;
+                return acc;
+              }
+              if (mode === "subset") {
+                acc[key] = false;
+                return acc;
+              }
+              // Backward compatibility: default loaded filter dimensions to combinatoric.
+              acc[key] = normalizedFlags[key] ?? true;
+              return acc;
+            }, {} as Record<string, boolean>);
+
+            const filters = Object.entries(settingsFilters).reduce((acc, [key, values]) => {
+              if (!Array.isArray(values) || values.length === 0) return acc;
+              acc[key] = { mode: "subset", values };
+              return acc;
+            }, {} as Record<string, FilterSelection<string>>);
+
+            const rounding = (settings.rounding as { enabled?: boolean; offset?: number } | undefined) ?? {};
             const roundingEnabled = Boolean(rounding.enabled);
             const roundingOffset = Number(rounding.offset ?? 0);
 
@@ -119,7 +179,7 @@ export default function PipelineBundlesPage() {
                 {/* Optionally, add summary numbers here if needed */}
                 <CalculatedPrice
                   competitorData={dataResponse?.data || []}
-                  clientAvailableUnits={0}
+                  clientAvailableUnits={clientDataResponse?.data.length || 0}
                   adjusters={adjusters}
                   currentDate={new Date()}
                   filters={filters}
