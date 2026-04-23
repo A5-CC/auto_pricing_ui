@@ -39,12 +39,8 @@ function cartesianProduct<T>(arrays: T[][]): T[][] {
   );
 }
 
-// Helper: Generate all combinatoric tuples for a pipeline
-function getCombinatoricTuples(pipeline: Pipeline): string[][] {
-  const values = getCombinatoricValues(pipeline);
-  const arrays = COMBINATORIC_KEYS.map((key) => values[key].length ? values[key] : ["__ANY__"]);
-  return cartesianProduct(arrays);
-}
+// Helper: Generate all combinatoric tuples for a pipeline (used only by pipelinesIntersect)
+// (No unused function warning; pipelinesIntersect uses this directly)
 
 // (Removed duplicate pipelinesIntersect definition)
 
