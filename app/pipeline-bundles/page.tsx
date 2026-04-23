@@ -28,6 +28,20 @@ function getCombinatoricValues(pipeline: Pipeline): Record<string, string[]> {
   return result;
 }
 
+// Helper: Generate all combinatoric tuples for a pipeline
+function getCombinatoricTuples(pipeline: Pipeline): string[][] {
+  const values = getCombinatoricValues(pipeline);
+  const arrays = COMBINATORIC_KEYS.map((key) => values[key].length ? values[key] : ["__ANY__"]);
+  return cartesianProduct(arrays);
+}
+
+// New intersection: only if there is a full tuple match
+function pipelinesIntersect(a: Pipeline, b: Pipeline): boolean {
+  const aTuples = getCombinatoricTuples(a).map((tuple) => tuple.join("|"));
+  const bTuples = new Set(getCombinatoricTuples(b).map((tuple) => tuple.join("|")));
+  return aTuples.some((tuple) => bTuples.has(tuple));
+}
+
 // Helper: Cartesian product of arrays
 function cartesianProduct<T>(arrays: T[][]): T[][] {
   return arrays.reduce<T[][]>(
@@ -56,24 +70,27 @@ function pipelinesIntersect(a: Pipeline, b: Pipeline): boolean {
   return false;
 }
 
-export default function PipelineBundlesPage() {
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
-  const [selectedPipelineId, setSelectedPipelineId] = useState<string | null>(null);
+  const [selectedPipelineIds, setSelectedPipelineIds] = useState<string[]>([]);
 
   useEffect(() => {
     listPipelines().then(setPipelines);
   }, []);
 
-  const selectedPipeline = useMemo(
-    () => pipelines.find((p) => p.id === selectedPipelineId) || null,
-    [selectedPipelineId, pipelines]
+  // Selected pipeline objects
+  const selectedPipelines = useMemo(
+    () => selectedPipelineIds.map((id) => pipelines.find((p) => p.id === id)).filter(Boolean) as Pipeline[],
+    [selectedPipelineIds, pipelines]
   );
 
-  // Filter eligible pipelines: only those that do NOT intersect with the selected one
+  // Eligible pipelines: must not intersect with ANY selected pipeline
   const eligiblePipelines = useMemo(() => {
-    if (!selectedPipeline) return pipelines;
-    return pipelines.filter((p) => p.id === selectedPipeline.id || !pipelinesIntersect(selectedPipeline, p));
-  }, [pipelines, selectedPipeline]);
+    if (selectedPipelines.length === 0) return pipelines;
+    return pipelines.filter((p) =>
+      !selectedPipelineIds.includes(p.id) &&
+      selectedPipelines.every((sel) => !pipelinesIntersect(sel, p))
+    );
+  }, [pipelines, selectedPipelineIds, selectedPipelines]);
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 space-y-4 sm:space-y-5">
@@ -82,39 +99,40 @@ export default function PipelineBundlesPage() {
         Create and manage bundles of pipelines. Select pipelines to combine as long as their filters do not conflict. Pipeline settings are only editable in the Pipelines tab.
       </div>
       <div className="mb-6">
-        <label className="block mb-2 font-medium">Select a pipeline:</label>
-        <Select value={selectedPipelineId || ""} onValueChange={setSelectedPipelineId}>
-          <SelectTrigger className="w-[320px]">
-            <SelectValue placeholder="Choose pipeline..." />
-          </SelectTrigger>
-          <SelectContent>
-            {pipelines.map((pipeline) => (
-              <SelectItem key={pipeline.id} value={pipeline.id}>
-                {pipeline.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <label className="block mb-2 font-medium">Selected pipelines:</label>
+        <div className="flex flex-wrap gap-2 mb-2">
+          {selectedPipelines.length === 0 && <span className="text-muted-foreground">None selected</span>}
+          {selectedPipelines.map((p) => (
+            <span key={p.id} className="inline-flex items-center bg-primary/10 text-primary px-3 py-1 rounded-full">
+              {p.name}
+              <button
+                className="ml-2 text-red-500 hover:text-red-700"
+                onClick={() => setSelectedPipelineIds(ids => ids.filter(id => id !== p.id))}
+                title="Remove pipeline"
+              >
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
       </div>
       <div className="mb-6">
         <label className="block mb-2 font-medium">Eligible pipelines to bundle:</label>
         <div className="max-h-64 overflow-y-auto border rounded-lg bg-background/50 p-4">
-          {selectedPipeline ? (
-            eligiblePipelines.length > 1 ? (
-              <ul className="space-y-2">
-                {eligiblePipelines
-                  .filter((p) => p.id !== selectedPipeline.id)
-                  .map((p) => (
-                    <li key={p.id} className="py-1 px-2 rounded hover:bg-accent cursor-pointer">
-                      {p.name}
-                    </li>
-                  ))}
-              </ul>
-            ) : (
-              <div className="text-muted-foreground">No eligible pipelines available for bundling.</div>
-            )
+          {eligiblePipelines.length > 0 ? (
+            <ul className="space-y-2">
+              {eligiblePipelines.map((p) => (
+                <li
+                  key={p.id}
+                  className="py-1 px-2 rounded hover:bg-accent cursor-pointer"
+                  onClick={() => setSelectedPipelineIds(ids => [...ids, p.id])}
+                >
+                  {p.name}
+                </li>
+              ))}
+            </ul>
           ) : (
-            <div className="text-muted-foreground">Select a pipeline to see eligible bundles.</div>
+            <div className="text-muted-foreground">No eligible pipelines available for bundling.</div>
           )}
         </div>
       </div>
