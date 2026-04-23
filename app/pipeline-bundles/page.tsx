@@ -1,3 +1,4 @@
+"use client";
 import { useEffect, useMemo, useState } from "react";
 import { PricingOverview } from "../pricing/components/pricing-overview";
 export default function PipelineBundlesPage() {
