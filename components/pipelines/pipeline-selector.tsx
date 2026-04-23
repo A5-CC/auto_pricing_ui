@@ -26,6 +26,7 @@ interface PipelineSelectorProps {
   currentSettings?: {
     universal_filters?: Record<string, string[]>;
     combinatoric_flags?: Record<string, boolean>;
+    filter_modes?: Record<string, "combinatoric" | "subset">;
     [key: string]: unknown;
   };
   onLoadPipeline: (filters: Record<string, string[]>) => void;
@@ -141,6 +142,14 @@ export function PipelineSelector({
       const mergedCombinatoricFlags = {
         ...(currentSettings?.combinatoric_flags ?? {}),
       };
+      const mergedFilterModes = Object.keys(mergedUniversalFilters).reduce(
+        (acc, key) => {
+          const isCombinatoric = mergedCombinatoricFlags[key] ?? true;
+          acc[key] = isCombinatoric ? "combinatoric" : "subset";
+          return acc;
+        },
+        {} as Record<string, "combinatoric" | "subset">
+      );
       const newPipeline = await createPipeline({
         name,
         adjusters: currentAdjusters,
@@ -148,10 +157,11 @@ export function PipelineSelector({
           ...currentSettings,
           universal_filters: mergedUniversalFilters,
           combinatoric_flags: mergedCombinatoricFlags,
+          filter_modes: mergedFilterModes,
         },
       });
       const extras = readLocalExtras();
-      extras[newPipeline.id] = { filters: {}, settings: { ...currentSettings, universal_filters: mergedUniversalFilters, combinatoric_flags: mergedCombinatoricFlags } as Record<string, unknown> };
+      extras[newPipeline.id] = { filters: {}, settings: { ...currentSettings, universal_filters: mergedUniversalFilters, combinatoric_flags: mergedCombinatoricFlags, filter_modes: mergedFilterModes } as Record<string, unknown> };
       writeLocalExtras(extras);
       setPipelines((prev: Pipeline[]) => [normalizePipelineForUi(newPipeline, extras[newPipeline.id]), ...prev]);
       setSelectedPipelineId(newPipeline.id);
