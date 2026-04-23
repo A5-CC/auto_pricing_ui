@@ -21,7 +21,7 @@ import type { Adjuster } from '@/lib/adjusters'
 import { evaluateSafeFunction } from "@/lib/adjusters"
 import type { E1DataRow } from "@/lib/api/types"
 import { FileSpreadsheet, Info, Loader2, Plus, Trash2 } from "lucide-react"
-import { useState, type ChangeEvent } from "react"
+import { useMemo, useState, type ChangeEvent } from "react"
 import { toast } from "sonner"
 
 interface ProcessCsvButtonProps {
@@ -42,6 +42,10 @@ interface ProcessCsvButtonProps {
     offset: number
   }
   calculatedRows?: CalculatedPriceRow[]
+  calculatedRowsBundle?: Array<{
+    pipelineName: string
+    rows: CalculatedPriceRow[]
+  }>
   pricingContext?: {
     competitorData: E1DataRow[]
     clientAvailableUnits: number
@@ -50,6 +54,11 @@ interface ProcessCsvButtonProps {
     combinatoricFlags: Record<string, boolean>
     availableVariables: string[]
   }
+}
+
+type ResolvedCalculatedRows = {
+  rows: CalculatedPriceRow[]
+  error: string | null
 }
 
 type ParsedCsv = {
@@ -541,7 +550,7 @@ function applyCalculatedPricesToCsv(
   return { headers, rows }
 }
 
-export function ProcessCsvButton({ filters, calculatedRows = [], rounding, pricingContext }: ProcessCsvButtonProps) {
+export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsBundle, rounding, pricingContext }: ProcessCsvButtonProps) {
   const [open, setOpen] = useState(false)
   const [file, setFile] = useState<File | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
@@ -552,6 +561,42 @@ export function ProcessCsvButton({ filters, calculatedRows = [], rounding, prici
   const [csvNumericVariables, setCsvNumericVariables] = useState<string[]>([])
 
   const functionDialog = useAdjusterDialog()
+
+  const resolvedCalculatedRows = useMemo<ResolvedCalculatedRows>(() => {
+    const bundle = calculatedRowsBundle
+    if (!bundle || bundle.length === 0) {
+      return { rows: calculatedRows, error: null }
+    }
+
+    const merged: CalculatedPriceRow[] = []
+    const ownerByKey = new Map<string, string>()
+
+    for (const entry of bundle) {
+      const pipelineName = entry.pipelineName || "Unnamed pipeline"
+      for (const row of entry.rows ?? []) {
+        if (typeof row?.price !== "number" || Number.isNaN(row.price)) continue
+
+        const location = normalizeMatchValue(row.comboMap.client_location)
+        const dimension = normalizeDimensionValue(row.comboMap.unit_dimensions)
+        const driveUpAccess = normalizeDriveUpAccessValue(row.comboMap.has_drive_up_access)
+        if (!location || !dimension) continue
+
+        const key = buildPriceLookupKey(location, dimension, driveUpAccess)
+        const existingOwner = ownerByKey.get(key)
+        if (existingOwner && existingOwner !== pipelineName) {
+          return {
+            rows: [],
+            error: `Pipeline overlap detected between "${existingOwner}" and "${pipelineName}" for the same location + size combination. Please ensure selected pipelines do not intersect.`,
+          }
+        }
+
+        ownerByKey.set(key, pipelineName)
+        merged.push(row)
+      }
+    }
+
+    return { rows: merged, error: null }
+  }, [calculatedRows, calculatedRowsBundle])
 
   // Validate allowed filters
   // Strictly Allowed:
@@ -597,7 +642,10 @@ export function ProcessCsvButton({ filters, calculatedRows = [], rounding, prici
   }
 
   const rebuildReviewFromOriginal = (original: ParsedCsv, nextAdjusters: Adjuster[]) => {
-    const processed = applyCalculatedPricesToCsv(original, calculatedRows, rounding, nextAdjusters)
+    if (resolvedCalculatedRows.error) {
+      throw new Error(resolvedCalculatedRows.error)
+    }
+    const processed = applyCalculatedPricesToCsv(original, resolvedCalculatedRows.rows, rounding, nextAdjusters)
     const headers = processed.headers.length ? processed.headers : original.headers
     const changes = buildChanges(original, processed)
     const reviewRows = buildReviewRows(original, processed, changes)
@@ -644,13 +692,18 @@ export function ProcessCsvButton({ filters, calculatedRows = [], rounding, prici
   const handleProcess = async () => {
     if (!file) return
 
+    if (resolvedCalculatedRows.error) {
+      toast.error(resolvedCalculatedRows.error)
+      return
+    }
+
     setIsProcessing(true)
     try {
       const originalText = await file.text()
       const original = toParsedCsv(originalText)
       setOriginalParsed(original)
       setCsvNumericVariables(detectNumericCsvColumns(original))
-      const processed = applyCalculatedPricesToCsv(original, calculatedRows, rounding, popupAdjusters)
+      const processed = applyCalculatedPricesToCsv(original, resolvedCalculatedRows.rows, rounding, popupAdjusters)
 
       if (original.headers.length === 0 || processed.headers.length === 0) {
         throw new Error("CSV appears empty or invalid. Please check the input file.")

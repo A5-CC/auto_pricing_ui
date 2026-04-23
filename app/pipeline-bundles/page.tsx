@@ -1,6 +1,7 @@
 "use client";
 import type { FilterSelection } from "@/components/pipelines/calculated-price";
-import { CalculatedPrice } from "@/components/pipelines/calculated-price";
+import { calculatePriceTable, CalculatedPrice } from "@/components/pipelines/calculated-price";
+import { ProcessCsvButton } from "@/components/pricing/process-csv-button";
 import { getE1Client, listPipelines } from "@/lib/api/client/pipelines";
 import { getColumnStatistics, getPricingData, getPricingSnapshots } from "@/lib/api/client/pricing";
 import type { ColumnStatistics, E1DataResponse, Pipeline, PricingDataResponse, PricingSnapshot } from "@/lib/api/types";
@@ -88,6 +89,167 @@ export default function PipelineBundlesPage() {
     [pipelines, selectedPipelineIds]
   );
 
+  const currentDate = useMemo(() => new Date(), []);
+
+  const availableVariables = useMemo(() => {
+    const numericCols = Object.entries(columnsStats)
+      .filter(([, stats]) => {
+        const dtype = String((stats as { data_type?: string }).data_type ?? "").toLowerCase();
+        return dtype.includes("int") || dtype.includes("float") || dtype.includes("decimal") || dtype.includes("number");
+      })
+      .map(([col]) => col)
+      .sort();
+    return numericCols;
+  }, [columnsStats]);
+
+  const selectedPipelineContexts = useMemo(() => {
+    const baseRows = (dataResponse?.data ?? []) as Array<Record<string, unknown>>;
+
+    const normalizeValuesForColumn = (column: string, values: string[]) => {
+      if (!Array.isArray(values) || values.length === 0) return [] as string[];
+      const canonicalByKey = new Map<string, string>();
+      for (const row of baseRows) {
+        const cell = row[column];
+        if (cell === null || cell === undefined) continue;
+        if (Array.isArray(cell)) {
+          for (const item of cell) {
+            const s = String(item);
+            canonicalByKey.set(s.trim().toLowerCase(), s);
+          }
+        } else {
+          const s = String(cell);
+          canonicalByKey.set(s.trim().toLowerCase(), s);
+        }
+      }
+
+      const next: string[] = [];
+      const seen = new Set<string>();
+      for (const raw of values) {
+        const key = String(raw).trim().toLowerCase();
+        const canonical = canonicalByKey.get(key);
+        if (!canonical) continue;
+        if (seen.has(canonical)) continue;
+        seen.add(canonical);
+        next.push(canonical);
+      }
+      return next;
+    };
+
+    return selectedPipelines.map((pipeline) => {
+      const adjusters = pipeline.adjusters || [];
+      const settings = (pipeline.settings ?? {}) as Record<string, unknown>;
+      const settingsFilters = normalizeFilterKeys((settings.universal_filters as Record<string, string[]> | undefined));
+      const normalizedFlags = normalizeCombinatoricFlagKeys((settings.combinatoric_flags as Record<string, boolean> | undefined));
+      const normalizedModes = normalizeFilterModeKeys((settings.filter_modes as Record<string, string> | undefined));
+
+      const normalizedSettingsFilters = Object.entries(settingsFilters).reduce((acc, [key, values]) => {
+        if (!Array.isArray(values) || values.length === 0) return acc;
+        const normalizedValues = normalizeValuesForColumn(key, values);
+        if (!Array.isArray(normalizedValues) || normalizedValues.length === 0) return acc;
+        acc[key] = normalizedValues;
+        return acc;
+      }, {} as Record<string, string[]>);
+
+      const combinatoricFlags = Object.keys(normalizedSettingsFilters).reduce((acc, key) => {
+        const mode = normalizedModes[key];
+        if (mode === "combinatoric") {
+          acc[key] = true;
+          return acc;
+        }
+        if (mode === "subset") {
+          acc[key] = false;
+          return acc;
+        }
+        acc[key] = normalizedFlags[key] ?? true;
+        return acc;
+      }, {} as Record<string, boolean>);
+
+      const subsetFilters = Object.entries(normalizedSettingsFilters).reduce((acc, [key, values]) => {
+        if ((combinatoricFlags[key] ?? true) !== false) return acc;
+        if (!Array.isArray(values) || values.length === 0) return acc;
+        acc[key] = values;
+        return acc;
+      }, {} as Record<string, string[]>);
+
+      const subsetFilteredRows = Object.entries(subsetFilters).reduce((rows, [col, vals]) => {
+        if (!Array.isArray(vals) || vals.length === 0) return rows;
+        const sel = new Set(vals.map((v) => String(v)));
+        return rows.filter((r) => {
+          const v = r[col];
+          if (v === null || v === undefined) return false;
+          if (Array.isArray(v)) return v.some((x) => sel.has(String(x)));
+          return sel.has(String(v));
+        });
+      }, baseRows);
+
+      const combinatoricFilters = Object.entries(normalizedSettingsFilters).reduce((acc, [key, values]) => {
+        if ((combinatoricFlags[key] ?? true) !== true) return acc;
+        if (!Array.isArray(values) || values.length === 0) return acc;
+
+        const presentSet = new Set<string>();
+        for (const row of subsetFilteredRows) {
+          const cell = row[key];
+          if (cell === null || cell === undefined) continue;
+          if (Array.isArray(cell)) {
+            for (const item of cell) presentSet.add(String(item));
+          } else {
+            presentSet.add(String(cell));
+          }
+        }
+
+        const selectedValues = values.map(String);
+        const presentValues = selectedValues.filter((v) => presentSet.has(v));
+        acc[key] = presentValues.length > 0 ? presentValues : selectedValues;
+        return acc;
+      }, {} as Record<string, string[]>);
+
+      const filters = {
+        ...Object.entries(subsetFilters).reduce((acc, [key, values]) => {
+          acc[key] = { mode: "subset", values };
+          return acc;
+        }, {} as Record<string, FilterSelection<string>>),
+        ...Object.entries(combinatoricFilters).reduce((acc, [key, values]) => {
+          acc[key] = { mode: "subset", values };
+          return acc;
+        }, {} as Record<string, FilterSelection<string>>),
+      };
+
+      const mergedCombinatoricFlags = Object.fromEntries(
+        Object.keys(combinatoricFilters).map((k) => [k, true])
+      ) as Record<string, boolean>;
+
+      const rounding = (settings.rounding as { enabled?: boolean; offset?: number } | undefined) ?? {};
+      const roundingEnabled = Boolean(rounding.enabled);
+      const roundingOffset = Number(rounding.offset ?? 0);
+
+      const calculatedRows = calculatePriceTable({
+        competitorData: subsetFilteredRows as PricingDataResponse["data"],
+        clientAvailableUnits: clientDataResponse?.data.length || 0,
+        adjusters,
+        currentDate,
+        filters,
+        combinatoricFlags: mergedCombinatoricFlags,
+      }).rows;
+
+      return {
+        pipeline,
+        adjusters,
+        subsetFilteredRows: subsetFilteredRows as PricingDataResponse["data"],
+        filters,
+        mergedCombinatoricFlags,
+        roundingEnabled,
+        roundingOffset,
+        calculatedRows,
+      };
+    });
+  }, [
+    selectedPipelines,
+    dataResponse,
+    clientDataResponse?.data.length,
+    currentDate,
+    columnsStats,
+  ]);
+
   return (
     <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 space-y-4 sm:space-y-5">
       <h1 className="text-2xl font-bold mb-6">Pipeline Bundles</h1>
@@ -119,6 +281,25 @@ export default function PipelineBundlesPage() {
             </span>
           ))}
         </div>
+        <div className="mt-3">
+          <ProcessCsvButton
+            snapshotId={selectedSnapshot}
+            filters={{ competitors: [], locations: [], unit_dimensions: [], unitCategories: [] }}
+            rounding={{ enabled: false, offset: 0 }}
+            calculatedRowsBundle={selectedPipelineContexts.map((ctx) => ({
+              pipelineName: ctx.pipeline.name,
+              rows: ctx.calculatedRows,
+            }))}
+            pricingContext={{
+              competitorData: dataResponse?.data ?? [],
+              clientAvailableUnits: clientDataResponse?.data.length || 0,
+              currentDate,
+              filters: {},
+              combinatoricFlags: selectedPipelineContexts[0]?.mergedCombinatoricFlags ?? {},
+              availableVariables,
+            }}
+          />
+        </div>
       </div>
       <div className="mb-6">
         <label className="block mb-2 font-medium">Available pipelines:</label>
@@ -144,142 +325,20 @@ export default function PipelineBundlesPage() {
       {/* Stacked pipeline tables */}
       {selectedPipelines.length > 0 && (
         <section className="space-y-12 mt-12">
-          {selectedPipelines.map((pipeline) => {
-            const adjusters = pipeline.adjusters || [];
-            const settings = (pipeline.settings ?? {}) as Record<string, unknown>;
-            const settingsFilters = normalizeFilterKeys((settings.universal_filters as Record<string, string[]> | undefined));
-            const normalizedFlags = normalizeCombinatoricFlagKeys((settings.combinatoric_flags as Record<string, boolean> | undefined));
-            const normalizedModes = normalizeFilterModeKeys((settings.filter_modes as Record<string, string> | undefined));
-            const baseRows = (dataResponse?.data ?? []) as Array<Record<string, unknown>>;
-
-            const normalizeValuesForColumn = (column: string, values: string[]) => {
-              if (!Array.isArray(values) || values.length === 0) return [] as string[];
-              const canonicalByKey = new Map<string, string>();
-              for (const row of baseRows) {
-                const cell = row[column];
-                if (cell === null || cell === undefined) continue;
-                if (Array.isArray(cell)) {
-                  for (const item of cell) {
-                    const s = String(item);
-                    canonicalByKey.set(s.trim().toLowerCase(), s);
-                  }
-                } else {
-                  const s = String(cell);
-                  canonicalByKey.set(s.trim().toLowerCase(), s);
-                }
-              }
-
-              const next: string[] = [];
-              const seen = new Set<string>();
-              for (const raw of values) {
-                const key = String(raw).trim().toLowerCase();
-                const canonical = canonicalByKey.get(key);
-                if (!canonical) continue;
-                if (seen.has(canonical)) continue;
-                seen.add(canonical);
-                next.push(canonical);
-              }
-
-              // Mirror pipelines page behavior: drop stale values that don't
-              // exist in current snapshot rows rather than keeping impossible
-              // selections that force "No matching combinations".
-              return next;
-            };
-
-            const normalizedSettingsFilters = Object.entries(settingsFilters).reduce((acc, [key, values]) => {
-              if (!Array.isArray(values) || values.length === 0) return acc;
-              const normalizedValues = normalizeValuesForColumn(key, values);
-              if (!Array.isArray(normalizedValues) || normalizedValues.length === 0) return acc;
-              acc[key] = normalizedValues;
-              return acc;
-            }, {} as Record<string, string[]>);
-
-            const combinatoricFlags = Object.keys(normalizedSettingsFilters).reduce((acc, key) => {
-              const mode = normalizedModes[key];
-              if (mode === "combinatoric") {
-                acc[key] = true;
-                return acc;
-              }
-              if (mode === "subset") {
-                acc[key] = false;
-                return acc;
-              }
-              // Backward compatibility: default loaded filter dimensions to combinatoric.
-              acc[key] = normalizedFlags[key] ?? true;
-              return acc;
-            }, {} as Record<string, boolean>);
-
-            const subsetFilters = Object.entries(normalizedSettingsFilters).reduce((acc, [key, values]) => {
-              if ((combinatoricFlags[key] ?? true) !== false) return acc;
-              if (!Array.isArray(values) || values.length === 0) return acc;
-              acc[key] = values;
-              return acc;
-            }, {} as Record<string, string[]>);
-
-            const subsetFilteredRows = Object.entries(subsetFilters).reduce((rows, [col, vals]) => {
-              if (!Array.isArray(vals) || vals.length === 0) return rows;
-              const sel = new Set(vals.map((v) => String(v)));
-              return rows.filter((r) => {
-                const v = r[col];
-                if (v === null || v === undefined) return false;
-                if (Array.isArray(v)) return v.some((x) => sel.has(String(x)));
-                return sel.has(String(v));
-              });
-            }, baseRows);
-
-            const combinatoricFilters = Object.entries(normalizedSettingsFilters).reduce((acc, [key, values]) => {
-              if ((combinatoricFlags[key] ?? true) !== true) return acc;
-              if (!Array.isArray(values) || values.length === 0) return acc;
-
-              const presentSet = new Set<string>();
-              for (const row of subsetFilteredRows) {
-                const cell = row[key];
-                if (cell === null || cell === undefined) continue;
-                if (Array.isArray(cell)) {
-                  for (const item of cell) presentSet.add(String(item));
-                } else {
-                  presentSet.add(String(cell));
-                }
-              }
-
-              const selectedValues = values.map(String);
-              const presentValues = selectedValues.filter((v) => presentSet.has(v));
-              acc[key] = presentValues.length > 0 ? presentValues : selectedValues;
-              return acc;
-            }, {} as Record<string, string[]>);
-
-            const filters = {
-              ...Object.entries(subsetFilters).reduce((acc, [key, values]) => {
-                acc[key] = { mode: "subset", values };
-                return acc;
-              }, {} as Record<string, FilterSelection<string>>),
-              ...Object.entries(combinatoricFilters).reduce((acc, [key, values]) => {
-                acc[key] = { mode: "subset", values };
-                return acc;
-              }, {} as Record<string, FilterSelection<string>>),
-            };
-
-            const mergedCombinatoricFlags = Object.fromEntries(
-              Object.keys(combinatoricFilters).map((k) => [k, true])
-            ) as Record<string, boolean>;
-
-            const rounding = (settings.rounding as { enabled?: boolean; offset?: number } | undefined) ?? {};
-            const roundingEnabled = Boolean(rounding.enabled);
-            const roundingOffset = Number(rounding.offset ?? 0);
-
+          {selectedPipelineContexts.map((ctx) => {
             return (
-              <div key={pipeline.id} className="border rounded-lg bg-background/50 p-6">
-                <h2 className="text-xl font-semibold mb-2">{pipeline.name}</h2>
+              <div key={ctx.pipeline.id} className="border rounded-lg bg-background/50 p-6">
+                <h2 className="text-xl font-semibold mb-2">{ctx.pipeline.name}</h2>
                 {/* Optionally, add summary numbers here if needed */}
                 <CalculatedPrice
-                  competitorData={subsetFilteredRows as PricingDataResponse["data"]}
+                  competitorData={ctx.subsetFilteredRows}
                   clientAvailableUnits={clientDataResponse?.data.length || 0}
-                  adjusters={adjusters}
-                  currentDate={new Date()}
-                  filters={filters}
-                  combinatoricFlags={mergedCombinatoricFlags}
-                  roundingEnabled={roundingEnabled}
-                  roundingOffset={roundingOffset}
+                  adjusters={ctx.adjusters}
+                  currentDate={currentDate}
+                  filters={ctx.filters}
+                  combinatoricFlags={ctx.mergedCombinatoricFlags}
+                  roundingEnabled={ctx.roundingEnabled}
+                  roundingOffset={ctx.roundingOffset}
                 />
               </div>
             );
