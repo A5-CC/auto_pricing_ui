@@ -375,7 +375,7 @@ export default function PipelineBundlesPage() {
             rounding={{ enabled: false, offset: 0 }}
             calculatedRowsBundle={selectedPipelineContexts.map((ctx) => ({
               pipelineName: ctx.pipeline.name,
-              rows: ctx.calculatedRowsForCsv,
+              rows: ctx.calculatedRows,
             }))}
             pricingContext={{
               competitorData: dataResponse?.data ?? [],
