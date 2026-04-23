@@ -541,20 +541,7 @@ export default function PipelinesPage() {
     <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 space-y-4 sm:space-y-5">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Pipelines</h1>
-        <Button variant="secondary" size="sm" onClick={() => setShowBundleModal(true)}>
-          Combine Pipelines
-        </Button>
       </div>
-            {/* Pipeline Bundle Modal (placeholder) */}
-            {showBundleModal && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-                <div className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-2xl relative">
-                  <h2 className="text-xl font-semibold mb-4">Combine Pipelines</h2>
-                  <div className="text-muted-foreground mb-6">Pipeline bundle selection UI coming soon...</div>
-                  <Button variant="outline" onClick={() => setShowBundleModal(false)} className="absolute top-4 right-4">Close</Button>
-                </div>
-              </div>
-            )}
       {isRefreshing && (
         <div className="flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
           <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-blue-400 border-t-transparent" />
