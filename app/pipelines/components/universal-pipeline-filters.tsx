@@ -245,14 +245,26 @@ function FilterRow({ columnKey, rows, schemaCols, values, combinatoric, onChange
         </div>
 
         <div className="mt-2">
-          <label className="inline-flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={combinatoric}
-              onChange={(e: ChangeEvent<HTMLInputElement>) => onToggleCombinatoric(e.target.checked)}
-            />
-            <span className="text-[13px]">Combinatoric</span>
-          </label>
+          <div className="flex gap-4 items-center">
+            <label className="inline-flex items-center gap-2 text-sm">
+              <input
+                type="radio"
+                name={`combinatoric-mode-${columnKey}`}
+                checked={combinatoric === true}
+                onChange={() => onToggleCombinatoric(true)}
+              />
+              <span className="text-[13px]">Combinatoric</span>
+            </label>
+            <label className="inline-flex items-center gap-2 text-sm">
+              <input
+                type="radio"
+                name={`combinatoric-mode-${columnKey}`}
+                checked={combinatoric === false}
+                onChange={() => onToggleCombinatoric(false)}
+              />
+              <span className="text-[13px]">Subset</span>
+            </label>
+          </div>
         </div>
       </div>
 
