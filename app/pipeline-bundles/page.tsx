@@ -231,6 +231,53 @@ export default function PipelineBundlesPage() {
         combinatoricFlags: mergedCombinatoricFlags,
       }).rows;
 
+      const getDistinctValues = (rows: Array<Record<string, unknown>>, key: string): string[] => {
+        const set = new Set<string>();
+        for (const row of rows) {
+          const cell = row[key];
+          if (cell === null || cell === undefined || cell === "") continue;
+          if (Array.isArray(cell)) {
+            for (const item of cell) {
+              const next = String(item);
+              if (next) set.add(next);
+            }
+          } else {
+            const next = String(cell);
+            if (next) set.add(next);
+          }
+        }
+        return Array.from(set);
+      };
+
+      // CSV mapping requires these combinatoric keys to exist in comboMap.
+      // Keep on-page tables unchanged, but generate CSV rows with enforced keys.
+      const csvFilters: Record<string, FilterSelection<string>> = { ...filters };
+      const csvCombinatoricFlags: Record<string, boolean> = { ...mergedCombinatoricFlags };
+
+      const ensureCombinatoricKey = (key: string) => {
+        const existing = csvFilters[key];
+        const existingVals = existing && existing.mode === "subset" ? existing.values : [];
+        const fallbackVals = getDistinctValues(subsetFilteredRows, key);
+        const values = (existingVals?.length ? existingVals : fallbackVals).map(String).filter(Boolean);
+        if (values.length === 0) return;
+        csvFilters[key] = { mode: "subset", values };
+        csvCombinatoricFlags[key] = true;
+      };
+
+      ensureCombinatoricKey("client_location");
+      ensureCombinatoricKey("unit_dimensions");
+      // Optional, used when CSV includes Unit Type drive-up signal
+      ensureCombinatoricKey("has_drive_up_access");
+
+      const calculatedRowsForCsv = calculatePriceTable({
+        competitorData: subsetFilteredRows as PricingDataResponse["data"],
+        clientAvailableUnits: clientDataResponse?.data.length || 0,
+        adjusters,
+        currentDate,
+        filters: csvFilters,
+        combinatoricFlags: csvCombinatoricFlags,
+      }).rows;
+
       return {
         pipeline,
         adjusters,
@@ -240,6 +287,7 @@ export default function PipelineBundlesPage() {
         roundingEnabled,
         roundingOffset,
         calculatedRows,
+        calculatedRowsForCsv,
       };
     });
   }, [
@@ -288,7 +336,7 @@ export default function PipelineBundlesPage() {
             rounding={{ enabled: false, offset: 0 }}
             calculatedRowsBundle={selectedPipelineContexts.map((ctx) => ({
               pipelineName: ctx.pipeline.name,
-              rows: ctx.calculatedRows,
+              rows: ctx.calculatedRowsForCsv,
             }))}
             pricingContext={{
               competitorData: dataResponse?.data ?? [],
