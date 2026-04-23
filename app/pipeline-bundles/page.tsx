@@ -49,7 +49,6 @@ export default function PipelineBundlesPage() {
     <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 space-y-4 sm:space-y-5">
       <h1 className="text-2xl font-bold mb-6">Pipeline Bundles</h1>
       <div className="mb-8 text-muted-foreground">
-        Create and manage bundles of pipelines. Select any pipelines to combine. Pipeline settings are only editable in the Pipelines tab.
       </div>
         {/* Overview and snapshot selector */}
         <div className="mb-8">
