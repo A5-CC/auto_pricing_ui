@@ -16,6 +16,7 @@ const COMBINATORIC_KEYS = [
   "unit_categories",
 ];
 
+
 function getCombinatoricValues(pipeline: Pipeline): Record<string, string[]> {
   const filters = pipeline.settings?.universal_filters ?? {};
   const filtersObj = filters as Record<string, unknown>;
@@ -25,6 +26,31 @@ function getCombinatoricValues(pipeline: Pipeline): Record<string, string[]> {
     result[key] = Array.isArray(val) ? (val as string[]) : [];
   }
   return result;
+}
+
+// Helper: Cartesian product of arrays
+function cartesianProduct<T>(arrays: T[][]): T[][] {
+  return arrays.reduce<T[][]>(
+    (acc, curr) =>
+      acc
+        .map((x) => curr.map((y) => x.concat([y])))
+        .reduce((a, b) => a.concat(b), []),
+    [[]]
+  );
+}
+
+// Helper: Generate all combinatoric tuples for a pipeline
+function getCombinatoricTuples(pipeline: Pipeline): string[][] {
+  const values = getCombinatoricValues(pipeline);
+  const arrays = COMBINATORIC_KEYS.map((key) => values[key].length ? values[key] : ["__ANY__"]);
+  return cartesianProduct(arrays);
+}
+
+// New intersection: only if there is a full tuple match
+function pipelinesIntersect(a: Pipeline, b: Pipeline): boolean {
+  const aTuples = getCombinatoricTuples(a).map((tuple) => tuple.join("|"));
+  const bTuples = new Set(getCombinatoricTuples(b).map((tuple) => tuple.join("|")));
+  return aTuples.some((tuple) => bTuples.has(tuple));
 }
 
 function pipelinesIntersect(a: Pipeline, b: Pipeline): boolean {
