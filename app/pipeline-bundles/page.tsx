@@ -1,6 +1,6 @@
 "use client";
 import type { FilterSelection } from "@/components/pipelines/calculated-price";
-import { calculatePriceTable, CalculatedPrice } from "@/components/pipelines/calculated-price";
+import { CalculatedPrice, calculatePriceTable } from "@/components/pipelines/calculated-price";
 import { ProcessCsvButton } from "@/components/pricing/process-csv-button";
 import { getE1Client, listPipelines } from "@/lib/api/client/pipelines";
 import { getColumnStatistics, getPricingData, getPricingSnapshots } from "@/lib/api/client/pricing";
