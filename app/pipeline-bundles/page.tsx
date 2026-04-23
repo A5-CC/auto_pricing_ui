@@ -8,10 +8,25 @@ export default function PipelineBundlesPage() {
   }, []);
 
   // Selected pipeline objects
-  const selectedPipelines = useMemo(
-    () => selectedPipelineIds.map((id) => pipelines.find((p) => p.id === id)).filter(Boolean) as Pipeline[],
-    [selectedPipelineIds, pipelines]
-  );
+    const [snapshots, setSnapshots] = useState<PricingSnapshot[]>([]);
+    const [selectedSnapshot, setSelectedSnapshot] = useState<string>("latest");
+    const [dataResponse, setDataResponse] = useState<PricingDataResponse | null>(null);
+    const [columnsStats, setColumnsStats] = useState<Record<string, ColumnStatistics>>({});
+  
+    useEffect(() => {
+      listPipelines().then(setPipelines);
+      getPricingSnapshots().then(setSnapshots);
+    }, []);
+  
+    useEffect(() => {
+      if (!selectedSnapshot) return;
+      getPricingData(selectedSnapshot).then(setDataResponse);
+      getColumnStatistics(selectedSnapshot).then((stats) => {
+        const statsObj: Record<string, ColumnStatistics> = {};
+        stats.forEach((s) => { statsObj[s.column] = s; });
+        setColumnsStats(statsObj);
+      });
+    }, [selectedSnapshot]);
 
   // All pipelines not selected are eligible
   const eligiblePipelines = useMemo(
@@ -25,6 +40,16 @@ export default function PipelineBundlesPage() {
       <div className="mb-8 text-muted-foreground">
         Create and manage bundles of pipelines. Select any pipelines to combine. Pipeline settings are only editable in the Pipelines tab.
       </div>
+        {/* Overview and snapshot selector */}
+        <div className="mb-8">
+          <PricingOverview
+            selectedSnapshot={selectedSnapshot}
+            snapshots={snapshots}
+            dataResponse={dataResponse}
+            columnsStats={columnsStats}
+            onSnapshotChange={setSelectedSnapshot}
+          />
+        </div>
       <div className="mb-6">
         <label className="block mb-2 font-medium">Selected pipelines:</label>
         <div className="flex flex-wrap gap-2 mb-2">
