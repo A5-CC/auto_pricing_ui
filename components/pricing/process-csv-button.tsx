@@ -697,11 +697,14 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
         if (typeof row?.price !== "number" || Number.isNaN(row.price)) continue
 
         const location = normalizeMatchValue(row.comboMap.client_location)
-        const dimension = normalizeDimensionValue(row.comboMap.unit_dimensions)
+        const dimensionToken = getDimensionLookupToken(row.comboMap.unit_dimensions)
+        const areaToken = getAreaLookupToken(row.comboMap.unit_area)
         const driveUpAccess = normalizeDriveUpAccessValue(row.comboMap.has_drive_up_access)
-        if (!location || !dimension) continue
 
-        const key = buildPriceLookupKey(location, dimension, driveUpAccess)
+        const keyToken = areaToken || dimensionToken
+        if (!location || !keyToken) continue
+
+        const key = buildPriceLookupKey(location, keyToken, driveUpAccess)
         const existingOwner = ownerByKey.get(key)
         if (existingOwner && existingOwner !== pipelineName) {
           return {

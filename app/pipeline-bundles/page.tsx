@@ -105,6 +105,17 @@ export default function PipelineBundlesPage() {
   const selectedPipelineContexts = useMemo(() => {
     const baseRows = (dataResponse?.data ?? []) as Array<Record<string, unknown>>;
 
+    const computeAreaFromDimensionLikeValue = (value: unknown): string => {
+      const raw = String(value ?? "").toLowerCase().replace(/×/g, "x");
+      const match = raw.match(/(\d+(?:\.\d+)?)\s*x\s*(\d+(?:\.\d+)?)/);
+      if (!match) return "";
+      const a = Number(match[1]);
+      const b = Number(match[2]);
+      if (!Number.isFinite(a) || !Number.isFinite(b) || a <= 0 || b <= 0) return "";
+      const area = a * b;
+      return Number.isInteger(area) ? String(Math.trunc(area)) : String(area);
+    };
+
     const normalizeValuesForColumn = (column: string, values: string[]) => {
       if (!Array.isArray(values) || values.length === 0) return [] as string[];
       const canonicalByKey = new Map<string, string>();
@@ -249,10 +260,23 @@ export default function PipelineBundlesPage() {
         return Array.from(set);
       };
 
+      const deriveUnitAreaRows = (rows: Array<Record<string, unknown>>) => {
+        return rows.map((row) => {
+          if (row.unit_area !== undefined && row.unit_area !== null && row.unit_area !== "") {
+            return row;
+          }
+          const area = computeAreaFromDimensionLikeValue(row.unit_dimensions);
+          if (!area) return row;
+          return { ...row, unit_area: area };
+        });
+      };
+
       // CSV mapping requires these combinatoric keys to exist in comboMap.
       // Keep on-page tables unchanged, but generate CSV rows with enforced keys.
       const csvFilters: Record<string, FilterSelection<string>> = { ...filters };
       const csvCombinatoricFlags: Record<string, boolean> = { ...mergedCombinatoricFlags };
+
+      let rowsForCsvCalc = subsetFilteredRows as Array<Record<string, unknown>>;
 
       const ensureCombinatoricKey = (key: string) => {
         const existing = csvFilters[key];
@@ -266,12 +290,24 @@ export default function PipelineBundlesPage() {
 
       ensureCombinatoricKey("client_location");
       ensureCombinatoricKey("unit_dimensions");
-      ensureCombinatoricKey("unit_area");
+      if (csvFilters.unit_area || settingsFilters.unit_area) {
+        rowsForCsvCalc = deriveUnitAreaRows(rowsForCsvCalc);
+      }
+      const unitAreaFallbackValues = getDistinctValues(rowsForCsvCalc, "unit_area");
+      if (unitAreaFallbackValues.length > 0) {
+        const existing = csvFilters.unit_area;
+        const existingVals = existing && existing.mode === "subset" ? existing.values : [];
+        const values = (existingVals?.length ? existingVals : unitAreaFallbackValues).map(String).filter(Boolean);
+        if (values.length > 0) {
+          csvFilters.unit_area = { mode: "subset", values };
+          csvCombinatoricFlags.unit_area = true;
+        }
+      }
       // Optional, used when CSV includes Unit Type drive-up signal
       ensureCombinatoricKey("has_drive_up_access");
 
       const calculatedRowsForCsv = calculatePriceTable({
-        competitorData: subsetFilteredRows as PricingDataResponse["data"],
+        competitorData: rowsForCsvCalc as PricingDataResponse["data"],
         clientAvailableUnits: clientDataResponse?.data.length || 0,
         adjusters,
         currentDate,
