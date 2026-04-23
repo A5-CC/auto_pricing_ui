@@ -536,8 +536,18 @@ function applyCalculatedPricesToCsv(
   const newStandardRateIndex = findColumnIndex(headers, NEW_STANDARD_RATE_COLUMNS)
   let matchedUnitAreaIndex = findColumnIndex(headers, MATCHED_UNIT_AREA_COLUMNS)
 
-  if (locationIndex < 0 || (unitSizeIndex < 0 && areaIndex < 0)) {
-    throw new Error("CSV must include facility/location and size or area columns to map frontend pricing.")
+  const hasUnitAreaRowsPre = calculatedRows.some((row) => Boolean(getAreaLookupToken(row.comboMap.unit_area)))
+
+  if (locationIndex < 0) {
+    throw new Error("CSV must include a facility/location column to map frontend pricing.")
+  }
+
+  if (hasUnitAreaRowsPre && areaIndex < 0) {
+    throw new Error("CSV must include an Area column to match unit_area pipelines.")
+  }
+
+  if (!hasUnitAreaRowsPre && unitSizeIndex < 0) {
+    throw new Error("CSV must include a Size column to match unit_dimensions pipelines.")
   }
   if (newWebRateIndex < 0 || newStandardRateIndex < 0) {
     throw new Error("CSV must include New Web Rate and New Standard Rate columns.")
@@ -700,7 +710,10 @@ function applyCalculatedPricesToCsv(
   }
 
   if (matchedRows === 0) {
-    throw new Error("No uploaded CSV rows matched the current pipeline table by location + size/area.")
+    throw new Error(hasUnitAreaRows
+      ? "No uploaded CSV rows matched the current pipeline table by location + area."
+      : "No uploaded CSV rows matched the current pipeline table by location + size."
+    )
   }
 
   return { headers, rows }
