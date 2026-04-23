@@ -1,4 +1,4 @@
-
+import { PricingOverview } from "../pricing/components/pricing-overview";
 export default function PipelineBundlesPage() {
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [selectedPipelineIds, setSelectedPipelineIds] = useState<string[]>([]);
