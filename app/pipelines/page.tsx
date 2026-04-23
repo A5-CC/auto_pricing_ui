@@ -316,23 +316,54 @@ export default function PipelinesPage() {
 
   /* ---------------- Available variables for function adjuster ---------------- */
   const availableVariables = useMemo(() => {
-    // const allColumnsWithType = Object.entries(columnsStats).map(
-    //   ([col, stats]) => ({
-    //     column: col,
-    //     data_type: stats.data_type,
-    //   })
-    // );
-
-    const numericCols = Object.entries(columnsStats)
+    const numericFromStats = Object.entries(columnsStats)
       .filter(([, stats]) => {
-        const dtype = (stats as { data_type: string }).data_type.toLowerCase();
-        return dtype.includes("int") || dtype.includes("float");
+        const dtype = String((stats as { data_type?: string }).data_type ?? "").toLowerCase();
+        return (
+          dtype.includes("int") ||
+          dtype.includes("float") ||
+          dtype.includes("decimal") ||
+          dtype.includes("double") ||
+          dtype.includes("numeric") ||
+          dtype === "number"
+        );
       })
-      .map(([col]) => col)
-      .sort();
+      .map(([col]) => col);
 
-    return numericCols;
-  }, [columnsStats]);
+    // Fallback inference from currently loaded rows so function variables don't
+    // disappear when column stats are partial/missing.
+    const rowsToCheck = (baseRows ?? []).slice(0, 400) as Record<string, unknown>[];
+    const inferredNumeric = new Set<string>();
+
+    const toMaybeNumber = (value: unknown) => {
+      if (typeof value === "number") return Number.isFinite(value) ? value : NaN;
+      const cleaned = String(value ?? "").trim().replace(/[,$%\s]/g, "");
+      if (!cleaned) return NaN;
+      const n = Number(cleaned);
+      return Number.isFinite(n) ? n : NaN;
+    };
+
+    if (rowsToCheck.length > 0) {
+      const keys = new Set<string>();
+      rowsToCheck.forEach((row) => Object.keys(row).forEach((k) => keys.add(k)));
+
+      for (const key of keys) {
+        let nonEmpty = 0;
+        let numeric = 0;
+        for (const row of rowsToCheck) {
+          const raw = row[key];
+          if (raw === null || raw === undefined || raw === "") continue;
+          nonEmpty += 1;
+          if (!Number.isNaN(toMaybeNumber(raw))) numeric += 1;
+        }
+        if (nonEmpty > 0 && numeric / nonEmpty >= 0.8) {
+          inferredNumeric.add(key);
+        }
+      }
+    }
+
+    return Array.from(new Set([...numericFromStats, ...inferredNumeric])).sort();
+  }, [columnsStats, baseRows]);
 
   /* ---------------- Note ----------------
      Unlike the legacy pipelines page, we do not maintain a separate sortable/grid view.
