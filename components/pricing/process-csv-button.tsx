@@ -310,6 +310,12 @@ function normalizeCityValue(value: unknown): string {
   return normalized.replace(/^modstorage\s*/g, "").trim()
 }
 
+function normalizeLocationKey(value: unknown): string {
+  const normalized = normalizeMatchValue(value)
+  if (!normalized) return ""
+  return normalized.replace(/^modstorage\s*[-–—]?\s*/g, "").trim()
+}
+
 function parseCsvText(text: string): string[][] {
   const rows: string[][] = []
   let currentRow: string[] = []
@@ -558,7 +564,9 @@ function applyCalculatedPricesToCsv(
   for (const calculatedRow of calculatedRows) {
     if (typeof calculatedRow.price !== "number" || Number.isNaN(calculatedRow.price)) continue
     const location = normalizeMatchValue(calculatedRow.comboMap.client_location)
+    const locationKey = normalizeLocationKey(calculatedRow.comboMap.client_location)
     const city = normalizeCityValue(calculatedRow.comboMap.client_location)
+    const cityKey = normalizeLocationKey(city)
     const dimensionToken = getDimensionLookupToken(calculatedRow.comboMap.unit_dimensions)
     const areaToken = getAreaLookupToken(calculatedRow.comboMap.unit_area)
     if (areaToken) hasUnitAreaRows = true
@@ -568,19 +576,31 @@ function applyCalculatedPricesToCsv(
     const price = webPrice
     if (dimensionToken) {
       priceLookup.set(buildPriceLookupKey(location, dimensionToken, driveUpAccess), price)
+      if (locationKey) priceLookup.set(buildPriceLookupKey(locationKey, dimensionToken, driveUpAccess), price)
       if (city) cityPriceLookup.set(buildPriceLookupKey(city, dimensionToken, driveUpAccess), price)
+      if (cityKey) cityPriceLookup.set(buildPriceLookupKey(cityKey, dimensionToken, driveUpAccess), price)
     }
     if (areaToken) {
       priceLookup.set(buildPriceLookupKey(location, areaToken, driveUpAccess), price)
+      if (locationKey) priceLookup.set(buildPriceLookupKey(locationKey, areaToken, driveUpAccess), price)
       if (city) cityPriceLookup.set(buildPriceLookupKey(city, areaToken, driveUpAccess), price)
+      if (cityKey) cityPriceLookup.set(buildPriceLookupKey(cityKey, areaToken, driveUpAccess), price)
 
       const parsedArea = parseAreaTokenValue(areaToken)
       if (parsedArea !== null) {
         addAreaCandidate(areaBucketKey(location, driveUpAccess), parsedArea, price)
         addAreaCandidate(areaBucketKey(location, ""), parsedArea, price)
+        if (locationKey) {
+          addAreaCandidate(areaBucketKey(locationKey, driveUpAccess), parsedArea, price)
+          addAreaCandidate(areaBucketKey(locationKey, ""), parsedArea, price)
+        }
         if (city) {
           addAreaCandidate(areaBucketKey(city, driveUpAccess), parsedArea, price)
           addAreaCandidate(areaBucketKey(city, ""), parsedArea, price)
+        }
+        if (cityKey) {
+          addAreaCandidate(areaBucketKey(cityKey, driveUpAccess), parsedArea, price)
+          addAreaCandidate(areaBucketKey(cityKey, ""), parsedArea, price)
         }
       }
     }
@@ -594,7 +614,9 @@ function applyCalculatedPricesToCsv(
   for (const row of rows) {
     const csvRow = rowToRecord(headers, row)
     const location = normalizeMatchValue(getCellValue(row, locationIndex))
+    const locationKey = normalizeLocationKey(getCellValue(row, locationIndex))
     const city = normalizeCityValue(getCellValue(row, locationIndex))
+    const cityKey = normalizeLocationKey(city)
     const dimensionToken = getDimensionLookupToken(getCellValue(row, unitSizeIndex))
     const areaToken = areaIndex >= 0 ? getAreaLookupToken(getCellValue(row, areaIndex)) : ""
     const driveUpAccess = unitTypeIndex >= 0 ? normalizeDriveUpAccessValue(getCellValue(row, unitTypeIndex)) : ""
@@ -604,12 +626,20 @@ function applyCalculatedPricesToCsv(
     let mappedPrice =
       (areaToken && driveUpAccess ? priceLookup.get(buildPriceLookupKey(location, areaToken, driveUpAccess)) : undefined) ??
       (areaToken ? priceLookup.get(buildPriceLookupKey(location, areaToken)) : undefined) ??
+      (areaToken && driveUpAccess && locationKey ? priceLookup.get(buildPriceLookupKey(locationKey, areaToken, driveUpAccess)) : undefined) ??
+      (areaToken && locationKey ? priceLookup.get(buildPriceLookupKey(locationKey, areaToken)) : undefined) ??
       (areaToken && driveUpAccess && city ? cityPriceLookup.get(buildPriceLookupKey(city, areaToken, driveUpAccess)) : undefined) ??
       (areaToken && city ? cityPriceLookup.get(buildPriceLookupKey(city, areaToken)) : undefined) ??
+      (areaToken && driveUpAccess && cityKey ? cityPriceLookup.get(buildPriceLookupKey(cityKey, areaToken, driveUpAccess)) : undefined) ??
+      (areaToken && cityKey ? cityPriceLookup.get(buildPriceLookupKey(cityKey, areaToken)) : undefined) ??
       (allowDimensionMatching && dimensionToken && driveUpAccess ? priceLookup.get(buildPriceLookupKey(location, dimensionToken, driveUpAccess)) : undefined) ??
       (allowDimensionMatching && dimensionToken ? priceLookup.get(buildPriceLookupKey(location, dimensionToken)) : undefined) ??
+      (allowDimensionMatching && dimensionToken && driveUpAccess && locationKey ? priceLookup.get(buildPriceLookupKey(locationKey, dimensionToken, driveUpAccess)) : undefined) ??
+      (allowDimensionMatching && dimensionToken && locationKey ? priceLookup.get(buildPriceLookupKey(locationKey, dimensionToken)) : undefined) ??
       (allowDimensionMatching && dimensionToken && driveUpAccess && city ? cityPriceLookup.get(buildPriceLookupKey(city, dimensionToken, driveUpAccess)) : undefined) ??
       (allowDimensionMatching && dimensionToken && city ? cityPriceLookup.get(buildPriceLookupKey(city, dimensionToken)) : undefined)
+      ?? (allowDimensionMatching && dimensionToken && driveUpAccess && cityKey ? cityPriceLookup.get(buildPriceLookupKey(cityKey, dimensionToken, driveUpAccess)) : undefined)
+      ?? (allowDimensionMatching && dimensionToken && cityKey ? cityPriceLookup.get(buildPriceLookupKey(cityKey, dimensionToken)) : undefined)
 
     if (mappedPrice !== undefined && areaToken) {
       matchedAreaValue = areaToken.replace(/^area:/, "")
