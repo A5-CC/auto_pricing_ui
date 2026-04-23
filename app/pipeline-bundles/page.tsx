@@ -55,17 +55,6 @@ export default function PipelineBundlesPage() {
         <div className="flex flex-wrap gap-2 mb-2">
           {selectedPipelines.length === 0 && <span className="text-muted-foreground">None selected</span>}
           {selectedPipelines.map((p) => (
-            <span key={p.id} className="inline-flex items-center bg-primary/10 text-primary px-3 py-1 rounded-full">
-              {p.name}
-              <button
-                className="ml-2 text-red-500 hover:text-red-700"
-                onClick={() => setSelectedPipelineIds(ids => ids.filter(id => id !== p.id))}
-                title="Remove pipeline"
-              >
-                ×
-              </button>
-            </span>
-          ))}
         </div>
       </div>
       <div className="mb-6">
@@ -91,24 +80,6 @@ export default function PipelineBundlesPage() {
     </main>
   );
 }
-            <span key={p.id} className="inline-flex items-center bg-primary/10 text-primary px-3 py-1 rounded-full">
-              {p.name}
-              <button
-                className="ml-2 text-red-500 hover:text-red-700"
-                onClick={() => setSelectedPipelineIds(ids => ids.filter(id => id !== p.id))}
-                title="Remove pipeline"
-              >
-                ×
-              </button>
-            </span>
-          ))}
-        </div>
-      </div>
-      <div className="mb-6">
-        <label className="block mb-2 font-medium">Eligible pipelines to bundle:</label>
-        <div className="max-h-64 overflow-y-auto border rounded-lg bg-background/50 p-4">
-          {eligiblePipelines.length > 0 ? (
-            <ul className="space-y-2">
               {eligiblePipelines.map((p) => (
                 <li
                   key={p.id}
