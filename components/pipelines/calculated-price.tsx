@@ -2,7 +2,7 @@ import type { Adjuster } from '@/lib/adjusters'
 import { calculatePrice } from '@/lib/adjusters'
 import type { E1DataRow } from '@/lib/api/types'
 import { getColumnLabel } from '@/lib/pricing/column-labels'
-import { useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 type FilterValue = string | number | boolean
 
@@ -197,6 +197,8 @@ export function CalculatedPrice({
   roundingEnabled = false,
   roundingOffset = 0
 }: CalculatedPriceProps) {
+  const DEFAULT_COLUMN_WIDTH = 180
+  const MIN_COLUMN_WIDTH = 120
   const noCompetitorData = !competitorData || competitorData.length === 0
 
   const normalizeRoundingOffset = (value: number) => {
@@ -231,6 +233,74 @@ export function CalculatedPrice({
     [competitorData, clientAvailableUnits, adjusters, currentDate, filters, combinatoricFlags]
   )
 
+  const [columnOrder, setColumnOrder] = useState<string[]>(headers)
+  const [columnWidths, setColumnWidths] = useState<Record<string, number>>({})
+  const dragColumnRef = useRef<string | null>(null)
+  const resizeRef = useRef<{ column: string; startX: number; startWidth: number } | null>(null)
+
+  useEffect(() => {
+    setColumnOrder((prev) => {
+      const retained = prev.filter((col) => headers.includes(col))
+      const missing = headers.filter((col) => !retained.includes(col))
+      return [...retained, ...missing]
+    })
+  }, [headers])
+
+  const getColumnWidth = useCallback((columnId: string) => {
+    return columnWidths[columnId] ?? DEFAULT_COLUMN_WIDTH
+  }, [columnWidths])
+
+  const getColumnCellStyle = useCallback((columnId: string) => {
+    const width = getColumnWidth(columnId)
+    return { width: `${width}px`, minWidth: `${width}px`, maxWidth: `${width}px` }
+  }, [getColumnWidth])
+
+  const handleResizeStart = useCallback((columnId: string, startX: number) => {
+    resizeRef.current = {
+      column: columnId,
+      startX,
+      startWidth: getColumnWidth(columnId),
+    }
+  }, [getColumnWidth])
+
+  useEffect(() => {
+    const onMouseMove = (event: MouseEvent) => {
+      const state = resizeRef.current
+      if (!state) return
+      const delta = event.clientX - state.startX
+      const nextWidth = Math.max(MIN_COLUMN_WIDTH, Math.round(state.startWidth + delta))
+      setColumnWidths((prev) => ({ ...prev, [state.column]: nextWidth }))
+    }
+
+    const onMouseUp = () => {
+      resizeRef.current = null
+    }
+
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onMouseUp)
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onMouseUp)
+    }
+  }, [])
+
+  const handleDragStart = useCallback((columnId: string) => {
+    dragColumnRef.current = columnId
+  }, [])
+
+  const handleDrop = useCallback((targetId: string) => {
+    const sourceId = dragColumnRef.current
+    dragColumnRef.current = null
+    if (!sourceId || sourceId === targetId) return
+    setColumnOrder((prev) => {
+      const next = prev.filter((col) => col !== sourceId)
+      const targetIndex = next.indexOf(targetId)
+      if (targetIndex < 0) return prev
+      next.splice(targetIndex, 0, sourceId)
+      return next
+    })
+  }, [])
+
   if (!adjusters || adjusters.length === 0) {
     return <p className="text-muted-foreground">Add adjusters to calculate prices</p>
   }
@@ -255,9 +325,24 @@ export function CalculatedPrice({
       <table className="w-full table-auto border border-gray-200">
         <thead className="bg-gray-100 sticky top-0 z-10">
           <tr>
-            {headers.map((h) => (
-              <th key={h} className="border px-3 py-2 text-left text-sm font-semibold">
-                {h === 'Price' ? 'Price' : getColumnLabel(h, null)}
+            {columnOrder.map((h) => (
+              <th
+                key={h}
+                className="relative border px-3 py-2 text-left text-sm font-semibold"
+                style={getColumnCellStyle(h)}
+                draggable
+                onDragStart={() => handleDragStart(h)}
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={() => handleDrop(h)}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="cursor-move select-none">⋮⋮</span>
+                  <span>{h === 'Price' ? 'Price' : getColumnLabel(h, null)}</span>
+                </div>
+                <div
+                  className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize"
+                  onMouseDown={(event) => handleResizeStart(h, event.clientX)}
+                />
               </th>
             ))}
           </tr>
@@ -265,13 +350,13 @@ export function CalculatedPrice({
         <tbody>
           {rows.map((r, i) => (
             <tr key={i} className="even:bg-gray-50">
-              {headers.map((h) =>
+              {columnOrder.map((h) =>
                 h === 'Price' ? (
-                  <td key={h} className="border px-3 py-2 font-bold">
+                  <td key={h} className="border px-3 py-2 font-bold" style={getColumnCellStyle(h)}>
                     {`$${formatNumeric(r.price!, true)}`}
                   </td>
                 ) : (
-                  <td key={h} className="border px-3 py-2">
+                  <td key={h} className="border px-3 py-2" style={getColumnCellStyle(h)}>
                     {typeof r.comboMap[h] === 'number'
                       ? formatNumeric(r.comboMap[h] as number)
                       : String(r.comboMap[h] ?? '-')}
