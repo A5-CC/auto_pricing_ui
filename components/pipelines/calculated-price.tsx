@@ -239,11 +239,15 @@ export function CalculatedPrice({
   const resizeRef = useRef<{ column: string; startX: number; startWidth: number } | null>(null)
 
   useEffect(() => {
-    setColumnOrder((prev) => {
-      const retained = prev.filter((col) => headers.includes(col))
-      const missing = headers.filter((col) => !retained.includes(col))
-      return [...retained, ...missing]
-    })
+    const hasClientLocation = headers.includes('client_location')
+    const hasPrice = headers.includes('Price')
+    const middle = headers.filter((col) => col !== 'client_location' && col !== 'Price')
+    const nextOrder = [
+      ...(hasClientLocation ? ['client_location'] : []),
+      ...middle,
+      ...(hasPrice ? ['Price'] : []),
+    ]
+    setColumnOrder(nextOrder)
   }, [headers])
 
   const getColumnWidth = useCallback((columnId: string) => {
