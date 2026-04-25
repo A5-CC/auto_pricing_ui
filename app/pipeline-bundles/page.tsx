@@ -105,6 +105,14 @@ export default function PipelineBundlesPage() {
   const selectedPipelineContexts = useMemo(() => {
     const baseRows = (dataResponse?.data ?? []) as Array<Record<string, unknown>>;
 
+    const applyConfiguredRounding = (value: number, rounding?: { enabled?: boolean; offset?: number }) => {
+      if (!rounding?.enabled || !Number.isFinite(value)) return value;
+      const offsetRaw = Number(rounding.offset ?? 0);
+      const offset = Math.min(1, Math.max(0, offsetRaw));
+      const rounded = Math.round(value - offset) + offset;
+      return Object.is(rounded, -0) ? 0 : rounded;
+    };
+
     const computeAreaFromDimensionLikeValue = (value: unknown): string => {
       const raw = String(value ?? "").toLowerCase().replace(/×/g, "x");
       const match = raw.match(/(\d+(?:\.\d+)?)\s*x\s*(\d+(?:\.\d+)?)/);
@@ -242,6 +250,14 @@ export default function PipelineBundlesPage() {
         combinatoricFlags: mergedCombinatoricFlags,
       }).rows;
 
+      const roundedCalculatedRows = calculatedRows.map((row) => {
+        if (typeof row.price !== "number" || Number.isNaN(row.price)) return row;
+        return {
+          ...row,
+          price: applyConfiguredRounding(row.price, rounding),
+        };
+      });
+
       const getDistinctValues = (rows: Array<Record<string, unknown>>, key: string): string[] => {
         const set = new Set<string>();
         for (const row of rows) {
@@ -317,6 +333,14 @@ export default function PipelineBundlesPage() {
         combinatoricFlags: csvCombinatoricFlags,
       }).rows;
 
+      const roundedCalculatedRowsForCsv = calculatedRowsForCsv.map((row) => {
+        if (typeof row.price !== "number" || Number.isNaN(row.price)) return row;
+        return {
+          ...row,
+          price: applyConfiguredRounding(row.price, rounding),
+        };
+      });
+
       return {
         pipeline,
         adjusters,
@@ -325,8 +349,8 @@ export default function PipelineBundlesPage() {
         mergedCombinatoricFlags,
         roundingEnabled,
         roundingOffset,
-        calculatedRows,
-        calculatedRowsForCsv,
+        calculatedRows: roundedCalculatedRows,
+        calculatedRowsForCsv: roundedCalculatedRowsForCsv,
       };
     });
   }, [
