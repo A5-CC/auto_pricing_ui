@@ -243,7 +243,7 @@ function FilterRow({ columnKey, rows, schemaCols, values, combinatoric, onChange
           <Button variant="secondary" size="sm" onClick={() => onChange(allValues.map(String))}>All</Button>
           <Button variant="secondary" size="sm" onClick={() => onChange([])}>Clear</Button>
         </div>
-
+        
         <div className="mt-2">
           <div className="flex gap-4 items-center">
             <label className="inline-flex items-center gap-2 text-sm">
