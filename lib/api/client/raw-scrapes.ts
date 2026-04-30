@@ -1,8 +1,8 @@
 import {
-  RawScrapeDateSummary,
-  RawScrapeDetail,
-  RawScrapeSummary,
-  RawScrapeRunSummary
+    RawScrapeDateSummary,
+    RawScrapeDetail,
+    RawScrapeRunSummary,
+    RawScrapeSummary
 } from '@/lib/api/types'
 import { API_BASE_URL, fetchWithError } from './shared'
 
