@@ -17,10 +17,6 @@ interface LocationEntry {
   radiusInput: string
 }
 
-const METERS_PER_MILE = 1609.34
-
-const metersToMiles = (meters: number) => meters / METERS_PER_MILE
-const milesToMeters = (miles: number) => miles * METERS_PER_MILE
 const formatMiles = (miles: number) => {
   const rounded = Math.round(miles * 100) / 100
   return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2)
@@ -53,7 +49,7 @@ export default function LocationsPage() {
           state: loc.state ?? "",
           zip: loc.zip ?? "",
           radiusMeters: loc.radius_meters ?? null,
-          radiusInput: loc.radius_meters ? formatMiles(metersToMiles(loc.radius_meters)) : "",
+          radiusInput: loc.radius_meters ? formatMiles(loc.radius_meters) : "",
         }))
         setLocations(next)
       } catch {
@@ -119,7 +115,7 @@ export default function LocationsPage() {
         if (!sanitized || Number.isNaN(next) || next <= 0) {
           return { ...loc, radiusMeters: null }
         }
-        return { ...loc, radiusMeters: milesToMeters(next) }
+        return { ...loc, radiusMeters: next }
       })
     )
   }
@@ -256,7 +252,7 @@ export default function LocationsPage() {
                         </div>
                         <div className="text-xs text-muted-foreground">
                           {loc.radiusMeters
-                            ? `${formatMiles(metersToMiles(loc.radiusMeters))} mi radius set`
+                            ? `${formatMiles(loc.radiusMeters)} mi radius set`
                             : "Radius not set"}
                         </div>
                       </td>
