@@ -6,8 +6,8 @@ import {
 } from '@/lib/api/types'
 import { API_BASE_URL, fetchWithError } from './shared'
 
-export async function getRawScrapeDates(limit = 30): Promise<RawScrapeDateSummary[]> {
-  const response = await fetchWithError(`${API_BASE_URL}/competitors/raw-scrapes?limit=${limit}`)
+export async function getRawScrapeDates(): Promise<RawScrapeDateSummary[]> {
+  const response = await fetchWithError(`${API_BASE_URL}/competitors/raw-scrapes`)
   return response.json()
 }
 
