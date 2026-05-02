@@ -107,7 +107,7 @@ export default function PipelineBundlesPage() {
 
     const applyConfiguredRounding = (value: number, rounding?: { enabled?: boolean; offset?: number }) => {
       if (!rounding?.enabled || !Number.isFinite(value)) return value;
-      const offsetRaw = Number(rounding.offset ?? 0);
+      const offsetRaw = Number.isFinite(rounding.offset) ? rounding.offset : 0;
       const offset = Math.min(1, Math.max(0, offsetRaw));
       const rounded = Math.round(value - offset) + offset;
       return Object.is(rounded, -0) ? 0 : rounded;
