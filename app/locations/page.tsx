@@ -48,8 +48,8 @@ export default function LocationsPage() {
           city: loc.city ?? "",
           state: loc.state ?? "",
           zip: loc.zip ?? "",
-          radiusMeters: loc.radius_meters ?? null,
-          radiusInput: loc.radius_meters ? formatMiles(loc.radius_meters) : "",
+          radiusMeters: loc.radius_miles ?? null,
+          radiusInput: loc.radius_miles ? formatMiles(loc.radius_miles) : "",
         }))
         setLocations(next)
       } catch {
@@ -132,7 +132,7 @@ export default function LocationsPage() {
           city: loc.city,
           state: loc.state,
           zip: loc.zip,
-          radius_meters: loc.radiusMeters,
+          radius_miles: loc.radiusMeters,
         }))
       )
       setSaveMessage("Saved")
