@@ -102,7 +102,7 @@ export interface RawScrapeDateSummary {
 Then in `lib/api/client.ts`, implement the API functions:
 
 ```typescript
-export async function getRawScrapeDates(limit = 30): Promise<RawScrapeDateSummary[]> {
+export async function getRawScrapeDates(limit = 300): Promise<RawScrapeDateSummary[]> {
   const response = await fetchWithError(
     `${API_BASE_URL}/competitors/raw-scrapes?limit=${limit}`
   )
