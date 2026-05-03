@@ -123,8 +123,8 @@ type StandardRateConfig = {
   functionBody: string
 }
 
-const REVIEWABLE_RATE_COLUMNS = new Set(["newwebrate", "newstandardrate"])
-const CURRENT_WEB_RATE_COLUMNS = new Set(["currentwebrate"])
+const REVIEWABLE_RATE_COLUMNS = new Set(["newwebrate", "newstandardrate", "newrentrate"])
+const CURRENT_WEB_RATE_COLUMNS = new Set(["currentwebrate", "currentrentrate"])
 const CURRENT_STANDARD_RATE_COLUMNS = new Set(["currentstandardrate"])
 const FACILITY_NAME_COLUMNS = new Set(["facilityname", "storagename", "propertyname", "sitename"])
 const UNIT_SIZE_COLUMNS = new Set(["size", "unitsize", "unitdimensions"])
@@ -132,8 +132,10 @@ const AREA_COLUMNS = new Set(["area", "unitarea", "sqft", "squarefeet"])
 const UNIT_TYPE_COLUMNS = new Set(["unittype", "unittypecode", "unittypecategory"])
 const UNIT_AMENITIES_COLUMNS = new Set(["unitamenities", "amenities", "unit_amenities"])
 const LOCATION_COLUMNS = new Set(["facilityname", "storagename", "propertyname", "sitename", "location", "address", "clientlocation", "modstoragelocation"])
-const NEW_WEB_RATE_COLUMNS = new Set(["newwebrate"])
+const NEW_WEB_RATE_COLUMNS = new Set(["newwebrate", "newrentrate"])
 const NEW_STANDARD_RATE_COLUMNS = new Set(["newstandardrate"])
+const CURRENT_RENT_RATE_COLUMNS = new Set(["currentrentrate"])
+const NEW_RENT_RATE_COLUMNS = new Set(["newrentrate"])
 const MATCHED_UNIT_AREA_COLUMNS = new Set(["matchedunitarea", "unitareamatch"])
 const RATE_VARIABLE_EXCLUSIONS = new Set([
   "currentwebrate",
@@ -544,6 +546,7 @@ function buildReviewRows(original: ParsedCsv, processed: ParsedCsv, changes: Csv
   const facilityNameIndex = findColumnIndex(headers, FACILITY_NAME_COLUMNS)
   const unitSizeIndex = findColumnIndex(headers, UNIT_SIZE_COLUMNS)
   const currentWebRateIndex = findColumnIndex(headers, CURRENT_WEB_RATE_COLUMNS)
+  const currentRentRateIndex = findColumnIndex(headers, CURRENT_RENT_RATE_COLUMNS)
   const currentStandardRateIndex = findColumnIndex(headers, CURRENT_STANDARD_RATE_COLUMNS)
   const newWebRateIndex = findColumnIndex(headers, NEW_WEB_RATE_COLUMNS)
   const newStandardRateIndex = findColumnIndex(headers, NEW_STANDARD_RATE_COLUMNS)
@@ -560,7 +563,7 @@ function buildReviewRows(original: ParsedCsv, processed: ParsedCsv, changes: Csv
       rowIndex: change.rowIndex,
       facilityName: getCellValue(originalRow, facilityNameIndex) || getCellValue(processedRow, facilityNameIndex),
       unitSize: getCellValue(originalRow, unitSizeIndex) || getCellValue(processedRow, unitSizeIndex),
-      currentWebRate: getCellValue(originalRow, currentWebRateIndex),
+      currentWebRate: getCellValue(originalRow, currentWebRateIndex) || getCellValue(originalRow, currentRentRateIndex),
       proposedWebRate: getCellValue(processedRow, newWebRateIndex),
       currentStandardRate: getCellValue(originalRow, currentStandardRateIndex),
       proposedStandardRate: getCellValue(processedRow, newStandardRateIndex),
@@ -600,8 +603,11 @@ function applyCalculatedPricesToCsv(
   const areaIndex = findColumnIndex(headers, AREA_COLUMNS)
   const unitTypeIndex = findColumnIndex(headers, UNIT_TYPE_COLUMNS)
   const unitAmenitiesIndex = findColumnIndex(headers, UNIT_AMENITIES_COLUMNS)
-  const newWebRateIndex = findColumnIndex(headers, NEW_WEB_RATE_COLUMNS)
-  const newStandardRateIndex = findColumnIndex(headers, NEW_STANDARD_RATE_COLUMNS)
+  let newWebRateIndex = findColumnIndex(headers, NEW_WEB_RATE_COLUMNS)
+  let newStandardRateIndex = findColumnIndex(headers, NEW_STANDARD_RATE_COLUMNS)
+  const currentWebRateIndex = findColumnIndex(headers, CURRENT_WEB_RATE_COLUMNS)
+  const currentRentRateIndex = findColumnIndex(headers, CURRENT_RENT_RATE_COLUMNS)
+  const newRentRateIndex = findColumnIndex(headers, NEW_RENT_RATE_COLUMNS)
   let matchedUnitAreaIndex = findColumnIndex(headers, MATCHED_UNIT_AREA_COLUMNS)
 
   const hasUnitAreaRowsPre = calculatedRows.some((row) => Boolean(getAreaLookupToken(row.comboMap.unit_area)))
@@ -617,8 +623,18 @@ function applyCalculatedPricesToCsv(
   if (!hasUnitAreaRowsPre && unitSizeIndex < 0) {
     throw new Error("CSV must include a Size column to match unit_dimensions pipelines.")
   }
-  if (newWebRateIndex < 0 || newStandardRateIndex < 0) {
-    throw new Error("CSV must include New Web Rate and New Standard Rate columns.")
+  if (newWebRateIndex < 0 && newRentRateIndex >= 0) {
+    newWebRateIndex = newRentRateIndex
+  }
+
+  if (newWebRateIndex < 0) {
+    throw new Error("CSV must include New Web Rate or New Rent Rate column.")
+  }
+
+  if (newStandardRateIndex < 0) {
+    headers.push("New Standard Rate")
+    newStandardRateIndex = headers.length - 1
+    for (const row of rows) row.push("")
   }
 
   const hasAmenityAdjustments = Boolean(
