@@ -21,7 +21,7 @@ import type { Adjuster } from '@/lib/adjusters'
 import { evaluateSafeFunction } from "@/lib/adjusters"
 import type { E1DataRow } from "@/lib/api/types"
 import { FileSpreadsheet, Info, Loader2, Plus, Trash2 } from "lucide-react"
-import { useMemo, useState, type ChangeEvent } from "react"
+import { useEffect, useMemo, useState, type ChangeEvent } from "react"
 import { toast } from "sonner"
 
 interface ProcessCsvButtonProps {
@@ -116,6 +116,11 @@ type ResolvedAmenityAdjuster = {
   premium?: { mode: AmenityAdjusterMode; value: number }
   standard?: { mode: AmenityAdjusterMode; value: number }
   economy?: { mode: AmenityAdjusterMode; value: number }
+}
+
+type StandardRateConfig = {
+  mode: "default" | "function"
+  functionBody: string
 }
 
 const REVIEWABLE_RATE_COLUMNS = new Set(["newwebrate", "newstandardrate"])
@@ -279,6 +284,25 @@ function calculateBlueLineStandardRateValue(webRate: unknown): number {
   const standardRate = x * multiplier
 
   return Math.round(standardRate)
+}
+
+function resolveStandardRateValue(
+  webRate: number,
+  config?: StandardRateConfig
+): number {
+  if (!config || config.mode !== "function") {
+    return calculateBlueLineStandardRateValue(webRate)
+  }
+
+  const fnBody = config.functionBody.trim()
+  if (!fnBody) return calculateBlueLineStandardRateValue(webRate)
+
+  const evaluated = evaluateSafeFunction(fnBody, webRate)
+  if (evaluated.success && typeof evaluated.value === "number" && Number.isFinite(evaluated.value)) {
+    return evaluated.value
+  }
+
+  return calculateBlueLineStandardRateValue(webRate)
 }
 
 function rowToRecord(headers: string[], row: string[]): Record<string, string> {
@@ -565,7 +589,8 @@ function applyCalculatedPricesToCsv(
   calculatedRows: CalculatedPriceRow[],
   rounding?: { enabled: boolean; offset: number },
   popupAdjusters: Adjuster[] = [],
-  amenityAdjuster?: ResolvedAmenityAdjuster
+  amenityAdjuster?: ResolvedAmenityAdjuster,
+  standardRateConfig?: StandardRateConfig
 ): ParsedCsv {
   const headers = [...original.headers]
   const rows = original.rows.map((row) => [...row])
@@ -763,7 +788,7 @@ function applyCalculatedPricesToCsv(
     }
 
     const roundedEffectiveWebRate = applyConfiguredRounding(effectiveWebRate, rounding)
-    const standardRateValue = calculateBlueLineStandardRateValue(roundedEffectiveWebRate)
+    const standardRateValue = resolveStandardRateValue(roundedEffectiveWebRate, standardRateConfig)
 
     const finalWebRate = formatCurrency(roundedEffectiveWebRate)
     const standardRate = formatCurrency(standardRateValue)
@@ -795,6 +820,10 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
     premium: { mode: "multiplier", value: "" },
     standard: { mode: "multiplier", value: "" },
     economy: { mode: "multiplier", value: "" },
+  })
+  const [standardRateConfig, setStandardRateConfig] = useState<StandardRateConfig>({
+    mode: "default",
+    functionBody: "",
   })
   const [originalParsed, setOriginalParsed] = useState<ParsedCsv | null>(null)
   const [csvNumericVariables, setCsvNumericVariables] = useState<string[]>([])
@@ -857,6 +886,13 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
     }
   }, [amenityAdjuster])
 
+  const resolvedStandardRateConfig = useMemo<StandardRateConfig>(() => {
+    return {
+      mode: standardRateConfig.mode,
+      functionBody: standardRateConfig.functionBody,
+    }
+  }, [standardRateConfig])
+
   // Validate allowed filters
   // Strictly Allowed:
   // - unit_dimensions: "Unit Dimensions"
@@ -897,6 +933,10 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
       standard: { mode: "multiplier", value: "" },
       economy: { mode: "multiplier", value: "" },
     })
+    setStandardRateConfig({
+      mode: "default",
+      functionBody: "",
+    })
     setOriginalParsed(null)
     setCsvNumericVariables([])
   }
@@ -916,7 +956,8 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
       resolvedCalculatedRows.rows,
       rounding,
       nextAdjusters,
-      resolvedAmenityAdjuster
+      resolvedAmenityAdjuster,
+      resolvedStandardRateConfig
     )
     const headers = processed.headers.length ? processed.headers : original.headers
     const changes = buildChanges(original, processed)
@@ -961,6 +1002,15 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
     })
   }
 
+  useEffect(() => {
+    if (!originalParsed || !reviewData) return
+    try {
+      rebuildReviewFromOriginal(originalParsed, popupAdjusters)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to apply adjustments")
+    }
+  }, [amenityAdjuster, standardRateConfig, originalParsed, reviewData, popupAdjusters])
+
   const handleProcess = async () => {
     if (!file) return
 
@@ -980,7 +1030,8 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
         resolvedCalculatedRows.rows,
         rounding,
         popupAdjusters,
-        resolvedAmenityAdjuster
+        resolvedAmenityAdjuster,
+        resolvedStandardRateConfig
       )
 
       if (original.headers.length === 0 || processed.headers.length === 0) {
@@ -1119,6 +1170,85 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
                 onChange={(e: ChangeEvent<HTMLInputElement>) => setFile(e.target.files?.[0] || null)}
               />
             </div>
+          </div>
+        ) : (
+          <div className="space-y-3 overflow-hidden">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm font-medium">Popup Function Adjusters</span>
+              <Button type="button" size="sm" variant="outline" onClick={functionDialog.handleOpen}>
+                <Plus className="mr-1 h-3.5 w-3.5" /> Function
+              </Button>
+            </div>
+
+            <div className="rounded-md border p-3 space-y-2">
+              {popupAdjusters.length === 0 ? (
+                <p className="text-xs text-muted-foreground">No popup adjusters configured.</p>
+              ) : (
+                popupAdjusters.map((adj: Adjuster, idx: number) => {
+                  const fn = adj as { variable?: string; function_string?: string }
+                  const summary = adj.type === 'function' && fn.variable && fn.function_string
+                    ? `f(${fn.variable}) = ${fn.function_string}`
+                    : adj.type
+                  return (
+                  <div key={`${adj.type}-${idx}`} className="flex items-center justify-between rounded border px-2 py-1.5 gap-3">
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-xs font-medium capitalize">{idx + 1}. Function adjuster</span>
+                      <span className="text-xs text-muted-foreground font-mono truncate">{summary}</span>
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleRemovePopupAdjuster(idx)}
+                      className="h-7 px-2"
+                      aria-label="Remove adjuster"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                  )
+                })
+              )}
+            </div>
+
+            <div className="rounded-md border p-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">Standard rate formula</span>
+                <span className="text-xs text-muted-foreground">Uses web rate $x$</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-3 text-xs">
+                <label className="inline-flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name="standard-rate-mode"
+                    checked={standardRateConfig.mode === "default"}
+                    onChange={() => setStandardRateConfig((prev) => ({ ...prev, mode: "default" }))}
+                  />
+                  Default (Blue Line)
+                </label>
+                <label className="inline-flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name="standard-rate-mode"
+                    checked={standardRateConfig.mode === "function"}
+                    onChange={() => setStandardRateConfig((prev) => ({ ...prev, mode: "function" }))}
+                  />
+                  Custom function
+                </label>
+              </div>
+              {standardRateConfig.mode === "function" && (
+                <div className="space-y-2">
+                  <Input
+                    placeholder="Example: 1.6 * x"
+                    value={standardRateConfig.functionBody}
+                    onChange={(e) => setStandardRateConfig((prev) => ({ ...prev, functionBody: e.target.value }))}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Use <span className="font-mono">x</span> as the rounded web rate. If invalid, the default formula is used.
+                  </p>
+                </div>
+              )}
+            </div>
 
             <div className="rounded-md border p-3 space-y-3">
               <div className="flex items-center justify-between">
@@ -1189,46 +1319,6 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
               <p className="text-xs text-muted-foreground">
                 Column match uses the CSV &quot;Unit Amenities&quot; text and checks for the words Premium, Standard, or Economy.
               </p>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-3 overflow-hidden">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm font-medium">Popup Function Adjusters</span>
-              <Button type="button" size="sm" variant="outline" onClick={functionDialog.handleOpen}>
-                <Plus className="mr-1 h-3.5 w-3.5" /> Function
-              </Button>
-            </div>
-
-            <div className="rounded-md border p-3 space-y-2">
-              {popupAdjusters.length === 0 ? (
-                <p className="text-xs text-muted-foreground">No popup adjusters configured.</p>
-              ) : (
-                popupAdjusters.map((adj: Adjuster, idx: number) => {
-                  const fn = adj as { variable?: string; function_string?: string }
-                  const summary = adj.type === 'function' && fn.variable && fn.function_string
-                    ? `f(${fn.variable}) = ${fn.function_string}`
-                    : adj.type
-                  return (
-                  <div key={`${adj.type}-${idx}`} className="flex items-center justify-between rounded border px-2 py-1.5 gap-3">
-                    <div className="flex flex-col min-w-0">
-                      <span className="text-xs font-medium capitalize">{idx + 1}. Function adjuster</span>
-                      <span className="text-xs text-muted-foreground font-mono truncate">{summary}</span>
-                    </div>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => handleRemovePopupAdjuster(idx)}
-                      className="h-7 px-2"
-                      aria-label="Remove adjuster"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                  )
-                })
-              )}
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
