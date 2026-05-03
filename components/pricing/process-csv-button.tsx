@@ -21,7 +21,7 @@ import type { Adjuster } from '@/lib/adjusters'
 import { evaluateSafeFunction } from "@/lib/adjusters"
 import type { E1DataRow } from "@/lib/api/types"
 import { FileSpreadsheet, Info, Loader2, Plus, Trash2 } from "lucide-react"
-import { useEffect, useMemo, useState, type ChangeEvent } from "react"
+import { useCallback, useEffect, useMemo, useState, type ChangeEvent } from "react"
 import { toast } from "sonner"
 
 interface ProcessCsvButtonProps {
@@ -961,7 +961,7 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
     return approvals
   }
 
-  const rebuildReviewFromOriginal = (original: ParsedCsv, nextAdjusters: Adjuster[]) => {
+  const rebuildReviewFromOriginal = useCallback((original: ParsedCsv, nextAdjusters: Adjuster[]) => {
     if (resolvedCalculatedRows.error) {
       throw new Error(resolvedCalculatedRows.error)
     }
@@ -986,7 +986,14 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
     }
     setReviewData(nextReviewData)
     setApprovedChanges(buildDefaultApprovals(changes))
-  }
+  }, [
+    file?.name,
+    resolvedCalculatedRows.error,
+    resolvedCalculatedRows.rows,
+    rounding,
+    resolvedAmenityAdjuster,
+    resolvedStandardRateConfig,
+  ])
 
   const handleAddPopupAdjuster = (adjuster: Adjuster) => {
     setPopupAdjusters((prev: Adjuster[]) => {
@@ -1017,13 +1024,13 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
   }
 
   useEffect(() => {
-    if (!originalParsed || !reviewData) return
+    if (!originalParsed) return
     try {
       rebuildReviewFromOriginal(originalParsed, popupAdjusters)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to apply adjustments")
     }
-  }, [amenityAdjuster, standardRateConfig, originalParsed, reviewData, popupAdjusters, rebuildReviewFromOriginal])
+  }, [amenityAdjuster, standardRateConfig, originalParsed, popupAdjusters, rebuildReviewFromOriginal])
 
   const handleProcess = async () => {
     if (!file) return
