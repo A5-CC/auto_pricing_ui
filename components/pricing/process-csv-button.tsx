@@ -97,6 +97,27 @@ type ReviewData = {
   reviewRows: ReviewRow[]
 }
 
+type AmenityAdjusterMode = "multiplier" | "delta"
+
+type AmenityAdjusterEntry = {
+  mode: AmenityAdjusterMode
+  value: string
+}
+
+type AmenityAdjusterState = {
+  applyToWeb: boolean
+  premium: AmenityAdjusterEntry
+  standard: AmenityAdjusterEntry
+  economy: AmenityAdjusterEntry
+}
+
+type ResolvedAmenityAdjuster = {
+  applyToWeb: boolean
+  premium?: { mode: AmenityAdjusterMode; value: number }
+  standard?: { mode: AmenityAdjusterMode; value: number }
+  economy?: { mode: AmenityAdjusterMode; value: number }
+}
+
 const REVIEWABLE_RATE_COLUMNS = new Set(["newwebrate", "newstandardrate"])
 const CURRENT_WEB_RATE_COLUMNS = new Set(["currentwebrate"])
 const CURRENT_STANDARD_RATE_COLUMNS = new Set(["currentstandardrate"])
@@ -104,6 +125,7 @@ const FACILITY_NAME_COLUMNS = new Set(["facilityname", "storagename", "propertyn
 const UNIT_SIZE_COLUMNS = new Set(["size", "unitsize", "unitdimensions"])
 const AREA_COLUMNS = new Set(["area", "unitarea", "sqft", "squarefeet"])
 const UNIT_TYPE_COLUMNS = new Set(["unittype", "unittypecode", "unittypecategory"])
+const UNIT_AMENITIES_COLUMNS = new Set(["unitamenities", "amenities", "unit_amenities"])
 const LOCATION_COLUMNS = new Set(["facilityname", "storagename", "propertyname", "sitename", "location", "address", "clientlocation", "modstoragelocation"])
 const NEW_WEB_RATE_COLUMNS = new Set(["newwebrate"])
 const NEW_STANDARD_RATE_COLUMNS = new Set(["newstandardrate"])
@@ -228,6 +250,25 @@ function parseCurrencyLikeNumber(value: unknown): number {
 function formatCurrency(value: number): string {
   if (!Number.isFinite(value)) return ""
   return `$${value.toFixed(2)}`
+}
+
+function resolveAmenityTier(value: unknown): "premium" | "standard" | "economy" | null {
+  const normalized = normalizeMatchValue(value)
+  if (!normalized) return null
+  if (normalized.includes("premium")) return "premium"
+  if (normalized.includes("standard")) return "standard"
+  if (normalized.includes("economy")) return "economy"
+  return null
+}
+
+function applyAmenityAdjustment(
+  value: number,
+  adjuster?: { mode: AmenityAdjusterMode; value: number }
+): number {
+  if (!adjuster || !Number.isFinite(value)) return value
+  if (!Number.isFinite(adjuster.value)) return value
+  if (adjuster.mode === "multiplier") return value * adjuster.value
+  return value + adjuster.value
 }
 
 function calculateBlueLineStandardRateValue(webRate: unknown): number {
@@ -523,7 +564,8 @@ function applyCalculatedPricesToCsv(
   original: ParsedCsv,
   calculatedRows: CalculatedPriceRow[],
   rounding?: { enabled: boolean; offset: number },
-  popupAdjusters: Adjuster[] = []
+  popupAdjusters: Adjuster[] = [],
+  amenityAdjuster?: ResolvedAmenityAdjuster
 ): ParsedCsv {
   const headers = [...original.headers]
   const rows = original.rows.map((row) => [...row])
@@ -532,6 +574,7 @@ function applyCalculatedPricesToCsv(
   const unitSizeIndex = findColumnIndex(headers, UNIT_SIZE_COLUMNS)
   const areaIndex = findColumnIndex(headers, AREA_COLUMNS)
   const unitTypeIndex = findColumnIndex(headers, UNIT_TYPE_COLUMNS)
+  const unitAmenitiesIndex = findColumnIndex(headers, UNIT_AMENITIES_COLUMNS)
   const newWebRateIndex = findColumnIndex(headers, NEW_WEB_RATE_COLUMNS)
   const newStandardRateIndex = findColumnIndex(headers, NEW_STANDARD_RATE_COLUMNS)
   let matchedUnitAreaIndex = findColumnIndex(headers, MATCHED_UNIT_AREA_COLUMNS)
@@ -551,6 +594,15 @@ function applyCalculatedPricesToCsv(
   }
   if (newWebRateIndex < 0 || newStandardRateIndex < 0) {
     throw new Error("CSV must include New Web Rate and New Standard Rate columns.")
+  }
+
+  const hasAmenityAdjustments = Boolean(
+    amenityAdjuster &&
+    amenityAdjuster.applyToWeb &&
+    (amenityAdjuster.premium || amenityAdjuster.standard || amenityAdjuster.economy)
+  )
+  if (hasAmenityAdjustments && unitAmenitiesIndex < 0) {
+    throw new Error("CSV must include a Unit Amenities column to apply amenity adjustments.")
   }
 
   if (matchedUnitAreaIndex < 0) {
@@ -697,7 +749,19 @@ function applyCalculatedPricesToCsv(
 
     const baseWebRate = mappedPrice
     const adjustedWebRate = applyPopupAdjustersToWebRate(baseWebRate, csvRow, popupAdjusters)
-    const effectiveWebRate = Number.isFinite(adjustedWebRate) ? adjustedWebRate : baseWebRate
+    let effectiveWebRate = Number.isFinite(adjustedWebRate) ? adjustedWebRate : baseWebRate
+
+    const amenityTier = unitAmenitiesIndex >= 0
+      ? resolveAmenityTier(getCellValue(row, unitAmenitiesIndex))
+      : null
+    const amenityConfig = amenityTier
+      ? amenityAdjuster?.[amenityTier]
+      : undefined
+
+    if (amenityTier && amenityConfig && amenityAdjuster?.applyToWeb) {
+      effectiveWebRate = applyAmenityAdjustment(effectiveWebRate, amenityConfig)
+    }
+
     const roundedEffectiveWebRate = applyConfiguredRounding(effectiveWebRate, rounding)
     const standardRateValue = calculateBlueLineStandardRateValue(roundedEffectiveWebRate)
 
@@ -726,6 +790,12 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
   const [reviewData, setReviewData] = useState<ReviewData | null>(null)
   const [approvedChanges, setApprovedChanges] = useState<Record<string, boolean>>({})
   const [popupAdjusters, setPopupAdjusters] = useState<Adjuster[]>([])
+  const [amenityAdjuster, setAmenityAdjuster] = useState<AmenityAdjusterState>({
+    applyToWeb: true,
+    premium: { mode: "multiplier", value: "" },
+    standard: { mode: "multiplier", value: "" },
+    economy: { mode: "multiplier", value: "" },
+  })
   const [originalParsed, setOriginalParsed] = useState<ParsedCsv | null>(null)
   const [csvNumericVariables, setCsvNumericVariables] = useState<string[]>([])
 
@@ -770,6 +840,23 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
     return { rows: merged, error: null }
   }, [calculatedRows, calculatedRowsBundle])
 
+  const resolvedAmenityAdjuster = useMemo<ResolvedAmenityAdjuster>(() => {
+    const parseEntry = (entry: AmenityAdjusterEntry) => {
+      const raw = entry.value.trim()
+      if (!raw) return undefined
+      const n = Number(raw)
+      if (!Number.isFinite(n)) return undefined
+      return { mode: entry.mode, value: n }
+    }
+
+    return {
+      applyToWeb: amenityAdjuster.applyToWeb,
+      premium: parseEntry(amenityAdjuster.premium),
+      standard: parseEntry(amenityAdjuster.standard),
+      economy: parseEntry(amenityAdjuster.economy),
+    }
+  }, [amenityAdjuster])
+
   // Validate allowed filters
   // Strictly Allowed:
   // - unit_dimensions: "Unit Dimensions"
@@ -804,6 +891,12 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
     setReviewData(null)
     setApprovedChanges({})
     setPopupAdjusters([])
+    setAmenityAdjuster({
+      applyToWeb: true,
+      premium: { mode: "multiplier", value: "" },
+      standard: { mode: "multiplier", value: "" },
+      economy: { mode: "multiplier", value: "" },
+    })
     setOriginalParsed(null)
     setCsvNumericVariables([])
   }
@@ -818,7 +911,13 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
     if (resolvedCalculatedRows.error) {
       throw new Error(resolvedCalculatedRows.error)
     }
-    const processed = applyCalculatedPricesToCsv(original, resolvedCalculatedRows.rows, rounding, nextAdjusters)
+    const processed = applyCalculatedPricesToCsv(
+      original,
+      resolvedCalculatedRows.rows,
+      rounding,
+      nextAdjusters,
+      resolvedAmenityAdjuster
+    )
     const headers = processed.headers.length ? processed.headers : original.headers
     const changes = buildChanges(original, processed)
     const reviewRows = buildReviewRows(original, processed, changes)
@@ -876,7 +975,13 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
       const original = toParsedCsv(originalText)
       setOriginalParsed(original)
       setCsvNumericVariables(detectNumericCsvColumns(original))
-      const processed = applyCalculatedPricesToCsv(original, resolvedCalculatedRows.rows, rounding, popupAdjusters)
+      const processed = applyCalculatedPricesToCsv(
+        original,
+        resolvedCalculatedRows.rows,
+        rounding,
+        popupAdjusters,
+        resolvedAmenityAdjuster
+      )
 
       if (original.headers.length === 0 || processed.headers.length === 0) {
         throw new Error("CSV appears empty or invalid. Please check the input file.")
@@ -1013,6 +1118,77 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
                 accept=".csv"
                 onChange={(e: ChangeEvent<HTMLInputElement>) => setFile(e.target.files?.[0] || null)}
               />
+            </div>
+
+            <div className="rounded-md border p-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">Unit Amenities adjustments</span>
+                <span className="text-xs text-muted-foreground">Matches Premium / Standard / Economy</span>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3 text-xs">
+                <span className="text-muted-foreground">Apply to:</span>
+                <label className="inline-flex items-center gap-1">
+                  <input
+                    type="checkbox"
+                    checked={amenityAdjuster.applyToWeb}
+                    onChange={(e) => setAmenityAdjuster((prev) => ({ ...prev, applyToWeb: e.target.checked }))}
+                  />
+                  <span>Web rate</span>
+                </label>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 text-xs">
+                <div className="font-medium text-muted-foreground">Tier</div>
+                <div className="font-medium text-muted-foreground">Mode</div>
+                <div className="font-medium text-muted-foreground">Value</div>
+                <div className="font-medium text-muted-foreground">Notes</div>
+
+                {([
+                  { key: "premium", label: "Premium" },
+                  { key: "standard", label: "Standard" },
+                  { key: "economy", label: "Economy" },
+                ] as const).map((tier) => (
+                  <div key={tier.key} className="contents">
+                    <div className="flex items-center">{tier.label}</div>
+                    <div>
+                      <select
+                        className="h-8 w-full rounded-md border px-2 text-xs"
+                        value={amenityAdjuster[tier.key].mode}
+                        onChange={(e) =>
+                          setAmenityAdjuster((prev) => ({
+                            ...prev,
+                            [tier.key]: { ...prev[tier.key], mode: e.target.value as AmenityAdjusterMode },
+                          }))
+                        }
+                      >
+                        <option value="multiplier">Multiplier</option>
+                        <option value="delta">Add/Subtract</option>
+                      </select>
+                    </div>
+                    <div>
+                      <Input
+                        className="h-8"
+                        placeholder={amenityAdjuster[tier.key].mode === "multiplier" ? "1.05" : "-5"}
+                        value={amenityAdjuster[tier.key].value}
+                        onChange={(e) =>
+                          setAmenityAdjuster((prev) => ({
+                            ...prev,
+                            [tier.key]: { ...prev[tier.key], value: e.target.value },
+                          }))
+                        }
+                      />
+                    </div>
+                    <div className="text-muted-foreground">
+                      {amenityAdjuster[tier.key].mode === "multiplier" ? "e.g., 0.98" : "e.g., +3 or -2"}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <p className="text-xs text-muted-foreground">
+                Column match uses the CSV "Unit Amenities" text and checks for the words Premium, Standard, or Economy.
+              </p>
             </div>
           </div>
         ) : (
