@@ -605,8 +605,6 @@ function applyCalculatedPricesToCsv(
   const unitAmenitiesIndex = findColumnIndex(headers, UNIT_AMENITIES_COLUMNS)
   let newWebRateIndex = findColumnIndex(headers, NEW_WEB_RATE_COLUMNS)
   let newStandardRateIndex = findColumnIndex(headers, NEW_STANDARD_RATE_COLUMNS)
-  const currentWebRateIndex = findColumnIndex(headers, CURRENT_WEB_RATE_COLUMNS)
-  const currentRentRateIndex = findColumnIndex(headers, CURRENT_RENT_RATE_COLUMNS)
   const newRentRateIndex = findColumnIndex(headers, NEW_RENT_RATE_COLUMNS)
   let matchedUnitAreaIndex = findColumnIndex(headers, MATCHED_UNIT_AREA_COLUMNS)
 
@@ -1025,7 +1023,7 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to apply adjustments")
     }
-  }, [amenityAdjuster, standardRateConfig, originalParsed, reviewData, popupAdjusters])
+  }, [amenityAdjuster, standardRateConfig, originalParsed, reviewData, popupAdjusters, rebuildReviewFromOriginal])
 
   const handleProcess = async () => {
     if (!file) return

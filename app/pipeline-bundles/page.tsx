@@ -5,21 +5,21 @@ import { ProcessCsvButton } from "@/components/pricing/process-csv-button";
 import { getE1Client, listPipelines } from "@/lib/api/client/pipelines";
 import { getColumnStatistics, getPricingData, getPricingSnapshots } from "@/lib/api/client/pricing";
 import type { ColumnStatistics, E1DataResponse, Pipeline, PricingDataResponse, PricingSnapshot } from "@/lib/api/types";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { PricingOverview } from "../pricing/components/pricing-overview";
 
 const FULL_LOAD_LIMIT = 1000;
 
-export default function PipelineBundlesPage() {
-  const LEGACY_TO_COLUMN: Record<string, string> = {
-    competitors: "competitor_name",
-    locations: "client_location",
-    client_location: "client_location",
-    dimensions: "unit_dimensions",
-    unit_categories: "unit_category",
-  };
+const LEGACY_TO_COLUMN: Record<string, string> = {
+  competitors: "competitor_name",
+  locations: "client_location",
+  client_location: "client_location",
+  dimensions: "unit_dimensions",
+  unit_categories: "unit_category",
+};
 
-  const normalizeFilterKeys = (filters?: Record<string, string[]>) => {
+export default function PipelineBundlesPage() {
+  const normalizeFilterKeys = useCallback((filters?: Record<string, string[]>) => {
     const next: Record<string, string[]> = {};
     for (const [key, vals] of Object.entries(filters ?? {})) {
       if (!Array.isArray(vals) || vals.length === 0) continue;
@@ -27,25 +27,25 @@ export default function PipelineBundlesPage() {
       next[resolvedKey] = vals;
     }
     return next;
-  };
+  }, []);
 
-  const normalizeCombinatoricFlagKeys = (flags?: Record<string, boolean>) => {
+  const normalizeCombinatoricFlagKeys = useCallback((flags?: Record<string, boolean>) => {
     const next: Record<string, boolean> = {};
     for (const [key, value] of Object.entries(flags ?? {})) {
       const resolvedKey = LEGACY_TO_COLUMN[key] ?? key;
       next[resolvedKey] = Boolean(value);
     }
     return next;
-  };
+  }, []);
 
-  const normalizeFilterModeKeys = (modes?: Record<string, string>) => {
+  const normalizeFilterModeKeys = useCallback((modes?: Record<string, string>) => {
     const next: Record<string, string> = {};
     for (const [key, value] of Object.entries(modes ?? {})) {
       const resolvedKey = LEGACY_TO_COLUMN[key] ?? key;
       next[resolvedKey] = value;
     }
     return next;
-  };
+  }, []);
 
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [selectedPipelineIds, setSelectedPipelineIds] = useState<string[]>([]);
