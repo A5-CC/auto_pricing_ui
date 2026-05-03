@@ -1187,7 +1187,7 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
               </div>
 
               <p className="text-xs text-muted-foreground">
-                Column match uses the CSV "Unit Amenities" text and checks for the words Premium, Standard, or Economy.
+                Column match uses the CSV &quot;Unit Amenities&quot; text and checks for the words Premium, Standard, or Economy.
               </p>
             </div>
           </div>

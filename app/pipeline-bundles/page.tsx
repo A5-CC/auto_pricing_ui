@@ -358,7 +358,6 @@ export default function PipelineBundlesPage() {
     dataResponse,
     clientDataResponse?.data.length,
     currentDate,
-    columnsStats,
     normalizeFilterKeys,
     normalizeCombinatoricFlagKeys,
     normalizeFilterModeKeys,
