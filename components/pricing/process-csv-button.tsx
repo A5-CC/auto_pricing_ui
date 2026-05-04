@@ -1262,7 +1262,6 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
             <div className="rounded-md border p-3 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">Standard rate formula</span>
-                <span className="text-xs text-muted-foreground">Input: web rate x → Output: standard rate</span>
               </div>
               <div className="rounded-md bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
                 <div className="flex items-center justify-between gap-3">
@@ -1270,8 +1269,28 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
                     <div>Default curve:</div>
                     <div>{"y = x * min(1.8, 1.6 + 20/x, 1.4 + 60/x)"}</div>
                   </div>
-                  <svg viewBox="0 0 260 120" className="h-20 w-40 rounded border bg-white">
-                    <path d={standardRateCurvePath} fill="none" stroke="currentColor" strokeWidth="2" />
+                  <svg viewBox="0 0 260 140" className="h-24 w-44 rounded border bg-white">
+                    <defs>
+                      <linearGradient id="grid" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0" stopColor="currentColor" stopOpacity="0.08" />
+                        <stop offset="1" stopColor="currentColor" stopOpacity="0.08" />
+                      </linearGradient>
+                    </defs>
+                    <rect x="28" y="10" width="210" height="100" fill="url(#grid)" />
+                    <line x1="28" y1="10" x2="28" y2="110" stroke="currentColor" strokeOpacity="0.4" />
+                    <line x1="28" y1="110" x2="238" y2="110" stroke="currentColor" strokeOpacity="0.4" />
+
+                    {[0, 25, 50, 75, 100].map((t) => (
+                      <line key={`gx-${t}`} x1={28 + (210 * t) / 100} y1="10" x2={28 + (210 * t) / 100} y2="110" stroke="currentColor" strokeOpacity="0.08" />
+                    ))}
+                    {[0, 25, 50, 75, 100].map((t) => (
+                      <line key={`gy-${t}`} x1="28" y1={10 + (100 * t) / 100} x2="238" y2={10 + (100 * t) / 100} stroke="currentColor" strokeOpacity="0.08" />
+                    ))}
+
+                    <path d={standardRateCurvePath} fill="none" stroke="currentColor" strokeWidth="2" transform="translate(10,10)" />
+
+                    <text x="133" y="132" textAnchor="middle" fontSize="8" fill="currentColor" fillOpacity="0.7">Web Rate ($)</text>
+                    <text x="10" y="60" textAnchor="middle" fontSize="8" fill="currentColor" fillOpacity="0.7" transform="rotate(-90 10 60)">Standard Rate ($)</text>
                   </svg>
                 </div>
               </div>
@@ -1282,10 +1301,6 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
                   value={standardRateConfig.functionBody}
                   onChange={(e) => setStandardRateConfig((prev) => ({ ...prev, functionBody: e.target.value }))}
                 />
-                <p className="text-xs text-muted-foreground">
-                  Use <span className="font-mono">x</span> for the web rate. Supports piecewise via ternary
-                  (e.g., <span className="font-mono">x &lt; 100 ? 1.6 * x : 1.4 * x</span>). If invalid, the default curve is used.
-                </p>
               </div>
             </div>
 
@@ -1449,11 +1464,10 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
               </label>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
               <div className="font-medium text-muted-foreground">Tier</div>
               <div className="font-medium text-muted-foreground">Mode</div>
               <div className="font-medium text-muted-foreground">Value</div>
-              <div className="font-medium text-muted-foreground">Notes</div>
 
               {([
                 { key: "premium", label: "Premium" },
@@ -1480,7 +1494,15 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
                   <div>
                     <Input
                       className="h-8"
-                      placeholder={amenityAdjuster[tier.key].mode === "multiplier" ? "1.05" : "-5"}
+                      placeholder={
+                        amenityAdjuster[tier.key].mode === "multiplier"
+                          ? "1.05"
+                          : tier.key === "economy"
+                            ? "-5"
+                            : tier.key === "standard"
+                              ? "0"
+                              : "5"
+                      }
                       value={amenityAdjuster[tier.key].value}
                       onChange={(e) =>
                         setAmenityAdjuster((prev) => ({
@@ -1490,16 +1512,9 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
                       }
                     />
                   </div>
-                  <div className="text-muted-foreground">
-                    {amenityAdjuster[tier.key].mode === "multiplier" ? "e.g., 0.98" : "e.g., +3 or -2"}
-                  </div>
                 </div>
               ))}
             </div>
-
-            <p className="text-xs text-muted-foreground">
-              Column match uses the CSV &quot;Unit Amenities&quot; text and checks for the words Premium, Standard, or Economy.
-            </p>
           </div>
 
           <DialogFooter>
