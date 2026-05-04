@@ -825,6 +825,7 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
   const [reviewData, setReviewData] = useState<ReviewData | null>(null)
   const [approvedChanges, setApprovedChanges] = useState<Record<string, boolean>>({})
   const [popupAdjusters, setPopupAdjusters] = useState<Adjuster[]>([])
+  const [showLevels, setShowLevels] = useState(false)
   const [amenityAdjuster, setAmenityAdjuster] = useState<AmenityAdjusterState>({
     applyToWeb: true,
     premium: { mode: "multiplier", value: "" },
@@ -1188,9 +1189,17 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
         ) : (
           <div className="space-y-3 overflow-hidden">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm font-medium">Competitive</span>
+              <span className="text-sm font-medium">Adjusters</span>
               <Button type="button" size="sm" variant="outline" onClick={functionDialog.handleOpen}>
                 <Plus className="mr-1 h-3.5 w-3.5" /> Competitive
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => setShowLevels((prev: boolean) => !prev)}
+              >
+                Levels
               </Button>
             </div>
 
@@ -1247,7 +1256,8 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
               </div>
             </div>
 
-            <div className="rounded-md border p-3 space-y-3">
+            {showLevels && (
+              <div className="rounded-md border p-3 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">Levels</span>
                 <span className="text-xs text-muted-foreground">Matches Premium / Standard / Economy</span>
@@ -1317,6 +1327,7 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
                 Column match uses the CSV &quot;Unit Amenities&quot; text and checks for the words Premium, Standard, or Economy.
               </p>
             </div>
+            )}
 
             <div className="flex flex-wrap items-center gap-2">
               <Button type="button" variant="outline" size="sm" onClick={() => setAllApprovals(true)}>
