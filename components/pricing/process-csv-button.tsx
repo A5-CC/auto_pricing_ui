@@ -284,6 +284,18 @@ function calculateBlueLineStandardRateValue(webRate: unknown): number {
   return Math.round(standardRate)
 }
 
+function resolveStandardRateValue(webRate: number, functionBody?: string): number {
+  if (!Number.isFinite(webRate) || webRate <= 0) return webRate
+  const trimmed = functionBody?.trim()
+  if (trimmed) {
+    const evaluated = evaluateSafeFunction(trimmed, webRate)
+    if (evaluated.success && typeof evaluated.value === "number" && Number.isFinite(evaluated.value)) {
+      return evaluated.value
+    }
+  }
+  return calculateBlueLineStandardRateValue(webRate)
+}
+
 function rowToRecord(headers: string[], row: string[]): Record<string, string> {
   const out: Record<string, string> = {}
   for (let i = 0; i < headers.length; i++) {
@@ -577,7 +589,8 @@ function applyCalculatedPricesToCsv(
   calculatedRows: CalculatedPriceRow[],
   rounding?: { enabled: boolean; offset: number },
   popupAdjusters: Adjuster[] = [],
-  amenityAdjuster?: ResolvedAmenityAdjuster
+  amenityAdjuster?: ResolvedAmenityAdjuster,
+  standardRateFunction?: string
 ): ParsedCsv {
   const headers = [...original.headers]
   const rows = original.rows.map((row) => [...row])
@@ -787,7 +800,12 @@ function applyCalculatedPricesToCsv(
 
     const roundedEffectiveWebRate = applyConfiguredRounding(effectiveWebRate, rounding)
     const finalWebRate = formatCurrency(roundedEffectiveWebRate)
-    const standardRate = getCellValue(row, findColumnIndex(headers, CURRENT_STANDARD_RATE_COLUMNS))
+    const standardRateFallback = getCellValue(row, findColumnIndex(headers, CURRENT_STANDARD_RATE_COLUMNS))
+    const standardRateValue = resolveStandardRateValue(roundedEffectiveWebRate, standardRateFunction)
+    const roundedStandardRate = applyConfiguredRounding(standardRateValue, rounding)
+    const standardRate = Number.isFinite(roundedStandardRate)
+      ? formatCurrency(roundedStandardRate)
+      : standardRateFallback
     row[newWebRateIndex] = finalWebRate
     row[newStandardRateIndex] = standardRate
     row[matchedUnitAreaIndex] = matchedAreaValue
@@ -812,6 +830,8 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
   const [approvedChanges, setApprovedChanges] = useState<Record<string, boolean>>({})
   const [popupAdjusters, setPopupAdjusters] = useState<Adjuster[]>([])
   const [showLevels, setShowLevels] = useState(false)
+  const [standardRateOpen, setStandardRateOpen] = useState(false)
+  const [standardRateFunction, setStandardRateFunction] = useState("")
   const [amenityAdjuster, setAmenityAdjuster] = useState<AmenityAdjusterState>({
     applyToWeb: true,
     premium: { mode: "multiplier", value: "" },
@@ -887,7 +907,7 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
     const padding = 12
 
     const xs = Array.from({ length: 41 }, (_, i) => minX + ((maxX - minX) * i) / 40)
-    const ys = xs.map((x) => calculateBlueLineStandardRateValue(x))
+    const ys = xs.map((x) => resolveStandardRateValue(x, standardRateFunction))
     const maxY = Math.max(...ys, 1)
     const minY = Math.min(...ys, 0)
 
@@ -902,7 +922,7 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
         return `${i === 0 ? "M" : "L"} ${px.toFixed(2)} ${py.toFixed(2)}`
       })
       .join(" ")
-  }, [])
+  }, [standardRateFunction])
 
 
   // Validate allowed filters
@@ -965,6 +985,7 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
       rounding,
       nextAdjusters,
       resolvedAmenityAdjuster,
+      standardRateFunction,
     )
     const headers = processed.headers.length ? processed.headers : original.headers
     const changes = buildChanges(original, processed)
@@ -985,6 +1006,7 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
     resolvedCalculatedRows.rows,
     rounding,
     resolvedAmenityAdjuster,
+    standardRateFunction,
   ])
 
   const handleAddPopupAdjuster = (adjuster: Adjuster) => {
@@ -1044,6 +1066,7 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
         rounding,
         popupAdjusters,
         resolvedAmenityAdjuster,
+        standardRateFunction,
       )
 
       if (original.headers.length === 0 || processed.headers.length === 0) {
@@ -1113,7 +1136,6 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
   const approvedCount = reviewData
     ? reviewData.changes.filter((c: CsvRateChange) => approvedChanges[c.id] === true).length
     : 0
-  const [standardRateOpen, setStandardRateOpen] = useState(false)
 
   return (
     <div className="flex items-center gap-2">
@@ -1194,7 +1216,7 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
                           <div>Current curve:</div>
                           <div>{"Standard = Web * min(1.8, 1.6 + 20/x, 1.4 + 60/x)"}</div>
                         </div>
-                        <svg viewBox="0 0 260 140" className="h-28 w-full rounded border bg-white">
+                        <svg viewBox="0 0 260 140" className="h-48 w-full rounded border bg-white">
                           <defs>
                             <linearGradient id="grid" x1="0" y1="0" x2="0" y2="1">
                               <stop offset="0" stopColor="currentColor" stopOpacity="0.08" />
@@ -1234,6 +1256,17 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
                           <text x="10" y="60" textAnchor="middle" fontSize="8" fill="currentColor" fillOpacity="0.7" transform="rotate(-90 10 60)">Standard Rate ($)</text>
                         </svg>
                       </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="standard-rate-function" className="text-xs font-medium text-muted-foreground">
+                        Custom function (x = web rate)
+                      </Label>
+                      <Input
+                        id="standard-rate-function"
+                        placeholder="Example: x < 100 ? 1.6 * x : 1.4 * x"
+                        value={standardRateFunction}
+                        onChange={(e) => setStandardRateFunction(e.target.value)}
+                      />
                     </div>
                   </div>
                 </DialogContent>
