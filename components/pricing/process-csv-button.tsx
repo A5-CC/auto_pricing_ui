@@ -20,7 +20,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import type { Adjuster } from '@/lib/adjusters'
 import { evaluateSafeFunction } from "@/lib/adjusters"
 import type { E1DataRow } from "@/lib/api/types"
-import { FileSpreadsheet, Info, Loader2, Plus, Trash2 } from "lucide-react"
+import { FileSpreadsheet, Info, Loader2, Trash2 } from "lucide-react"
 import { useCallback, useEffect, useMemo, useState, type ChangeEvent } from "react"
 import { toast } from "sonner"
 
