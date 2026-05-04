@@ -119,7 +119,6 @@ type ResolvedAmenityAdjuster = {
 }
 
 type StandardRateConfig = {
-  mode: "default" | "function"
   functionBody: string
 }
 
@@ -292,11 +291,7 @@ function resolveStandardRateValue(
   webRate: number,
   config?: StandardRateConfig
 ): number {
-  if (!config || config.mode !== "function") {
-    return calculateBlueLineStandardRateValue(webRate)
-  }
-
-  const fnBody = config.functionBody.trim()
+  const fnBody = config?.functionBody?.trim() ?? ""
   if (!fnBody) return calculateBlueLineStandardRateValue(webRate)
 
   const evaluated = evaluateSafeFunction(fnBody, webRate)
@@ -571,12 +566,13 @@ function buildReviewRows(original: ParsedCsv, processed: ParsedCsv, changes: Csv
       standardRateChange: null,
     }
 
-    if (normalizeColumnKey(change.columnName) === "newwebrate") {
+    const normalizedColumn = normalizeColumnKey(change.columnName)
+    if (normalizedColumn === "newwebrate" || normalizedColumn === "newrentrate") {
       baseRow.webRateChange = change
       baseRow.proposedWebRate = change.processedValue
     }
 
-    if (normalizeColumnKey(change.columnName) === "newstandardrate") {
+    if (normalizedColumn === "newstandardrate") {
       baseRow.standardRateChange = change
       baseRow.proposedStandardRate = change.processedValue
     }
@@ -836,7 +832,6 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
     economy: { mode: "multiplier", value: "" },
   })
   const [standardRateConfig, setStandardRateConfig] = useState<StandardRateConfig>({
-    mode: "default",
     functionBody: "",
   })
   const [originalParsed, setOriginalParsed] = useState<ParsedCsv | null>(null)
@@ -902,7 +897,6 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
 
   const resolvedStandardRateConfig = useMemo<StandardRateConfig>(() => {
     return {
-      mode: standardRateConfig.mode,
       functionBody: standardRateConfig.functionBody,
     }
   }, [standardRateConfig])
@@ -948,7 +942,6 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
       economy: { mode: "multiplier", value: "" },
     })
     setStandardRateConfig({
-      mode: "default",
       functionBody: "",
     })
     setOriginalParsed(null)
@@ -1167,7 +1160,7 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
                 <span className="text-xs text-muted-foreground mt-2 block">
                   Supported filters: client_location, unit_dimensions or unit_area (from CSV Area), has_drive_up_access.
                   <br />
-                  Function popup adjusters appear after upload in the review screen.
+                  Competitive adjusters appear after upload in the review screen.
                   <br />
                   Uses the currently displayed pipeline price table in the browser.
                   <br />
@@ -1195,15 +1188,15 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
         ) : (
           <div className="space-y-3 overflow-hidden">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm font-medium">Popup Function Adjusters</span>
+              <span className="text-sm font-medium">Competitive</span>
               <Button type="button" size="sm" variant="outline" onClick={functionDialog.handleOpen}>
-                <Plus className="mr-1 h-3.5 w-3.5" /> Function
+                <Plus className="mr-1 h-3.5 w-3.5" /> Competitive
               </Button>
             </div>
 
             <div className="rounded-md border p-3 space-y-2">
               {popupAdjusters.length === 0 ? (
-                <p className="text-xs text-muted-foreground">No popup adjusters configured.</p>
+                <p className="text-xs text-muted-foreground">No competitive adjusters configured.</p>
               ) : (
                 popupAdjusters.map((adj: Adjuster, idx: number) => {
                   const fn = adj as { variable?: string; function_string?: string }
@@ -1213,7 +1206,7 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
                   return (
                   <div key={`${adj.type}-${idx}`} className="flex items-center justify-between rounded border px-2 py-1.5 gap-3">
                     <div className="flex flex-col min-w-0">
-                      <span className="text-xs font-medium capitalize">{idx + 1}. Function adjuster</span>
+                      <span className="text-xs font-medium capitalize">{idx + 1}. Competitive adjuster</span>
                       <span className="text-xs text-muted-foreground font-mono truncate">{summary}</span>
                     </div>
                     <Button
@@ -1235,45 +1228,28 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
             <div className="rounded-md border p-3 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">Standard rate formula</span>
-                <span className="text-xs text-muted-foreground">Uses web rate $x$</span>
+                <span className="text-xs text-muted-foreground">Input: web rate $x$ → Output: standard rate</span>
               </div>
-              <div className="flex flex-wrap items-center gap-3 text-xs">
-                <label className="inline-flex items-center gap-2">
-                  <input
-                    type="radio"
-                    name="standard-rate-mode"
-                    checked={standardRateConfig.mode === "default"}
-                    onChange={() => setStandardRateConfig((prev) => ({ ...prev, mode: "default" }))}
-                  />
-                  Default (Blue Line)
-                </label>
-                <label className="inline-flex items-center gap-2">
-                  <input
-                    type="radio"
-                    name="standard-rate-mode"
-                    checked={standardRateConfig.mode === "function"}
-                    onChange={() => setStandardRateConfig((prev) => ({ ...prev, mode: "function" }))}
-                  />
-                  Custom function
-                </label>
+              <div className="rounded-md bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+                <div>Default curve:</div>
+                <div>{"$$y = x \\cdot \\min\\left(1.8,\\ 1.6 + \\frac{20}{x},\\ 1.4 + \\frac{60}{x}\\right)$$"}</div>
               </div>
-              {standardRateConfig.mode === "function" && (
-                <div className="space-y-2">
-                  <Input
-                    placeholder="Example: 1.6 * x"
-                    value={standardRateConfig.functionBody}
-                    onChange={(e) => setStandardRateConfig((prev) => ({ ...prev, functionBody: e.target.value }))}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Use <span className="font-mono">x</span> as the rounded web rate. If invalid, the default formula is used.
-                  </p>
-                </div>
-              )}
+              <div className="space-y-2">
+                <Input
+                  placeholder="Example: x < 100 ? 1.6 * x : 1.4 * x"
+                  value={standardRateConfig.functionBody}
+                  onChange={(e) => setStandardRateConfig((prev) => ({ ...prev, functionBody: e.target.value }))}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Use <span className="font-mono">x</span> for the web rate. Supports piecewise via ternary
+                  (e.g., <span className="font-mono">x &lt; 100 ? 1.6 * x : 1.4 * x</span>). If invalid, the default curve is used.
+                </p>
+              </div>
             </div>
 
             <div className="rounded-md border p-3 space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Unit Amenities adjustments</span>
+                <span className="text-sm font-medium">Levels</span>
                 <span className="text-xs text-muted-foreground">Matches Premium / Standard / Economy</span>
               </div>
 
