@@ -1269,6 +1269,17 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
                       />
                     </div>
                   </div>
+                  <DialogFooter>
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        toast.success("Standard rate function saved.")
+                        setStandardRateOpen(false)
+                      }}
+                    >
+                      Save
+                    </Button>
+                  </DialogFooter>
                 </DialogContent>
               </Dialog>
             ) : null}
