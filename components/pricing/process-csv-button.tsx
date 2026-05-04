@@ -902,6 +902,31 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
     }
   }, [standardRateConfig])
 
+  const standardRateCurvePath = useMemo(() => {
+    const minX = 20
+    const maxX = 200
+    const width = 260
+    const height = 120
+    const padding = 12
+
+    const xs = Array.from({ length: 41 }, (_, i) => minX + ((maxX - minX) * i) / 40)
+    const ys = xs.map((x) => calculateBlueLineStandardRateValue(x))
+    const maxY = Math.max(...ys, 1)
+    const minY = Math.min(...ys, 0)
+
+    const scaleX = (x: number) => padding + ((x - minX) / (maxX - minX)) * (width - padding * 2)
+    const scaleY = (y: number) => height - padding - ((y - minY) / (maxY - minY || 1)) * (height - padding * 2)
+
+    return xs
+      .map((x, i) => {
+        const y = ys[i]
+        const px = scaleX(x)
+        const py = scaleY(y)
+        return `${i === 0 ? "M" : "L"} ${px.toFixed(2)} ${py.toFixed(2)}`
+      })
+      .join(" ")
+  }, [])
+
   // Validate allowed filters
   // Strictly Allowed:
   // - unit_dimensions: "Unit Dimensions"
@@ -1191,13 +1216,13 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-sm font-medium">Adjusters</span>
               <Button type="button" size="sm" variant="outline" onClick={functionDialog.handleOpen}>
-                <Plus className="mr-1 h-3.5 w-3.5" /> Competitive
+                Competitive
               </Button>
               <Button
                 type="button"
                 size="sm"
                 variant="outline"
-                onClick={() => setShowLevels((prev: boolean) => !prev)}
+                onClick={() => setShowLevels(true)}
               >
                 Levels
               </Button>
@@ -1237,13 +1262,21 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
             <div className="rounded-md border p-3 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">Standard rate formula</span>
-                <span className="text-xs text-muted-foreground">Input: web rate $x$ → Output: standard rate</span>
+                <span className="text-xs text-muted-foreground">Input: web rate x → Output: standard rate</span>
               </div>
               <div className="rounded-md bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-                <div>Default curve:</div>
-                <div>{"$$y = x \\cdot \\min\\left(1.8,\\ 1.6 + \\frac{20}{x},\\ 1.4 + \\frac{60}{x}\\right)$$"}</div>
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div>Default curve:</div>
+                    <div>{"y = x * min(1.8, 1.6 + 20/x, 1.4 + 60/x)"}</div>
+                  </div>
+                  <svg viewBox="0 0 260 120" className="h-20 w-40 rounded border bg-white">
+                    <path d={standardRateCurvePath} fill="none" stroke="currentColor" strokeWidth="2" />
+                  </svg>
+                </div>
               </div>
               <div className="space-y-2">
+                <label className="text-xs font-medium text-muted-foreground">Custom function</label>
                 <Input
                   placeholder="Example: x < 100 ? 1.6 * x : 1.4 * x"
                   value={standardRateConfig.functionBody}
@@ -1256,78 +1289,6 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
               </div>
             </div>
 
-            {showLevels && (
-              <div className="rounded-md border p-3 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Levels</span>
-                <span className="text-xs text-muted-foreground">Matches Premium / Standard / Economy</span>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-3 text-xs">
-                <span className="text-muted-foreground">Apply to:</span>
-                <label className="inline-flex items-center gap-1">
-                  <input
-                    type="checkbox"
-                    checked={amenityAdjuster.applyToWeb}
-                    onChange={(e) => setAmenityAdjuster((prev) => ({ ...prev, applyToWeb: e.target.checked }))}
-                  />
-                  <span>Web rate</span>
-                </label>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 text-xs">
-                <div className="font-medium text-muted-foreground">Tier</div>
-                <div className="font-medium text-muted-foreground">Mode</div>
-                <div className="font-medium text-muted-foreground">Value</div>
-                <div className="font-medium text-muted-foreground">Notes</div>
-
-                {([
-                  { key: "premium", label: "Premium" },
-                  { key: "standard", label: "Standard" },
-                  { key: "economy", label: "Economy" },
-                ] as const).map((tier) => (
-                  <div key={tier.key} className="contents">
-                    <div className="flex items-center">{tier.label}</div>
-                    <div>
-                      <select
-                        className="h-8 w-full rounded-md border px-2 text-xs"
-                        value={amenityAdjuster[tier.key].mode}
-                        onChange={(e) =>
-                          setAmenityAdjuster((prev) => ({
-                            ...prev,
-                            [tier.key]: { ...prev[tier.key], mode: e.target.value as AmenityAdjusterMode },
-                          }))
-                        }
-                      >
-                        <option value="multiplier">Multiplier</option>
-                        <option value="delta">Add/Subtract</option>
-                      </select>
-                    </div>
-                    <div>
-                      <Input
-                        className="h-8"
-                        placeholder={amenityAdjuster[tier.key].mode === "multiplier" ? "1.05" : "-5"}
-                        value={amenityAdjuster[tier.key].value}
-                        onChange={(e) =>
-                          setAmenityAdjuster((prev) => ({
-                            ...prev,
-                            [tier.key]: { ...prev[tier.key], value: e.target.value },
-                          }))
-                        }
-                      />
-                    </div>
-                    <div className="text-muted-foreground">
-                      {amenityAdjuster[tier.key].mode === "multiplier" ? "e.g., 0.98" : "e.g., +3 or -2"}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <p className="text-xs text-muted-foreground">
-                Column match uses the CSV &quot;Unit Amenities&quot; text and checks for the words Premium, Standard, or Economy.
-              </p>
-            </div>
-            )}
 
             <div className="flex flex-wrap items-center gap-2">
               <Button type="button" variant="outline" size="sm" onClick={() => setAllApprovals(true)}>
@@ -1465,6 +1426,89 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
         clientAvailableUnits={pricingContext?.clientAvailableUnits ?? 0}
         includeAvailableUnits={false}
       />
+
+      <Dialog open={showLevels} onOpenChange={setShowLevels}>
+        <DialogContent className="sm:max-w-[520px]">
+          <DialogHeader>
+            <DialogTitle>Levels</DialogTitle>
+            <DialogDescription>
+              Configure Unit Amenities adjustments (Premium, Standard, Economy).
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-3 text-xs">
+              <span className="text-muted-foreground">Apply to:</span>
+              <label className="inline-flex items-center gap-1">
+                <input
+                  type="checkbox"
+                  checked={amenityAdjuster.applyToWeb}
+                  onChange={(e) => setAmenityAdjuster((prev) => ({ ...prev, applyToWeb: e.target.checked }))}
+                />
+                <span>Web rate</span>
+              </label>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 text-xs">
+              <div className="font-medium text-muted-foreground">Tier</div>
+              <div className="font-medium text-muted-foreground">Mode</div>
+              <div className="font-medium text-muted-foreground">Value</div>
+              <div className="font-medium text-muted-foreground">Notes</div>
+
+              {([
+                { key: "premium", label: "Premium" },
+                { key: "standard", label: "Standard" },
+                { key: "economy", label: "Economy" },
+              ] as const).map((tier) => (
+                <div key={tier.key} className="contents">
+                  <div className="flex items-center">{tier.label}</div>
+                  <div>
+                    <select
+                      className="h-8 w-full rounded-md border px-2 text-xs"
+                      value={amenityAdjuster[tier.key].mode}
+                      onChange={(e) =>
+                        setAmenityAdjuster((prev) => ({
+                          ...prev,
+                          [tier.key]: { ...prev[tier.key], mode: e.target.value as AmenityAdjusterMode },
+                        }))
+                      }
+                    >
+                      <option value="multiplier">Multiplier</option>
+                      <option value="delta">Add/Subtract</option>
+                    </select>
+                  </div>
+                  <div>
+                    <Input
+                      className="h-8"
+                      placeholder={amenityAdjuster[tier.key].mode === "multiplier" ? "1.05" : "-5"}
+                      value={amenityAdjuster[tier.key].value}
+                      onChange={(e) =>
+                        setAmenityAdjuster((prev) => ({
+                          ...prev,
+                          [tier.key]: { ...prev[tier.key], value: e.target.value },
+                        }))
+                      }
+                    />
+                  </div>
+                  <div className="text-muted-foreground">
+                    {amenityAdjuster[tier.key].mode === "multiplier" ? "e.g., 0.98" : "e.g., +3 or -2"}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <p className="text-xs text-muted-foreground">
+              Column match uses the CSV &quot;Unit Amenities&quot; text and checks for the words Premium, Standard, or Economy.
+            </p>
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setShowLevels(false)}>
+              Done
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Tooltip>
         <TooltipTrigger asChild>
