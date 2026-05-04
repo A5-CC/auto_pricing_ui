@@ -118,7 +118,7 @@ type ResolvedAmenityAdjuster = {
   economy?: { mode: AmenityAdjusterMode; value: number }
 }
 
-const DEFAULT_STANDARD_RATE_FUNCTION = "x < 100 ? 1.8 * x : x < 200 ? 1.6 * x : 1.4 * x"
+const DEFAULT_STANDARD_RATE_FUNCTION = "x < 100 ? 1.8x : x < 200 ? 1.6x + 20 : 1.4x + 60"
 
 const REVIEWABLE_RATE_COLUMNS = new Set(["newwebrate", "newstandardrate", "newrentrate"])
 const CURRENT_WEB_RATE_COLUMNS = new Set(["currentwebrate", "currentrentrate"])
@@ -891,9 +891,9 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
   const standardRateCurvePath = useMemo(() => {
     const minX = 20
     const maxX = 200
-    const width = 280
-    const height = 160
-    const padding = 0
+    const width = 260
+    const height = 120
+    const padding = 12
 
     const xs = Array.from({ length: 41 }, (_, i) => minX + ((maxX - minX) * i) / 40)
     const ys = xs.map((x) => resolveStandardRateValue(x, standardRateFunction))
@@ -916,13 +916,13 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
   const standardRateBreakpoints = useMemo(() => {
     const minX = 20
     const maxX = 200
-    const width = 280
-    const padding = 0
+    const width = 260
+    const padding = 12
     const scaleX = (x: number) => padding + ((x - minX) / (maxX - minX)) * (width - padding * 2)
 
     return {
-      x100: scaleX(100) + 40,
-      x200: scaleX(200) + 40,
+      x100: scaleX(100) + 10,
+      x200: scaleX(200) + 10,
     }
   }, [])
 
@@ -1204,7 +1204,7 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
                     Standard rate function
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="sm:max-w-[720px]">
+                <DialogContent className="sm:max-w-[520px]">
                   <DialogHeader>
                     <DialogTitle>Standard rate function</DialogTitle>
                     <DialogDescription>
@@ -1218,35 +1218,35 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
                           <div>Current curve:</div>
                           <div>{`Standard = ${DEFAULT_STANDARD_RATE_FUNCTION}`}</div>
                         </div>
-                        <svg viewBox="0 0 360 220" className="h-72 w-full rounded border bg-white">
+                        <svg viewBox="0 0 260 140" className="h-48 w-full rounded border bg-white">
                           <defs>
                             <linearGradient id="grid" x1="0" y1="0" x2="0" y2="1">
                               <stop offset="0" stopColor="currentColor" stopOpacity="0.08" />
                               <stop offset="1" stopColor="currentColor" stopOpacity="0.08" />
                             </linearGradient>
                           </defs>
-                          <rect x="40" y="20" width="280" height="160" fill="url(#grid)" />
-                          <line x1="40" y1="20" x2="40" y2="180" stroke="currentColor" strokeOpacity="0.4" />
-                          <line x1="40" y1="180" x2="320" y2="180" stroke="currentColor" strokeOpacity="0.4" />
+                          <rect x="28" y="10" width="210" height="100" fill="url(#grid)" />
+                          <line x1="28" y1="10" x2="28" y2="110" stroke="currentColor" strokeOpacity="0.4" />
+                          <line x1="28" y1="110" x2="238" y2="110" stroke="currentColor" strokeOpacity="0.4" />
 
-                          {[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100].map((t) => (
+                          {[0, 25, 50, 75, 100].map((t) => (
                             <line
                               key={`gx-${t}`}
-                              x1={40 + (280 * t) / 100}
-                              y1="20"
-                              x2={40 + (280 * t) / 100}
-                              y2="180"
+                              x1={28 + (210 * t) / 100}
+                              y1="10"
+                              x2={28 + (210 * t) / 100}
+                              y2="110"
                               stroke="currentColor"
                               strokeOpacity="0.08"
                             />
                           ))}
-                          {[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100].map((t) => (
+                          {[0, 25, 50, 75, 100].map((t) => (
                             <line
                               key={`gy-${t}`}
-                              x1="40"
-                              y1={20 + (160 * t) / 100}
-                              x2="320"
-                              y2={20 + (160 * t) / 100}
+                              x1="28"
+                              y1={10 + (100 * t) / 100}
+                              x2="238"
+                              y2={10 + (100 * t) / 100}
                               stroke="currentColor"
                               strokeOpacity="0.08"
                             />
@@ -1254,27 +1254,27 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
 
                           <line
                             x1={standardRateBreakpoints.x100}
-                            y1="20"
+                            y1="10"
                             x2={standardRateBreakpoints.x100}
-                            y2="180"
+                            y2="110"
                             stroke="currentColor"
                             strokeOpacity="0.35"
                             strokeDasharray="4 4"
                           />
                           <line
                             x1={standardRateBreakpoints.x200}
-                            y1="20"
+                            y1="10"
                             x2={standardRateBreakpoints.x200}
-                            y2="180"
+                            y2="110"
                             stroke="currentColor"
                             strokeOpacity="0.35"
                             strokeDasharray="4 4"
                           />
 
-                          <path d={standardRateCurvePath} fill="none" stroke="currentColor" strokeWidth="2" transform="translate(40,20)" />
+                          <path d={standardRateCurvePath} fill="none" stroke="currentColor" strokeWidth="2" transform="translate(10,10)" />
 
-                          <text x="180" y="208" textAnchor="middle" fontSize="10" fill="currentColor" fillOpacity="0.7">Web Rate ($)</text>
-                          <text x="14" y="100" textAnchor="middle" fontSize="10" fill="currentColor" fillOpacity="0.7" transform="rotate(-90 14 100)">Standard Rate ($)</text>
+                          <text x="133" y="132" textAnchor="middle" fontSize="8" fill="currentColor" fillOpacity="0.7">Web Rate ($)</text>
+                          <text x="10" y="60" textAnchor="middle" fontSize="8" fill="currentColor" fillOpacity="0.7" transform="rotate(-90 10 60)">Standard Rate ($)</text>
                         </svg>
                       </div>
                     </div>
