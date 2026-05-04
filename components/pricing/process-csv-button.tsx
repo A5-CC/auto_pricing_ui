@@ -673,8 +673,8 @@ function applyCalculatedPricesToCsv(
       calculatedRow.comboMap.location ??
       calculatedRow.comboMap.city
 
-    const location = normalizeMatchValue(rawLocation)
     const locationKey = normalizeLocationKey(rawLocation)
+    const location = locationKey || normalizeMatchValue(rawLocation)
     const city = normalizeCityValue(rawLocation)
     const cityKey = normalizeLocationKey(city)
     const dimensionToken = getDimensionLookupToken(calculatedRow.comboMap.unit_dimensions)
