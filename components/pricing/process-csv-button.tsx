@@ -373,9 +373,16 @@ function normalizeCityValue(value: unknown): string {
 }
 
 function normalizeLocationKey(value: unknown): string {
-  const normalized = normalizeMatchValue(value)
+  const raw = String(value ?? "")
+  if (!raw.trim()) return ""
+
+  const firstLine = raw.split(/\r?\n/)[0] ?? ""
+  let normalized = normalizeMatchValue(firstLine)
   if (!normalized) return ""
-  return normalized.replace(/^modstorage\s*[-–—]?\s*/g, "").trim()
+  normalized = normalized.replace(/\s*[-–—]\s*/g, " - ").trim()
+  normalized = normalized.replace(/^modstorage\s*[-–—]?\s*lic$/g, "modstorage - long island city")
+  normalized = normalized.replace(/\s+way$/g, "").trim()
+  return normalized
 }
 
 function parseCsvText(text: string): string[][] {
@@ -716,8 +723,8 @@ function applyCalculatedPricesToCsv(
   let matchedRows = 0
   for (const row of rows) {
     const csvRow = rowToRecord(headers, row)
-    const location = normalizeMatchValue(getCellValue(row, locationIndex))
-    const locationKey = normalizeLocationKey(getCellValue(row, locationIndex))
+    const location = normalizeLocationKey(getCellValue(row, locationIndex))
+    const locationKey = location
     const city = normalizeCityValue(getCellValue(row, locationIndex))
     const cityKey = normalizeLocationKey(city)
     const dimensionToken = unitSizeIndex >= 0 ? getDimensionLookupToken(getCellValue(row, unitSizeIndex)) : ""
