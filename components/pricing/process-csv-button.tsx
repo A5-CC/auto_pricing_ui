@@ -278,7 +278,13 @@ function calculateBlueLineStandardRateValue(webRate: unknown): number {
   const x = parseCurrencyLikeNumber(webRate)
   if (!Number.isFinite(x) || x <= 0) return x
 
-  const multiplier = Math.min(1.8, 1.6 + (20 / x), 1.4 + (60 / x))
+  let multiplier = 1.8
+  if (x >= 200) {
+    multiplier = 1.4
+  } else if (x >= 100) {
+    multiplier = 1.6
+  }
+
   const standardRate = x * multiplier
 
   return Math.round(standardRate)
@@ -924,6 +930,19 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
       .join(" ")
   }, [standardRateFunction])
 
+  const standardRateBreakpoints = useMemo(() => {
+    const minX = 20
+    const maxX = 200
+    const width = 260
+    const padding = 12
+    const scaleX = (x: number) => padding + ((x - minX) / (maxX - minX)) * (width - padding * 2)
+
+    return {
+      x100: scaleX(100) + 10,
+      x200: scaleX(200) + 10,
+    }
+  }, [])
+
 
   // Validate allowed filters
   // Strictly Allowed:
@@ -1214,7 +1233,7 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
                       <div className="flex flex-col gap-2">
                         <div>
                           <div>Current curve:</div>
-                          <div>{"Standard = Web * min(1.8, 1.6 + 20/x, 1.4 + 60/x)"}</div>
+                          <div>{"Standard = Web * (x < 100 ? 1.8 : x < 200 ? 1.6 : 1.4)"}</div>
                         </div>
                         <svg viewBox="0 0 260 140" className="h-48 w-full rounded border bg-white">
                           <defs>
@@ -1250,6 +1269,25 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
                             />
                           ))}
 
+                          <line
+                            x1={standardRateBreakpoints.x100}
+                            y1="10"
+                            x2={standardRateBreakpoints.x100}
+                            y2="110"
+                            stroke="currentColor"
+                            strokeOpacity="0.35"
+                            strokeDasharray="4 4"
+                          />
+                          <line
+                            x1={standardRateBreakpoints.x200}
+                            y1="10"
+                            x2={standardRateBreakpoints.x200}
+                            y2="110"
+                            stroke="currentColor"
+                            strokeOpacity="0.35"
+                            strokeDasharray="4 4"
+                          />
+
                           <path d={standardRateCurvePath} fill="none" stroke="currentColor" strokeWidth="2" transform="translate(10,10)" />
 
                           <text x="133" y="132" textAnchor="middle" fontSize="8" fill="currentColor" fillOpacity="0.7">Web Rate ($)</text>
@@ -1263,7 +1301,7 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
                       </Label>
                       <Input
                         id="standard-rate-function"
-                        placeholder="Example: x < 100 ? 1.6 * x : 1.4 * x"
+                        placeholder="Example: x < 100 ? 1.8 * x : x < 200 ? 1.6 * x : 1.4 * x"
                         value={standardRateFunction}
                         onChange={(e) => setStandardRateFunction(e.target.value)}
                       />
