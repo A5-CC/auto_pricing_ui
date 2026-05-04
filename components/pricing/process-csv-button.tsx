@@ -274,17 +274,6 @@ function applyAmenityAdjustment(
   return value + adjuster.value
 }
 
-function calculateBlueLineStandardRateValue(webRate: unknown): number {
-  const x = parseCurrencyLikeNumber(webRate)
-  if (!Number.isFinite(x) || x <= 0) return x
-
-  const multiplier = Math.min(1.8, 1.6 + (20 / x), 1.4 + (60 / x))
-  const standardRate = x * multiplier
-
-  return Math.round(standardRate)
-}
-
-
 function rowToRecord(headers: string[], row: string[]): Record<string, string> {
   const out: Record<string, string> = {}
   for (let i = 0; i < headers.length; i++) {
@@ -578,8 +567,7 @@ function applyCalculatedPricesToCsv(
   calculatedRows: CalculatedPriceRow[],
   rounding?: { enabled: boolean; offset: number },
   popupAdjusters: Adjuster[] = [],
-  amenityAdjuster?: ResolvedAmenityAdjuster,
-  standardRateConfig?: StandardRateConfig
+  amenityAdjuster?: ResolvedAmenityAdjuster
 ): ParsedCsv {
   const headers = [...original.headers]
   const rows = original.rows.map((row) => [...row])
@@ -882,31 +870,6 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
   }, [amenityAdjuster])
 
 
-  const standardRateCurvePath = useMemo(() => {
-    const minX = 20
-    const maxX = 200
-    const width = 260
-    const height = 120
-    const padding = 12
-
-    const xs = Array.from({ length: 41 }, (_, i) => minX + ((maxX - minX) * i) / 40)
-    const ys = xs.map((x) => calculateBlueLineStandardRateValue(x))
-    const maxY = Math.max(...ys, 1)
-    const minY = Math.min(...ys, 0)
-
-    const scaleX = (x: number) => padding + ((x - minX) / (maxX - minX)) * (width - padding * 2)
-    const scaleY = (y: number) => height - padding - ((y - minY) / (maxY - minY || 1)) * (height - padding * 2)
-
-    return xs
-      .map((x, i) => {
-        const y = ys[i]
-        const px = scaleX(x)
-        const py = scaleY(y)
-        return `${i === 0 ? "M" : "L"} ${px.toFixed(2)} ${py.toFixed(2)}`
-      })
-      .join(" ")
-  }, [])
-
   // Validate allowed filters
   // Strictly Allowed:
   // - unit_dimensions: "Unit Dimensions"
@@ -987,7 +950,6 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
     resolvedCalculatedRows.rows,
     rounding,
     resolvedAmenityAdjuster,
-    resolvedStandardRateConfig,
   ])
 
   const handleAddPopupAdjuster = (adjuster: Adjuster) => {
@@ -1233,52 +1195,6 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
                 })
               )}
             </div>
-
-            <div className="rounded-md border p-3 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Standard rate formula</span>
-              </div>
-              <div className="rounded-md bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <div>Default curve:</div>
-                    <div>{"y = x * min(1.8, 1.6 + 20/x, 1.4 + 60/x)"}</div>
-                  </div>
-                  <svg viewBox="0 0 260 140" className="h-24 w-44 rounded border bg-white">
-                    <defs>
-                      <linearGradient id="grid" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0" stopColor="currentColor" stopOpacity="0.08" />
-                        <stop offset="1" stopColor="currentColor" stopOpacity="0.08" />
-                      </linearGradient>
-                    </defs>
-                    <rect x="28" y="10" width="210" height="100" fill="url(#grid)" />
-                    <line x1="28" y1="10" x2="28" y2="110" stroke="currentColor" strokeOpacity="0.4" />
-                    <line x1="28" y1="110" x2="238" y2="110" stroke="currentColor" strokeOpacity="0.4" />
-
-                    {[0, 25, 50, 75, 100].map((t) => (
-                      <line key={`gx-${t}`} x1={28 + (210 * t) / 100} y1="10" x2={28 + (210 * t) / 100} y2="110" stroke="currentColor" strokeOpacity="0.08" />
-                    ))}
-                    {[0, 25, 50, 75, 100].map((t) => (
-                      <line key={`gy-${t}`} x1="28" y1={10 + (100 * t) / 100} x2="238" y2={10 + (100 * t) / 100} stroke="currentColor" strokeOpacity="0.08" />
-                    ))}
-
-                    <path d={standardRateCurvePath} fill="none" stroke="currentColor" strokeWidth="2" transform="translate(10,10)" />
-
-                    <text x="133" y="132" textAnchor="middle" fontSize="8" fill="currentColor" fillOpacity="0.7">Web Rate ($)</text>
-                    <text x="10" y="60" textAnchor="middle" fontSize="8" fill="currentColor" fillOpacity="0.7" transform="rotate(-90 10 60)">Standard Rate ($)</text>
-                  </svg>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs font-medium text-muted-foreground">Custom function</label>
-                <Input
-                  placeholder="Example: x < 100 ? 1.6 * x : 1.4 * x"
-                  value={standardRateConfig.functionBody}
-                  onChange={(e) => setStandardRateConfig((prev) => ({ ...prev, functionBody: e.target.value }))}
-                />
-              </div>
-            </div>
-
 
             <div className="flex flex-wrap items-center gap-2">
               <Button type="button" variant="outline" size="sm" onClick={() => setAllApprovals(true)}>
