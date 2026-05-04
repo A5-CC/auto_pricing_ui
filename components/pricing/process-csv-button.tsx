@@ -821,6 +821,8 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
   const [showLevels, setShowLevels] = useState(false)
   const [standardRateOpen, setStandardRateOpen] = useState(false)
   const [standardRateFunction, setStandardRateFunction] = useState(DEFAULT_STANDARD_RATE_FUNCTION)
+  const [standardRateZoomX, setStandardRateZoomX] = useState(1)
+  const [standardRateZoomY, setStandardRateZoomY] = useState(1)
   const [amenityAdjuster, setAmenityAdjuster] = useState<AmenityAdjusterState>({
     applyToWeb: true,
     premium: { mode: "multiplier", value: "" },
@@ -888,43 +890,89 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
     }
   }, [amenityAdjuster])
 
-  const standardRateCurvePath = useMemo(() => {
-    const minX = 20
-    const maxX = 200
-    const width = 260
-    const height = 120
-    const padding = 12
+  const standardRateChart = useMemo(() => {
+    const baseMinX = 20
+    const baseMaxX = 300
+    const svgWidth = 520
+    const svgHeight = 340
+    const margin = { top: 24, right: 24, bottom: 52, left: 64 }
 
-    const xs = Array.from({ length: 41 }, (_, i) => minX + ((maxX - minX) * i) / 40)
-    const ys = xs.map((x) => resolveStandardRateValue(x, standardRateFunction))
-    const maxY = Math.max(...ys, 1)
-    const minY = Math.min(...ys, 0)
+    const centerX = (baseMinX + baseMaxX) / 2
+    const spanX = (baseMaxX - baseMinX) / Math.max(0.5, standardRateZoomX)
+    const minX = centerX - spanX / 2
+    const maxX = centerX + spanX / 2
 
-    const scaleX = (x: number) => padding + ((x - minX) / (maxX - minX)) * (width - padding * 2)
-    const scaleY = (y: number) => height - padding - ((y - minY) / (maxY - minY || 1)) * (height - padding * 2)
+    const xs = Array.from({ length: 80 }, (_, i) => minX + ((maxX - minX) * i) / 79)
+    const ysRaw = xs.map((x) => resolveStandardRateValue(x, standardRateFunction)).filter((v) => Number.isFinite(v)) as number[]
+    const rawMinY = ysRaw.length ? Math.min(...ysRaw) : 0
+    const rawMaxY = ysRaw.length ? Math.max(...ysRaw) : 1
+    const paddedMinY = rawMinY - (rawMaxY - rawMinY) * 0.1
+    const paddedMaxY = rawMaxY + (rawMaxY - rawMinY) * 0.1
+    const centerY = (paddedMinY + paddedMaxY) / 2
+    const spanY = (paddedMaxY - paddedMinY || 1) / Math.max(0.5, standardRateZoomY)
+    const minY = centerY - spanY / 2
+    const maxY = centerY + spanY / 2
 
-    return xs
+    const plotWidth = svgWidth - margin.left - margin.right
+    const plotHeight = svgHeight - margin.top - margin.bottom
+
+    const scaleX = (x: number) => margin.left + ((x - minX) / (maxX - minX || 1)) * plotWidth
+    const scaleY = (y: number) => margin.top + plotHeight - ((y - minY) / (maxY - minY || 1)) * plotHeight
+
+    const path = xs
       .map((x, i) => {
-        const y = ys[i]
+        const y = resolveStandardRateValue(x, standardRateFunction)
         const px = scaleX(x)
         const py = scaleY(y)
         return `${i === 0 ? "M" : "L"} ${px.toFixed(2)} ${py.toFixed(2)}`
       })
       .join(" ")
-  }, [standardRateFunction])
 
-  const standardRateBreakpoints = useMemo(() => {
-    const minX = 20
-    const maxX = 200
-    const width = 260
-    const padding = 12
-    const scaleX = (x: number) => padding + ((x - minX) / (maxX - minX)) * (width - padding * 2)
+    const pickStep = (range: number) => {
+      const rough = range / 6
+      const pow = Math.pow(10, Math.floor(Math.log10(rough)))
+      const steps = [1, 2, 5, 10]
+      const scaled = steps.map((s) => s * pow)
+      return scaled.find((s) => s >= rough) ?? scaled[scaled.length - 1]
+    }
+
+    const xStep = pickStep(maxX - minX)
+    const yStep = pickStep(maxY - minY)
+
+    const buildTicks = (min: number, max: number, step: number) => {
+      const start = Math.ceil(min / step) * step
+      const ticks: number[] = []
+      for (let v = start; v <= max + step * 0.5; v += step) {
+        ticks.push(Number(v.toFixed(2)))
+      }
+      return ticks
+    }
+
+    const xTicks = buildTicks(minX, maxX, xStep)
+    const yTicks = buildTicks(minY, maxY, yStep)
+
+    const formatTick = (value: number) => `$${Math.round(value).toLocaleString()}`
+
+    const breakpoints = [100, 200]
+      .filter((x) => x >= minX && x <= maxX)
+      .map((x) => ({ value: x, x: scaleX(x) }))
 
     return {
-      x100: scaleX(100) + 10,
-      x200: scaleX(200) + 10,
+      svgWidth,
+      svgHeight,
+      margin,
+      plotWidth,
+      plotHeight,
+      minX,
+      maxX,
+      minY,
+      maxY,
+      path,
+      xTicks: xTicks.map((value) => ({ value, x: scaleX(value), label: formatTick(value) })),
+      yTicks: yTicks.map((value) => ({ value, y: scaleY(value), label: formatTick(value) })),
+      breakpoints,
     }
-  }, [])
+  }, [standardRateFunction, standardRateZoomX, standardRateZoomY])
 
 
   // Validate allowed filters
@@ -1198,13 +1246,14 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
               </DialogDescription>
             </div>
             {reviewData ? (
-              <Dialog open={standardRateOpen} onOpenChange={setStandardRateOpen}>
-                <DialogTrigger asChild>
-                  <Button type="button" variant="outline" size="sm">
-                    Standard rate function
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-[520px]">
+              <div className="pr-6">
+                <Dialog open={standardRateOpen} onOpenChange={setStandardRateOpen}>
+                  <DialogTrigger asChild>
+                    <Button type="button" variant="outline" size="sm">
+                      Standard rate function
+                    </Button>
+                  </DialogTrigger>
+                <DialogContent className="sm:max-w-[900px]">
                   <DialogHeader>
                     <DialogTitle>Standard rate function</DialogTitle>
                     <DialogDescription>
@@ -1218,64 +1267,151 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
                           <div>Current curve:</div>
                           <div>{`Standard = ${DEFAULT_STANDARD_RATE_FUNCTION}`}</div>
                         </div>
-                        <svg viewBox="0 0 260 140" className="h-48 w-full rounded border bg-white">
+                        <svg viewBox={`0 0 ${standardRateChart.svgWidth} ${standardRateChart.svgHeight}`} className="h-[360px] w-full rounded border bg-white">
                           <defs>
                             <linearGradient id="grid" x1="0" y1="0" x2="0" y2="1">
                               <stop offset="0" stopColor="currentColor" stopOpacity="0.08" />
                               <stop offset="1" stopColor="currentColor" stopOpacity="0.08" />
                             </linearGradient>
                           </defs>
-                          <rect x="28" y="10" width="210" height="100" fill="url(#grid)" />
-                          <line x1="28" y1="10" x2="28" y2="110" stroke="currentColor" strokeOpacity="0.4" />
-                          <line x1="28" y1="110" x2="238" y2="110" stroke="currentColor" strokeOpacity="0.4" />
-
-                          {[0, 25, 50, 75, 100].map((t) => (
-                            <line
-                              key={`gx-${t}`}
-                              x1={28 + (210 * t) / 100}
-                              y1="10"
-                              x2={28 + (210 * t) / 100}
-                              y2="110"
-                              stroke="currentColor"
-                              strokeOpacity="0.08"
-                            />
-                          ))}
-                          {[0, 25, 50, 75, 100].map((t) => (
-                            <line
-                              key={`gy-${t}`}
-                              x1="28"
-                              y1={10 + (100 * t) / 100}
-                              x2="238"
-                              y2={10 + (100 * t) / 100}
-                              stroke="currentColor"
-                              strokeOpacity="0.08"
-                            />
-                          ))}
-
-                          <line
-                            x1={standardRateBreakpoints.x100}
-                            y1="10"
-                            x2={standardRateBreakpoints.x100}
-                            y2="110"
-                            stroke="currentColor"
-                            strokeOpacity="0.35"
-                            strokeDasharray="4 4"
+                          <rect
+                            x={standardRateChart.margin.left}
+                            y={standardRateChart.margin.top}
+                            width={standardRateChart.plotWidth}
+                            height={standardRateChart.plotHeight}
+                            fill="url(#grid)"
                           />
                           <line
-                            x1={standardRateBreakpoints.x200}
-                            y1="10"
-                            x2={standardRateBreakpoints.x200}
-                            y2="110"
+                            x1={standardRateChart.margin.left}
+                            y1={standardRateChart.margin.top}
+                            x2={standardRateChart.margin.left}
+                            y2={standardRateChart.margin.top + standardRateChart.plotHeight}
                             stroke="currentColor"
-                            strokeOpacity="0.35"
-                            strokeDasharray="4 4"
+                            strokeOpacity="0.4"
+                          />
+                          <line
+                            x1={standardRateChart.margin.left}
+                            y1={standardRateChart.margin.top + standardRateChart.plotHeight}
+                            x2={standardRateChart.margin.left + standardRateChart.plotWidth}
+                            y2={standardRateChart.margin.top + standardRateChart.plotHeight}
+                            stroke="currentColor"
+                            strokeOpacity="0.4"
                           />
 
-                          <path d={standardRateCurvePath} fill="none" stroke="currentColor" strokeWidth="2" transform="translate(10,10)" />
+                          {standardRateChart.xTicks.map((tick) => (
+                            <g key={`gx-${tick.value}`}>
+                              <line
+                                x1={tick.x}
+                                y1={standardRateChart.margin.top}
+                                x2={tick.x}
+                                y2={standardRateChart.margin.top + standardRateChart.plotHeight}
+                                stroke="currentColor"
+                                strokeOpacity="0.08"
+                              />
+                              <text
+                                x={tick.x}
+                                y={standardRateChart.margin.top + standardRateChart.plotHeight + 20}
+                                textAnchor="middle"
+                                fontSize="10"
+                                fill="currentColor"
+                                fillOpacity="0.7"
+                              >
+                                {tick.label}
+                              </text>
+                            </g>
+                          ))}
+                          {standardRateChart.yTicks.map((tick) => (
+                            <g key={`gy-${tick.value}`}>
+                              <line
+                                x1={standardRateChart.margin.left}
+                                y1={tick.y}
+                                x2={standardRateChart.margin.left + standardRateChart.plotWidth}
+                                y2={tick.y}
+                                stroke="currentColor"
+                                strokeOpacity="0.08"
+                              />
+                              <text
+                                x={standardRateChart.margin.left - 8}
+                                y={tick.y + 3}
+                                textAnchor="end"
+                                fontSize="10"
+                                fill="currentColor"
+                                fillOpacity="0.7"
+                              >
+                                {tick.label}
+                              </text>
+                            </g>
+                          ))}
 
-                          <text x="133" y="132" textAnchor="middle" fontSize="8" fill="currentColor" fillOpacity="0.7">Web Rate ($)</text>
-                          <text x="10" y="60" textAnchor="middle" fontSize="8" fill="currentColor" fillOpacity="0.7" transform="rotate(-90 10 60)">Standard Rate ($)</text>
+                          {standardRateChart.breakpoints.map((bp) => (
+                            <line
+                              key={`bp-${bp.value}`}
+                              x1={bp.x}
+                              y1={standardRateChart.margin.top}
+                              x2={bp.x}
+                              y2={standardRateChart.margin.top + standardRateChart.plotHeight}
+                              stroke="currentColor"
+                              strokeOpacity="0.35"
+                              strokeDasharray="6 6"
+                            />
+                          ))}
+
+                          <path d={standardRateChart.path} fill="none" stroke="currentColor" strokeWidth="2" />
+
+                          <text
+                            x={standardRateChart.margin.left + standardRateChart.plotWidth / 2}
+                            y={standardRateChart.svgHeight - 12}
+                            textAnchor="middle"
+                            fontSize="11"
+                            fill="currentColor"
+                            fillOpacity="0.7"
+                          >
+                            Web Rate ($)
+                          </text>
+                          <text
+                            x={14}
+                            y={standardRateChart.margin.top + standardRateChart.plotHeight / 2}
+                            textAnchor="middle"
+                            fontSize="11"
+                            fill="currentColor"
+                            fillOpacity="0.7"
+                            transform={`rotate(-90 14 ${standardRateChart.margin.top + standardRateChart.plotHeight / 2})`}
+                          >
+                            Standard Rate ($)
+                          </text>
                         </svg>
+                      </div>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="space-y-1">
+                        <Label className="text-xs font-medium text-muted-foreground">
+                          Zoom Web Rate (x-axis)
+                        </Label>
+                        <input
+                          type="range"
+                          min={1}
+                          max={4}
+                          step={0.25}
+                          value={standardRateZoomX}
+                          onChange={(e) => setStandardRateZoomX(Number(e.target.value))}
+                          className="w-full"
+                        />
+                        <div className="text-[11px] text-muted-foreground">{standardRateZoomX.toFixed(2)}x</div>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs font-medium text-muted-foreground">
+                          Zoom Standard Rate (y-axis)
+                        </Label>
+                        <input
+                          type="range"
+                          min={1}
+                          max={4}
+                          step={0.25}
+                          value={standardRateZoomY}
+                          onChange={(e) => setStandardRateZoomY(Number(e.target.value))}
+                          className="w-full"
+                        />
+                        <div className="text-[11px] text-muted-foreground">{standardRateZoomY.toFixed(2)}x</div>
                       </div>
                     </div>
                     <div className="space-y-2">
@@ -1303,6 +1439,7 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
+              </div>
             ) : null}
           </div>
         </DialogHeader>
