@@ -118,6 +118,7 @@ type ResolvedAmenityAdjuster = {
   economy?: { mode: AmenityAdjusterMode; value: number }
 }
 
+const DEFAULT_STANDARD_RATE_FUNCTION = "x < 100 ? 1.8x : x < 200 ? 1.6x + 20 : 1.4x + 60"
 
 const REVIEWABLE_RATE_COLUMNS = new Set(["newwebrate", "newstandardrate", "newrentrate"])
 const CURRENT_WEB_RATE_COLUMNS = new Set(["currentwebrate", "currentrentrate"])
@@ -274,32 +275,14 @@ function applyAmenityAdjustment(
   return value + adjuster.value
 }
 
-function calculateBlueLineStandardRateValue(webRate: unknown): number {
-  const x = parseCurrencyLikeNumber(webRate)
-  if (!Number.isFinite(x) || x <= 0) return x
-
-  let multiplier = 1.8
-  if (x >= 200) {
-    multiplier = 1.4
-  } else if (x >= 100) {
-    multiplier = 1.6
-  }
-
-  const standardRate = x * multiplier
-
-  return Math.round(standardRate)
-}
-
 function resolveStandardRateValue(webRate: number, functionBody?: string): number {
   if (!Number.isFinite(webRate) || webRate <= 0) return webRate
-  const trimmed = functionBody?.trim()
-  if (trimmed) {
-    const evaluated = evaluateSafeFunction(trimmed, webRate)
-    if (evaluated.success && typeof evaluated.value === "number" && Number.isFinite(evaluated.value)) {
-      return evaluated.value
-    }
+  const trimmed = functionBody?.trim() || DEFAULT_STANDARD_RATE_FUNCTION
+  const evaluated = evaluateSafeFunction(trimmed, webRate)
+  if (evaluated.success && typeof evaluated.value === "number" && Number.isFinite(evaluated.value)) {
+    return evaluated.value
   }
-  return calculateBlueLineStandardRateValue(webRate)
+  return webRate
 }
 
 function rowToRecord(headers: string[], row: string[]): Record<string, string> {
@@ -837,7 +820,7 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
   const [popupAdjusters, setPopupAdjusters] = useState<Adjuster[]>([])
   const [showLevels, setShowLevels] = useState(false)
   const [standardRateOpen, setStandardRateOpen] = useState(false)
-  const [standardRateFunction, setStandardRateFunction] = useState("")
+  const [standardRateFunction, setStandardRateFunction] = useState(DEFAULT_STANDARD_RATE_FUNCTION)
   const [amenityAdjuster, setAmenityAdjuster] = useState<AmenityAdjusterState>({
     applyToWeb: true,
     premium: { mode: "multiplier", value: "" },
@@ -1233,7 +1216,7 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
                       <div className="flex flex-col gap-2">
                         <div>
                           <div>Current curve:</div>
-                          <div>{"Standard = Web * (x < 100 ? 1.8 : x < 200 ? 1.6 : 1.4)"}</div>
+                          <div>{`Standard = ${DEFAULT_STANDARD_RATE_FUNCTION}`}</div>
                         </div>
                         <svg viewBox="0 0 260 140" className="h-48 w-full rounded border bg-white">
                           <defs>
