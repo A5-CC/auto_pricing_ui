@@ -118,9 +118,6 @@ type ResolvedAmenityAdjuster = {
   economy?: { mode: AmenityAdjusterMode; value: number }
 }
 
-type StandardRateConfig = {
-  functionBody: string
-}
 
 const REVIEWABLE_RATE_COLUMNS = new Set(["newwebrate", "newstandardrate", "newrentrate"])
 const CURRENT_WEB_RATE_COLUMNS = new Set(["currentwebrate", "currentrentrate"])
@@ -287,20 +284,6 @@ function calculateBlueLineStandardRateValue(webRate: unknown): number {
   return Math.round(standardRate)
 }
 
-function resolveStandardRateValue(
-  webRate: number,
-  config?: StandardRateConfig
-): number {
-  const fnBody = config?.functionBody?.trim() ?? ""
-  if (!fnBody) return calculateBlueLineStandardRateValue(webRate)
-
-  const evaluated = evaluateSafeFunction(fnBody, webRate)
-  if (evaluated.success && typeof evaluated.value === "number" && Number.isFinite(evaluated.value)) {
-    return evaluated.value
-  }
-
-  return calculateBlueLineStandardRateValue(webRate)
-}
 
 function rowToRecord(headers: string[], row: string[]): Record<string, string> {
   const out: Record<string, string> = {}
@@ -837,9 +820,6 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
     standard: { mode: "multiplier", value: "" },
     economy: { mode: "multiplier", value: "" },
   })
-  const [standardRateConfig, setStandardRateConfig] = useState<StandardRateConfig>({
-    functionBody: "",
-  })
   const [originalParsed, setOriginalParsed] = useState<ParsedCsv | null>(null)
   const [csvNumericVariables, setCsvNumericVariables] = useState<string[]>([])
 
@@ -901,11 +881,6 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
     }
   }, [amenityAdjuster])
 
-  const resolvedStandardRateConfig = useMemo<StandardRateConfig>(() => {
-    return {
-      functionBody: standardRateConfig.functionBody,
-    }
-  }, [standardRateConfig])
 
   const standardRateCurvePath = useMemo(() => {
     const minX = 20
@@ -972,9 +947,6 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
       standard: { mode: "multiplier", value: "" },
       economy: { mode: "multiplier", value: "" },
     })
-    setStandardRateConfig({
-      functionBody: "",
-    })
     setOriginalParsed(null)
     setCsvNumericVariables([])
   }
@@ -995,7 +967,6 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
       rounding,
       nextAdjusters,
       resolvedAmenityAdjuster,
-      resolvedStandardRateConfig
     )
     const headers = processed.headers.length ? processed.headers : original.headers
     const changes = buildChanges(original, processed)
@@ -1054,7 +1025,7 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to apply adjustments")
     }
-  }, [amenityAdjuster, standardRateConfig, originalParsed, popupAdjusters, rebuildReviewFromOriginal])
+  }, [amenityAdjuster, originalParsed, popupAdjusters, rebuildReviewFromOriginal])
 
   const handleProcess = async () => {
     if (!file) return
@@ -1076,7 +1047,6 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
         rounding,
         popupAdjusters,
         resolvedAmenityAdjuster,
-        resolvedStandardRateConfig
       )
 
       if (original.headers.length === 0 || processed.headers.length === 0) {
