@@ -274,6 +274,16 @@ function applyAmenityAdjustment(
   return value + adjuster.value
 }
 
+function calculateBlueLineStandardRateValue(webRate: unknown): number {
+  const x = parseCurrencyLikeNumber(webRate)
+  if (!Number.isFinite(x) || x <= 0) return x
+
+  const multiplier = Math.min(1.8, 1.6 + (20 / x), 1.4 + (60 / x))
+  const standardRate = x * multiplier
+
+  return Math.round(standardRate)
+}
+
 function rowToRecord(headers: string[], row: string[]): Record<string, string> {
   const out: Record<string, string> = {}
   for (let i = 0; i < headers.length; i++) {
@@ -869,6 +879,31 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
     }
   }, [amenityAdjuster])
 
+  const standardRateCurvePath = useMemo(() => {
+    const minX = 20
+    const maxX = 200
+    const width = 260
+    const height = 120
+    const padding = 12
+
+    const xs = Array.from({ length: 41 }, (_, i) => minX + ((maxX - minX) * i) / 40)
+    const ys = xs.map((x) => calculateBlueLineStandardRateValue(x))
+    const maxY = Math.max(...ys, 1)
+    const minY = Math.min(...ys, 0)
+
+    const scaleX = (x: number) => padding + ((x - minX) / (maxX - minX)) * (width - padding * 2)
+    const scaleY = (y: number) => height - padding - ((y - minY) / (maxY - minY || 1)) * (height - padding * 2)
+
+    return xs
+      .map((x, i) => {
+        const y = ys[i]
+        const px = scaleX(x)
+        const py = scaleY(y)
+        return `${i === 0 ? "M" : "L"} ${px.toFixed(2)} ${py.toFixed(2)}`
+      })
+      .join(" ")
+  }, [])
+
 
   // Validate allowed filters
   // Strictly Allowed:
@@ -1078,6 +1113,7 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
   const approvedCount = reviewData
     ? reviewData.changes.filter((c: CsvRateChange) => approvedChanges[c.id] === true).length
     : 0
+  const [standardRateOpen, setStandardRateOpen] = useState(false)
 
   return (
     <div className="flex items-center gap-2">
@@ -1104,36 +1140,106 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
         </DialogTrigger>
         <DialogContent className={reviewData ? "sm:max-w-[1000px] max-h-[85vh] overflow-hidden" : "sm:max-w-[425px]"}>
         <DialogHeader>
-          <DialogTitle>{reviewData ? "Review CSV Changes" : "Apply pricing algorithms"}</DialogTitle>
-          <DialogDescription>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="space-y-1.5">
+              <DialogTitle>{reviewData ? "Review CSV Changes" : "Apply pricing algorithms"}</DialogTitle>
+              <DialogDescription>
+                {reviewData ? (
+                  <>
+                    Review each algorithm change before final download.
+                    <br />
+                    <span className="text-xs text-muted-foreground mt-2 block">
+                      Reviewing only New Web Rate / New Standard Rate changes.
+                      <br />
+                      Rows changed: {reviewData.reviewRows.length.toLocaleString()} · Changes approved: {approvedCount.toLocaleString()} / {reviewData.changes.length.toLocaleString()}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    Upload a client CSV and apply pricing algorithms.
+                    <br />
+                    <span className="text-xs text-muted-foreground mt-2 block">
+                      Supported filters: client_location, unit_dimensions or unit_area (from CSV Area), has_drive_up_access.
+                      <br />
+                      Competitive adjusters appear after upload in the review screen.
+                      <br />
+                      Uses the currently displayed pipeline price table in the browser.
+                      <br />
+                      Drive-up matching uses CSV &apos;Unit Type&apos; when present.
+                      <br />
+                      Ensure columns: &apos;Facility Name&apos;, &apos;Size&apos;, &apos;Current Web Rate&apos;, &apos;Current Standard Rate&apos;, &apos;New Web Rate&apos;, &apos;New Standard Rate&apos;.
+                    </span>
+                  </>
+                )}
+              </DialogDescription>
+            </div>
             {reviewData ? (
-              <>
-                Review each algorithm change before final download.
-                <br />
-                <span className="text-xs text-muted-foreground mt-2 block">
-                  Reviewing only New Web Rate / New Standard Rate changes.
-                  <br />
-                  Rows changed: {reviewData.reviewRows.length.toLocaleString()} · Changes approved: {approvedCount.toLocaleString()} / {reviewData.changes.length.toLocaleString()}
-                </span>
-              </>
-            ) : (
-              <>
-                Upload a client CSV and apply pricing algorithms.
-                <br />
-                <span className="text-xs text-muted-foreground mt-2 block">
-                  Supported filters: client_location, unit_dimensions or unit_area (from CSV Area), has_drive_up_access.
-                  <br />
-                  Competitive adjusters appear after upload in the review screen.
-                  <br />
-                  Uses the currently displayed pipeline price table in the browser.
-                  <br />
-                  Drive-up matching uses CSV &apos;Unit Type&apos; when present.
-                  <br />
-                  Ensure columns: &apos;Facility Name&apos;, &apos;Size&apos;, &apos;Current Web Rate&apos;, &apos;Current Standard Rate&apos;, &apos;New Web Rate&apos;, &apos;New Standard Rate&apos;.
-                </span>
-              </>
-            )}
-          </DialogDescription>
+              <Dialog open={standardRateOpen} onOpenChange={setStandardRateOpen}>
+                <DialogTrigger asChild>
+                  <Button type="button" variant="outline" size="sm">
+                    Standard rate function
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[520px]">
+                  <DialogHeader>
+                    <DialogTitle>Standard rate function</DialogTitle>
+                    <DialogDescription>
+                      The standard rate is calculated from the web rate using the current curve.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div className="rounded-md bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+                      <div className="flex flex-col gap-2">
+                        <div>
+                          <div>Current curve:</div>
+                          <div>{"Standard = Web * min(1.8, 1.6 + 20/x, 1.4 + 60/x)"}</div>
+                        </div>
+                        <svg viewBox="0 0 260 140" className="h-28 w-full rounded border bg-white">
+                          <defs>
+                            <linearGradient id="grid" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0" stopColor="currentColor" stopOpacity="0.08" />
+                              <stop offset="1" stopColor="currentColor" stopOpacity="0.08" />
+                            </linearGradient>
+                          </defs>
+                          <rect x="28" y="10" width="210" height="100" fill="url(#grid)" />
+                          <line x1="28" y1="10" x2="28" y2="110" stroke="currentColor" strokeOpacity="0.4" />
+                          <line x1="28" y1="110" x2="238" y2="110" stroke="currentColor" strokeOpacity="0.4" />
+
+                          {[0, 25, 50, 75, 100].map((t) => (
+                            <line
+                              key={`gx-${t}`}
+                              x1={28 + (210 * t) / 100}
+                              y1="10"
+                              x2={28 + (210 * t) / 100}
+                              y2="110"
+                              stroke="currentColor"
+                              strokeOpacity="0.08"
+                            />
+                          ))}
+                          {[0, 25, 50, 75, 100].map((t) => (
+                            <line
+                              key={`gy-${t}`}
+                              x1="28"
+                              y1={10 + (100 * t) / 100}
+                              x2="238"
+                              y2={10 + (100 * t) / 100}
+                              stroke="currentColor"
+                              strokeOpacity="0.08"
+                            />
+                          ))}
+
+                          <path d={standardRateCurvePath} fill="none" stroke="currentColor" strokeWidth="2" transform="translate(10,10)" />
+
+                          <text x="133" y="132" textAnchor="middle" fontSize="8" fill="currentColor" fillOpacity="0.7">Web Rate ($)</text>
+                          <text x="10" y="60" textAnchor="middle" fontSize="8" fill="currentColor" fillOpacity="0.7" transform="rotate(-90 10 60)">Standard Rate ($)</text>
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            ) : null}
+          </div>
         </DialogHeader>
 
         {!reviewData ? (
