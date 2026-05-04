@@ -805,10 +805,8 @@ function applyCalculatedPricesToCsv(
     }
 
     const roundedEffectiveWebRate = applyConfiguredRounding(effectiveWebRate, rounding)
-    const standardRateValue = resolveStandardRateValue(roundedEffectiveWebRate, standardRateConfig)
-
     const finalWebRate = formatCurrency(roundedEffectiveWebRate)
-    const standardRate = formatCurrency(standardRateValue)
+    const standardRate = getCellValue(row, findColumnIndex(headers, CURRENT_STANDARD_RATE_COLUMNS))
     row[newWebRateIndex] = finalWebRate
     row[newStandardRateIndex] = standardRate
     row[matchedUnitAreaIndex] = matchedAreaValue
