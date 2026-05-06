@@ -21,7 +21,7 @@ import type { Adjuster } from '@/lib/adjusters'
 import { evaluateSafeFunction } from "@/lib/adjusters"
 import type { E1DataRow } from "@/lib/api/types"
 import { FileSpreadsheet, Info, Loader2, Trash2 } from "lucide-react"
-import { useCallback, useEffect, useMemo, useState, type ChangeEvent } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react"
 import { toast } from "sonner"
 
 interface ProcessCsvButtonProps {
@@ -823,6 +823,9 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
   const [standardRateFunction, setStandardRateFunction] = useState(DEFAULT_STANDARD_RATE_FUNCTION)
   const [standardRateZoomX, setStandardRateZoomX] = useState(1)
   const [standardRateZoomY, setStandardRateZoomY] = useState(1)
+  const [standardRatePanX, setStandardRatePanX] = useState(0)
+  const [standardRatePanY, setStandardRatePanY] = useState(0)
+  const standardRateDragRef = useRef<{ x: number; y: number } | null>(null)
   const [amenityAdjuster, setAmenityAdjuster] = useState<AmenityAdjusterState>({
     applyToWeb: true,
     premium: { mode: "multiplier", value: "" },
@@ -897,7 +900,7 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
     const svgHeight = 340
     const margin = { top: 24, right: 24, bottom: 52, left: 64 }
 
-    const centerX = (baseMinX + baseMaxX) / 2
+    const centerX = (baseMinX + baseMaxX) / 2 + standardRatePanX
     const spanX = (baseMaxX - baseMinX) / Math.max(0.5, standardRateZoomX)
     const minX = centerX - spanX / 2
     const maxX = centerX + spanX / 2
@@ -908,7 +911,7 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
     const rawMaxY = ysRaw.length ? Math.max(...ysRaw) : 1
     const paddedMinY = rawMinY - (rawMaxY - rawMinY) * 0.1
     const paddedMaxY = rawMaxY + (rawMaxY - rawMinY) * 0.1
-    const centerY = (paddedMinY + paddedMaxY) / 2
+    const centerY = (paddedMinY + paddedMaxY) / 2 + standardRatePanY
     const spanY = (paddedMaxY - paddedMinY || 1) / Math.max(0.5, standardRateZoomY)
     const minY = centerY - spanY / 2
     const maxY = centerY + spanY / 2
@@ -967,12 +970,14 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
       maxX,
       minY,
       maxY,
+      spanX,
+      spanY,
       path,
       xTicks: xTicks.map((value) => ({ value, x: scaleX(value), label: formatTick(value) })),
       yTicks: yTicks.map((value) => ({ value, y: scaleY(value), label: formatTick(value) })),
       breakpoints,
     }
-  }, [standardRateFunction, standardRateZoomX, standardRateZoomY])
+  }, [standardRateFunction, standardRateZoomX, standardRateZoomY, standardRatePanX, standardRatePanY])
 
 
   // Validate allowed filters
@@ -1095,6 +1100,28 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
       toast.error(error instanceof Error ? error.message : "Failed to apply adjustments")
     }
   }, [amenityAdjuster, originalParsed, popupAdjusters, rebuildReviewFromOriginal])
+
+  const handleStandardRateDragStart = (x: number, y: number) => {
+    standardRateDragRef.current = { x, y }
+  }
+
+  const handleStandardRateDragMove = (x: number, y: number) => {
+    const last = standardRateDragRef.current
+    if (!last) return
+    const dx = x - last.x
+    const dy = y - last.y
+    standardRateDragRef.current = { x, y }
+
+    if (!standardRateChart.plotWidth || !standardRateChart.plotHeight) return
+    const deltaX = -(dx / standardRateChart.plotWidth) * standardRateChart.spanX
+    const deltaY = (dy / standardRateChart.plotHeight) * standardRateChart.spanY
+    setStandardRatePanX((prev) => prev + deltaX)
+    setStandardRatePanY((prev) => prev + deltaY)
+  }
+
+  const handleStandardRateDragEnd = () => {
+    standardRateDragRef.current = null
+  }
 
   const handleProcess = async () => {
     if (!file) return
@@ -1267,7 +1294,24 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
                           <div>Current curve:</div>
                           <div>{`Standard = ${DEFAULT_STANDARD_RATE_FUNCTION}`}</div>
                         </div>
-                        <svg viewBox={`0 0 ${standardRateChart.svgWidth} ${standardRateChart.svgHeight}`} className="h-[360px] w-full rounded border bg-white">
+                        <div className="relative">
+                          <svg
+                            viewBox={`0 0 ${standardRateChart.svgWidth} ${standardRateChart.svgHeight}`}
+                            className="h-[420px] w-full rounded border bg-white cursor-grab active:cursor-grabbing"
+                            onMouseDown={(event) => handleStandardRateDragStart(event.clientX, event.clientY)}
+                            onMouseMove={(event) => handleStandardRateDragMove(event.clientX, event.clientY)}
+                            onMouseUp={handleStandardRateDragEnd}
+                            onMouseLeave={handleStandardRateDragEnd}
+                            onTouchStart={(event) => {
+                              const touch = event.touches[0]
+                              if (touch) handleStandardRateDragStart(touch.clientX, touch.clientY)
+                            }}
+                            onTouchMove={(event) => {
+                              const touch = event.touches[0]
+                              if (touch) handleStandardRateDragMove(touch.clientX, touch.clientY)
+                            }}
+                            onTouchEnd={handleStandardRateDragEnd}
+                          >
                           <defs>
                             <linearGradient id="grid" x1="0" y1="0" x2="0" y2="1">
                               <stop offset="0" stopColor="currentColor" stopOpacity="0.08" />
@@ -1379,39 +1423,55 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
                           >
                             Standard Rate ($)
                           </text>
-                        </svg>
-                      </div>
-                    </div>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <div className="space-y-1">
-                        <Label className="text-xs font-medium text-muted-foreground">
-                          Zoom Web Rate (x-axis)
-                        </Label>
-                        <input
-                          type="range"
-                          min={1}
-                          max={4}
-                          step={0.25}
-                          value={standardRateZoomX}
-                          onChange={(e) => setStandardRateZoomX(Number(e.target.value))}
-                          className="w-full"
-                        />
-                        <div className="text-[11px] text-muted-foreground">{standardRateZoomX.toFixed(2)}x</div>
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs font-medium text-muted-foreground">
-                          Zoom Standard Rate (y-axis)
-                        </Label>
-                        <input
-                          type="range"
-                          min={1}
-                          max={4}
-                          step={0.25}
-                          value={standardRateZoomY}
-                          onChange={(e) => setStandardRateZoomY(Number(e.target.value))}
-                          className="w-full"
-                        />
-                        <div className="text-[11px] text-muted-foreground">{standardRateZoomY.toFixed(2)}x</div>
+                          </svg>
+                          <div className="absolute right-2 top-2 flex flex-col gap-2">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => setStandardRateZoomX((prev) => Math.min(4, Number((prev + 0.25).toFixed(2))))}
+                            >
+                              Zoom X +
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => setStandardRateZoomX((prev) => Math.max(1, Number((prev - 0.25).toFixed(2))))}
+                            >
+                              Zoom X -
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => setStandardRateZoomY((prev) => Math.min(4, Number((prev + 0.25).toFixed(2))))}
+                            >
+                              Zoom Y +
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => setStandardRateZoomY((prev) => Math.max(1, Number((prev - 0.25).toFixed(2))))}
+                            >
+                              Zoom Y -
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setStandardRateZoomX(1)
+                                setStandardRateZoomY(1)
+                                setStandardRatePanX(0)
+                                setStandardRatePanY(0)
+                              }}
+                            >
+                              Reset
+                            </Button>
+                          </div>
+                        </div>
                       </div>
                     </div>
                     <div className="space-y-2">
