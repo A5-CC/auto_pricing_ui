@@ -123,12 +123,12 @@ const DEFAULT_STANDARD_RATE_FUNCTION = "x < 100 ? 1.8x : x < 200 ? 1.6x + 20 : 1
 const REVIEWABLE_RATE_COLUMNS = new Set(["newwebrate", "newstandardrate", "newrentrate"])
 const CURRENT_WEB_RATE_COLUMNS = new Set(["currentwebrate", "currentrentrate"])
 const CURRENT_STANDARD_RATE_COLUMNS = new Set(["currentstandardrate"])
-const FACILITY_NAME_COLUMNS = new Set(["facilityname", "storagename", "propertyname", "sitename"])
+const FACILITY_NAME_COLUMNS = new Set(["facilityname"])
 const UNIT_SIZE_COLUMNS = new Set(["size", "unitsize", "unitdimensions"])
 const AREA_COLUMNS = new Set(["area", "unitarea", "sqft", "squarefeet"])
 const UNIT_TYPE_COLUMNS = new Set(["unittype", "unittypecode", "unittypecategory"])
 const UNIT_AMENITIES_COLUMNS = new Set(["unitamenities", "amenities", "unit_amenities"])
-const LOCATION_COLUMNS = new Set(["facilityname", "storagename", "propertyname", "sitename", "location", "address", "clientlocation", "modstoragelocation"])
+const LOCATION_COLUMNS = new Set(["facilityname"])
 const NEW_WEB_RATE_COLUMNS = new Set(["newwebrate", "newrentrate"])
 const NEW_STANDARD_RATE_COLUMNS = new Set(["newstandardrate"])
 const CURRENT_RENT_RATE_COLUMNS = new Set(["currentrentrate"])
@@ -360,11 +360,18 @@ function normalizeLocationKey(value: unknown): string {
   if (!raw.trim()) return ""
 
   const firstLine = raw.split(/\r?\n/)[0] ?? ""
-  let normalized = normalizeMatchValue(firstLine)
+  const normalized = normalizeMatchValue(firstLine)
   if (!normalized) return ""
-  normalized = normalized.replace(/\s*[-–—]\s*/g, " - ").trim()
-  normalized = normalized.replace(/^modstorage\s*[-–—]?\s*lic$/g, "modstorage - long island city")
-  normalized = normalized.replace(/\s+way$/g, "").trim()
+
+  const parts = normalized
+    .split(/[-]/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+
+  if (parts.length > 1) {
+    return parts[parts.length - 1]
+  }
+
   return normalized
 }
 
@@ -1277,7 +1284,7 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
                 <Dialog open={standardRateOpen} onOpenChange={setStandardRateOpen}>
                   <DialogTrigger asChild>
                     <Button type="button" variant="outline" size="sm">
-                      Standard rate function
+                      Standard Rate Function
                     </Button>
                   </DialogTrigger>
                 <DialogContent className="sm:max-w-[900px]">
