@@ -363,13 +363,16 @@ function normalizeLocationKey(value: unknown): string {
   const normalized = normalizeMatchValue(firstLine)
   if (!normalized) return ""
 
-  const parts = normalized
-    .split(/[-]/)
-    .map((part) => part.trim())
-    .filter(Boolean)
+  // Facility label format: "modSTORAGE - Airport Way" -> "airport way"
+  const hyphenParts = normalized.split("-").map((part) => part.trim()).filter(Boolean)
+  if (hyphenParts.length > 1) {
+    return hyphenParts[hyphenParts.length - 1]
+  }
 
-  if (parts.length > 1) {
-    return parts[parts.length - 1]
+  // Address format: "1118 Airport Way, Monterey, CA 93940" -> "airport way"
+  const streetPart = normalized.split(",")[0]?.trim() ?? ""
+  if (streetPart) {
+    return streetPart.replace(/^\d+\s+/, "").trim()
   }
 
   return normalized
