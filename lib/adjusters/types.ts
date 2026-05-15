@@ -74,7 +74,9 @@ export interface CompetitivePriceAdjuster {
   type: 'competitive'
   price_columns: string[]       // Fallback chain (e.g., ["monthly_rate_online", "monthly_rate_regular"])
   aggregation: 'min' | 'max' | 'avg'
-  multiplier: number
+  mode?: 'multiplier' | 'add' | 'subtract'
+  value?: number
+  multiplier?: number
 }
 
 /**

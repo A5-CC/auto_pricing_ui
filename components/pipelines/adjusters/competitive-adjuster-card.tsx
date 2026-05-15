@@ -10,7 +10,15 @@ interface CompetitiveAdjusterCardProps {
 }
 
 export function CompetitiveAdjusterCard({ adjuster, stepNumber, totalSteps, onRemove }: CompetitiveAdjusterCardProps) {
-  const multiplierDisplay = Number(adjuster.multiplier).toFixed(2)
+  const mode = adjuster.mode ?? 'multiplier'
+  const rawValue = Number(adjuster.value ?? adjuster.multiplier ?? (mode === 'multiplier' ? 1 : 0))
+  const safeValue = Number.isFinite(rawValue) ? rawValue : (mode === 'multiplier' ? 1 : 0)
+  const modeLabel = mode === 'multiplier' ? 'Multiplier' : mode === 'add' ? 'Add' : 'Subtract'
+  const adjustmentDisplay = mode === 'multiplier'
+    ? `× ${safeValue.toFixed(2)}`
+    : mode === 'add'
+      ? `+ $${safeValue.toFixed(2)}`
+      : `- $${safeValue.toFixed(2)}`
   const sourceColumn = Array.isArray(adjuster.price_columns) && adjuster.price_columns.length > 0
     ? adjuster.price_columns[0]
     : '—'
@@ -39,8 +47,8 @@ export function CompetitiveAdjusterCard({ adjuster, stepNumber, totalSteps, onRe
           <dd className="font-semibold capitalize">{adjuster.aggregation}</dd>
         </div>
         <div className="flex items-center justify-between gap-3">
-          <dt className="text-muted-foreground">Multiplier</dt>
-          <dd className="font-mono text-base">× {multiplierDisplay}</dd>
+          <dt className="text-muted-foreground">{modeLabel}</dt>
+          <dd className="font-mono text-base">{adjustmentDisplay}</dd>
         </div>
       </dl>
 

@@ -38,16 +38,23 @@ export function AddCompetitiveAdjusterDialog({
     ? availablePriceColumns
     : DEFAULT_PRICE_FALLBACK_CHAIN
   const [aggregation, setAggregation] = useState<'min' | 'max' | 'avg'>('min')
-  const [multiplier, setMultiplier] = useState('0.97')
+  const [mode, setMode] = useState<'multiplier' | 'add' | 'subtract'>('multiplier')
+  const [value, setValue] = useState('0.97')
   const [priceColumn, setPriceColumn] = useState<string>(priceColumns[0])
 
   const handleAdd = () => {
-    const parsedMultiplier = parseFloat(multiplier)
+    const parsedValue = parseFloat(value)
+    const fallbackValue = mode === 'multiplier' ? 1 : 0
+    const safeValue = Number.isFinite(parsedValue) ? parsedValue : fallbackValue
+
     const adjuster: CompetitivePriceAdjuster = {
       type: 'competitive',
       price_columns: priceColumn ? [priceColumn] : [priceColumns[0]],
       aggregation,
-      multiplier: Number.isFinite(parsedMultiplier) && parsedMultiplier > 0 ? parsedMultiplier : 1,
+      mode,
+      value: mode === 'multiplier' ? Math.max(0.0001, safeValue) : Math.max(0, safeValue),
+      // Legacy compatibility with backends/consumers that still read `multiplier`.
+      multiplier: mode === 'multiplier' ? Math.max(0.0001, safeValue) : 1,
     }
     onAdd(adjuster)
     onOpenChange(false)
@@ -102,17 +109,36 @@ export function AddCompetitiveAdjusterDialog({
           </div>
 
           <div className="space-y-2">
-            <Label>Multiplier</Label>
+            <Label>Adjustment mode</Label>
+            <Select value={mode} onValueChange={(v) => setMode(v as 'multiplier' | 'add' | 'subtract')}>
+              <SelectTrigger className="focus:ring-blue-500">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="multiplier">Multiplier</SelectItem>
+                <SelectItem value="add">Add fixed amount</SelectItem>
+                <SelectItem value="subtract">Subtract fixed amount</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>{mode === 'multiplier' ? 'Multiplier' : 'Amount'}</Label>
             <Input
               type="number"
               step="0.01"
-              value={multiplier}
-              onChange={(e) => setMultiplier(e.target.value)}
-              placeholder="0.97"
+              min={mode === 'multiplier' ? '0.0001' : '0'}
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              placeholder={mode === 'multiplier' ? '0.97' : '5'}
               className="focus:ring-blue-500"
             />
             <p className="text-xs text-muted-foreground">
-              Example: 0.97 = 3% below competitors, 1.05 = 5% above
+              {mode === 'multiplier'
+                ? 'Example: 0.97 = 3% below competitors, 1.05 = 5% above'
+                : mode === 'add'
+                  ? 'Example: 5 adds $5.00 to the aggregated competitor price'
+                  : 'Example: 5 subtracts $5.00 from the aggregated competitor price'}
             </p>
           </div>
         </div>

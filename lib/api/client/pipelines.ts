@@ -305,6 +305,8 @@ export interface AdjusterConfig {
   // Competitive adjuster fields
   price_columns?: string[];
   aggregation?: 'min' | 'max' | 'avg';
+  mode?: 'multiplier' | 'add' | 'subtract';
+  value?: number;
   multiplier?: number;
   // Function adjuster fields
   variable?: string;
@@ -424,6 +426,8 @@ export async function updateAgentPipeline(
       type?: 'competitive' | 'function' | 'temporal';
       price_columns?: string[];
       aggregation?: 'min' | 'max' | 'avg';
+      mode?: 'multiplier' | 'add' | 'subtract';
+      value?: number;
       multiplier?: number;
       variable?: string;
       function_string?: string;

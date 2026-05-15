@@ -205,24 +205,39 @@ export function applyCompetitiveAdjuster(
     // Aggregate prices
     const aggregatedPrice = aggregatePrices(prices, adjuster.aggregation)
 
-    // Validate multiplier
-    if (
-      typeof adjuster.multiplier !== 'number' ||
-      !isFinite(adjuster.multiplier) ||
-      adjuster.multiplier <= 0
-    ) {
-      console.error(
-        `[competitive] Invalid multiplier: ${adjuster.multiplier}. Using 1.0 neutral.`
+    const mode = adjuster.mode ?? 'multiplier'
+    const parsedValue =
+      typeof adjuster.value === 'number' && isFinite(adjuster.value)
+        ? adjuster.value
+        : (typeof adjuster.multiplier === 'number' && isFinite(adjuster.multiplier)
+            ? adjuster.multiplier
+            : (mode === 'multiplier' ? 1 : 0))
+
+    let finalPrice = aggregatedPrice
+    if (mode === 'multiplier') {
+      if (parsedValue <= 0) {
+        console.error(`[competitive] Invalid multiplier: ${parsedValue}. Using 1.0 neutral.`)
+        finalPrice = aggregatedPrice
+      } else {
+        finalPrice = aggregatedPrice * parsedValue
+      }
+      console.log(
+        `[competitive] ${adjuster.aggregation}(${prices.length} prices) = $${aggregatedPrice.toFixed(2)} × ${parsedValue} = $${finalPrice.toFixed(2)}`
       )
-      return aggregatedPrice
+    } else if (mode === 'add') {
+      finalPrice = aggregatedPrice + parsedValue
+      console.log(
+        `[competitive] ${adjuster.aggregation}(${prices.length} prices) = $${aggregatedPrice.toFixed(2)} + ${parsedValue} = $${finalPrice.toFixed(2)}`
+      )
+    } else if (mode === 'subtract') {
+      finalPrice = aggregatedPrice - parsedValue
+      console.log(
+        `[competitive] ${adjuster.aggregation}(${prices.length} prices) = $${aggregatedPrice.toFixed(2)} - ${parsedValue} = $${finalPrice.toFixed(2)}`
+      )
+    } else {
+      console.error(`[competitive] Invalid mode: ${mode}. Using multiplier neutral 1.0.`)
+      finalPrice = aggregatedPrice
     }
-
-    // Apply multiplier
-    const finalPrice = aggregatedPrice * adjuster.multiplier
-
-    console.log(
-      `[competitive] ${adjuster.aggregation}(${prices.length} prices) = $${aggregatedPrice.toFixed(2)} × ${adjuster.multiplier} = $${finalPrice.toFixed(2)}`
-    )
 
     return finalPrice
   } catch (error) {
@@ -291,25 +306,44 @@ export function validateCompetitiveAdjuster(
     }
   }
 
-  // Validate multiplier
-  if (typeof adjuster.multiplier !== 'number' || !isFinite(adjuster.multiplier)) {
+  const mode = adjuster.mode ?? 'multiplier'
+  if (!['multiplier', 'add', 'subtract'].includes(mode)) {
     return {
       valid: false,
-      error: `Multiplier must be a finite number, got: ${adjuster.multiplier}`,
+      error: `Invalid mode: ${adjuster.mode}. Must be 'multiplier', 'add', or 'subtract'`,
     }
   }
 
-  if (adjuster.multiplier <= 0) {
+  const value =
+    typeof adjuster.value === 'number' && isFinite(adjuster.value)
+      ? adjuster.value
+      : adjuster.multiplier
+
+  if (typeof value !== 'number' || !isFinite(value)) {
     return {
       valid: false,
-      error: `Multiplier must be positive, got: ${adjuster.multiplier}`,
+      error: `Adjustment value must be a finite number, got: ${value}`,
+    }
+  }
+
+  if (mode === 'multiplier' && value <= 0) {
+    return {
+      valid: false,
+      error: `Multiplier must be positive, got: ${value}`,
+    }
+  }
+
+  if ((mode === 'add' || mode === 'subtract') && value < 0) {
+    return {
+      valid: false,
+      error: `Add/Subtract value must be zero or positive, got: ${value}`,
     }
   }
 
   // Warn if multiplier seems unusual
-  if (adjuster.multiplier > 2.0) {
+  if (mode === 'multiplier' && value > 2.0) {
     warnings.push(
-      `Multiplier ${adjuster.multiplier} is unusually high (>2x markup). Is this intentional?`
+      `Multiplier ${value} is unusually high (>2x markup). Is this intentional?`
     )
   }
 

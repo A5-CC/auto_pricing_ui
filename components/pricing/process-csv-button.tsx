@@ -298,12 +298,25 @@ function applyPopupAdjustersToWebRate(
   csvRow: Record<string, string>,
   popupAdjusters: Adjuster[]
 ): number {
-  let factor = 1
+  let nextRate = baseWebRate
 
   for (const adjuster of popupAdjusters) {
     if (adjuster.type === 'competitive') {
-      const next = Number((adjuster as { multiplier?: number }).multiplier ?? 1)
-      if (Number.isFinite(next) && next > 0) factor *= next
+      const mode = (adjuster as { mode?: "multiplier" | "add" | "subtract" }).mode ?? "multiplier"
+      const rawValue = Number(
+        (adjuster as { value?: number; multiplier?: number }).value ??
+        (adjuster as { multiplier?: number }).multiplier ??
+        (mode === "multiplier" ? 1 : 0)
+      )
+      const value = Number.isFinite(rawValue) ? rawValue : (mode === "multiplier" ? 1 : 0)
+
+      if (mode === "add") {
+        nextRate += value
+      } else if (mode === "subtract") {
+        nextRate -= value
+      } else if (value > 0) {
+        nextRate *= value
+      }
       continue
     }
 
@@ -328,13 +341,12 @@ function applyPopupAdjustersToWebRate(
       if (!Number.isFinite(x)) continue
       const evaluated = evaluateSafeFunction(functionString, x)
       if (evaluated.success && typeof evaluated.value === 'number' && Number.isFinite(evaluated.value)) {
-        factor *= evaluated.value
+        nextRate *= evaluated.value
       }
     }
   }
 
-  const next = baseWebRate * factor
-  return Number.isFinite(next) ? next : baseWebRate
+  return Number.isFinite(nextRate) ? nextRate : baseWebRate
 }
 
 function normalizeCityValue(value: unknown): string {
@@ -1765,7 +1777,11 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
                       className="h-8"
                       placeholder={
                         amenityAdjuster[tier.key].mode === "multiplier"
-                          ? "1.05"
+                          ? tier.key === "premium"
+                            ? "1.05"
+                            : tier.key === "standard"
+                              ? "1"
+                              : "0.95"
                           : tier.key === "economy"
                             ? "-5"
                             : tier.key === "standard"

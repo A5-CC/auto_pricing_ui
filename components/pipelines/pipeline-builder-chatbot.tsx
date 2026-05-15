@@ -221,13 +221,23 @@ export function PipelineBuilderChatbot({
 
     const normalizedAdjusters = (stateToSave.adjusters ?? []).map((adj) => {
       if (adj.type === "competitive") {
+        const mode =
+          adj.mode === "multiplier" || adj.mode === "add" || adj.mode === "subtract"
+            ? adj.mode
+            : "multiplier";
+        const value =
+          typeof adj.value === "number"
+            ? adj.value
+            : (typeof adj.multiplier === "number" ? adj.multiplier : (mode === "multiplier" ? 1 : 0));
         return {
           type: "competitive" as const,
           price_columns: Array.isArray(adj.price_columns) && adj.price_columns.length > 0
             ? adj.price_columns
             : ["monthly_rate_online", "monthly_rate_regular", "monthly_rate_instore"],
           aggregation: adj.aggregation ?? "min",
-          multiplier: typeof adj.multiplier === "number" ? adj.multiplier : 1,
+          mode,
+          value,
+          multiplier: mode === "multiplier" ? value : 1,
         };
       }
 
@@ -754,7 +764,12 @@ export function PipelineBuilderChatbot({
                   </Badge>
                   {adj.type === "competitive" && (
                     <span className="text-xs text-slate-500">
-                      {adj.aggregation} × {adj.multiplier}
+                      {adj.aggregation}{" "}
+                      {adj.mode === "add"
+                        ? `+ ${adj.value ?? 0}`
+                        : adj.mode === "subtract"
+                          ? `- ${adj.value ?? 0}`
+                          : `× ${adj.value ?? adj.multiplier ?? 1}`}
                     </span>
                   )}
                   {adj.type === "temporal" && (
