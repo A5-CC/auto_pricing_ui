@@ -261,7 +261,7 @@ export default function PipelinesPage() {
       return
     }
 
-    const settingsFilters = normalizeFilterKeys(pipeline.settings?.universal_filters as Record<string, string[]> | undefined)
+    const settingsFilters = normalizeFilterKeys((pipeline.filters ?? pipeline.settings?.universal_filters) as Record<string, string[]> | undefined)
     setUniversalFilters(settingsFilters)
 
     const normalizedFlags = normalizeCombinatoricFlagKeys(pipeline.settings?.combinatoric_flags as Record<string, boolean> | undefined)
@@ -613,14 +613,13 @@ export default function PipelinesPage() {
               }}
             />
             <PipelineSelector
-              currentFilters={{}}
+              currentFilters={universalFilters}
               currentAdjusters={localAdjusters}
               currentSettings={{
                 rounding: {
                   enabled: roundingEnabled,
                   offset: roundingOffset,
                 },
-                universal_filters: universalFilters,
                 combinatoric_flags: universalCombinatoric,
               }}
               onLoadPipeline={handleLoadPipeline}

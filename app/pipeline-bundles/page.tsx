@@ -157,7 +157,7 @@ export default function PipelineBundlesPage() {
     return selectedPipelines.map((pipeline) => {
       const adjusters = pipeline.adjusters || [];
       const settings = (pipeline.settings ?? {}) as Record<string, unknown>;
-      const settingsFilters = normalizeFilterKeys((settings.universal_filters as Record<string, string[]> | undefined));
+      const settingsFilters = normalizeFilterKeys((pipeline.filters ?? settings.universal_filters) as Record<string, string[]> | undefined);
       const normalizedFlags = normalizeCombinatoricFlagKeys((settings.combinatoric_flags as Record<string, boolean> | undefined));
       const normalizedModes = normalizeFilterModeKeys((settings.filter_modes as Record<string, string> | undefined));
 

@@ -24,7 +24,6 @@ interface PipelineSelectorProps {
   currentFilters: Record<string, string[]>;
   currentAdjusters: Adjuster[];
   currentSettings?: {
-    universal_filters?: Record<string, string[]>;
     combinatoric_flags?: Record<string, boolean>;
     filter_modes?: Record<string, "combinatoric" | "subset">;
     [key: string]: unknown;
@@ -59,7 +58,7 @@ export function PipelineSelector({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
 
-  // No-op for local extras, as filters/settings are now only universal_filters
+  // Keep local extras for optimistic UI fallback while API cache refreshes.
   const readLocalExtras = useCallback(() => {
       if (typeof window === "undefined") return {} as Record<string, { filters: Record<string, string[]>; settings?: Record<string, unknown> }>;
       try {
@@ -80,21 +79,21 @@ export function PipelineSelector({
     }
   }, []);
 
-  // Normalize pipeline for UI: just pass universal_filters
+  // Normalize pipeline for UI: prefer top-level filters, with legacy fallback.
   const normalizePipelineForUi = useCallback((
     pipeline: Pipeline,
     extra?: { filters: Record<string, string[]>; settings?: Record<string, unknown> }
   ): Pipeline => {
-    const mergedUniversalFilters = {
-      ...(pipeline.settings?.universal_filters ?? {}),
-      ...(extra?.settings?.universal_filters ?? {}),
+    const mergedFilters = {
+      ...(((pipeline.filters ?? pipeline.settings?.universal_filters) as Record<string, string[]> | undefined) ?? {}),
+      ...(extra?.filters ?? {}),
     };
     return {
       ...pipeline,
+      filters: mergedFilters,
       settings: {
         ...pipeline.settings,
         ...extra?.settings,
-        universal_filters: mergedUniversalFilters,
       },
     };
   }, []);
@@ -127,7 +126,7 @@ export function PipelineSelector({
     const pipeline = pipelines.find((p: Pipeline) => p.id === pipelineId);
     if (pipeline) {
       setSelectedPipelineId(pipelineId);
-      onLoadPipeline(pipeline.settings?.universal_filters ?? Object.create(null));
+      onLoadPipeline(pipeline.filters ?? (pipeline.settings?.universal_filters as Record<string, string[]> | undefined) ?? Object.create(null));
       onPipelineChange?.(pipeline);
     }
   };
@@ -135,14 +134,13 @@ export function PipelineSelector({
 
   const handleSavePipeline = async (name: string) => {
     try {
-      const mergedUniversalFilters = {
+      const mergedFilters = {
         ...currentFilters,
-        ...(currentSettings?.universal_filters ?? {}),
       };
       const mergedCombinatoricFlags = {
         ...(currentSettings?.combinatoric_flags ?? {}),
       };
-      const mergedFilterModes = Object.keys(mergedUniversalFilters).reduce(
+      const mergedFilterModes = Object.keys(mergedFilters).reduce(
         (acc, key) => {
           const isCombinatoric = mergedCombinatoricFlags[key] ?? true;
           acc[key] = isCombinatoric ? "combinatoric" : "subset";
@@ -152,16 +150,16 @@ export function PipelineSelector({
       );
       const newPipeline = await createPipeline({
         name,
+        filters: mergedFilters,
         adjusters: currentAdjusters,
         settings: {
           ...currentSettings,
-          universal_filters: mergedUniversalFilters,
           combinatoric_flags: mergedCombinatoricFlags,
           filter_modes: mergedFilterModes,
         },
       });
       const extras = readLocalExtras();
-      extras[newPipeline.id] = { filters: {}, settings: { ...currentSettings, universal_filters: mergedUniversalFilters, combinatoric_flags: mergedCombinatoricFlags, filter_modes: mergedFilterModes } as Record<string, unknown> };
+      extras[newPipeline.id] = { filters: mergedFilters, settings: { ...currentSettings, combinatoric_flags: mergedCombinatoricFlags, filter_modes: mergedFilterModes } as Record<string, unknown> };
       writeLocalExtras(extras);
       setPipelines((prev: Pipeline[]) => [normalizePipelineForUi(newPipeline, extras[newPipeline.id]), ...prev]);
       setSelectedPipelineId(newPipeline.id);

@@ -217,7 +217,7 @@ export function PipelineBuilderChatbot({
       throw new Error("Pipeline has no adjusters yet. Finish configuring at least one adjuster, then save again.");
     }
 
-    // All filter logic removed; only settings.universal_filters is used now
+    // Filters are persisted at top-level `filters` (with legacy fallback reads).
 
     const normalizedAdjusters = (stateToSave.adjusters ?? []).map((adj) => {
       if (adj.type === "competitive") {
@@ -250,13 +250,13 @@ export function PipelineBuilderChatbot({
       };
     });
 
-    // Merge all settings, preserving existing keys (like rounding) and updating universal_filters, combinatoric_flags, filter_modes
+    // Merge settings while persisting filter selections at top-level `filters`.
     // Ensure rounding is always a valid object
     const rounding = stateToSave.settings?.rounding && typeof stateToSave.settings.rounding === 'object'
       ? stateToSave.settings.rounding
       : { enabled: false, offset: 0 };
 
-    const rawUniversalFilters = (stateToSave.settings?.universal_filters ?? {}) as Record<string, unknown>;
+    const rawUniversalFilters = (stateToSave.universal_filters ?? stateToSave.settings?.universal_filters ?? {}) as Record<string, unknown>;
     const normalizedUniversalFilters = Object.entries(rawUniversalFilters).reduce((acc, [key, value]) => {
       if (!Array.isArray(value)) return acc;
       const normalized = value
@@ -269,11 +269,11 @@ export function PipelineBuilderChatbot({
     }, {} as Record<string, string[]>);
     const requestPayload = {
       name: trimmedName,
+      filters: normalizedUniversalFilters,
       adjusters: normalizedAdjusters as Adjuster[],
       settings: {
         ...(stateToSave.settings ?? {}),
         rounding,
-        universal_filters: normalizedUniversalFilters,
       },
     };
     
