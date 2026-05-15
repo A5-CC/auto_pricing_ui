@@ -38,7 +38,7 @@ export function AddCompetitiveAdjusterDialog({
     ? availablePriceColumns
     : DEFAULT_PRICE_FALLBACK_CHAIN
   const [aggregation, setAggregation] = useState<'min' | 'max' | 'avg'>('min')
-  const [mode, setMode] = useState<'multiplier' | 'add' | 'subtract'>('multiplier')
+  const [mode, setMode] = useState<'multiplier' | 'add'>('multiplier')
   const [value, setValue] = useState('0.97')
   const [priceColumn, setPriceColumn] = useState<string>(priceColumns[0])
 
@@ -52,7 +52,7 @@ export function AddCompetitiveAdjusterDialog({
       price_columns: priceColumn ? [priceColumn] : [priceColumns[0]],
       aggregation,
       mode,
-      value: mode === 'multiplier' ? Math.max(0.0001, safeValue) : Math.max(0, safeValue),
+      value: mode === 'multiplier' ? Math.max(0.0001, safeValue) : safeValue,
       // Legacy compatibility with backends/consumers that still read `multiplier`.
       multiplier: mode === 'multiplier' ? Math.max(0.0001, safeValue) : 1,
     }
@@ -110,14 +110,13 @@ export function AddCompetitiveAdjusterDialog({
 
           <div className="space-y-2">
             <Label>Adjustment mode</Label>
-            <Select value={mode} onValueChange={(v) => setMode(v as 'multiplier' | 'add' | 'subtract')}>
+            <Select value={mode} onValueChange={(v) => setMode(v as 'multiplier' | 'add')}>
               <SelectTrigger className="focus:ring-blue-500">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="multiplier">Multiplier</SelectItem>
-                <SelectItem value="add">Add fixed amount</SelectItem>
-                <SelectItem value="subtract">Subtract fixed amount</SelectItem>
+                <SelectItem value="add">Add/Subtract amount</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -127,18 +126,15 @@ export function AddCompetitiveAdjusterDialog({
             <Input
               type="number"
               step="0.01"
-              min={mode === 'multiplier' ? '0.0001' : '0'}
               value={value}
               onChange={(e) => setValue(e.target.value)}
-              placeholder={mode === 'multiplier' ? '0.97' : '5'}
+              placeholder={mode === 'multiplier' ? '0.97' : '-5 or 5'}
               className="focus:ring-blue-500"
             />
             <p className="text-xs text-muted-foreground">
               {mode === 'multiplier'
                 ? 'Example: 0.97 = 3% below competitors, 1.05 = 5% above'
-                : mode === 'add'
-                  ? 'Example: 5 adds $5.00 to the aggregated competitor price'
-                  : 'Example: 5 subtracts $5.00 from the aggregated competitor price'}
+                : 'Use positive to add (e.g. 5) or negative to subtract (e.g. -5).'}
             </p>
           </div>
         </div>

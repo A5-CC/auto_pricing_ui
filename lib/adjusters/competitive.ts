@@ -205,13 +205,15 @@ export function applyCompetitiveAdjuster(
     // Aggregate prices
     const aggregatedPrice = aggregatePrices(prices, adjuster.aggregation)
 
-    const mode = adjuster.mode ?? 'multiplier'
-    const parsedValue =
+    const rawMode = adjuster.mode ?? 'multiplier'
+    const mode = rawMode === 'subtract' ? 'add' : rawMode
+    const rawParsedValue =
       typeof adjuster.value === 'number' && isFinite(adjuster.value)
         ? adjuster.value
         : (typeof adjuster.multiplier === 'number' && isFinite(adjuster.multiplier)
             ? adjuster.multiplier
             : (mode === 'multiplier' ? 1 : 0))
+    const parsedValue = rawMode === 'subtract' ? -Math.abs(rawParsedValue) : rawParsedValue
 
     let finalPrice = aggregatedPrice
     if (mode === 'multiplier') {
@@ -226,16 +228,12 @@ export function applyCompetitiveAdjuster(
       )
     } else if (mode === 'add') {
       finalPrice = aggregatedPrice + parsedValue
+      const operator = parsedValue >= 0 ? '+' : '-'
       console.log(
-        `[competitive] ${adjuster.aggregation}(${prices.length} prices) = $${aggregatedPrice.toFixed(2)} + ${parsedValue} = $${finalPrice.toFixed(2)}`
-      )
-    } else if (mode === 'subtract') {
-      finalPrice = aggregatedPrice - parsedValue
-      console.log(
-        `[competitive] ${adjuster.aggregation}(${prices.length} prices) = $${aggregatedPrice.toFixed(2)} - ${parsedValue} = $${finalPrice.toFixed(2)}`
+        `[competitive] ${adjuster.aggregation}(${prices.length} prices) = $${aggregatedPrice.toFixed(2)} ${operator} ${Math.abs(parsedValue)} = $${finalPrice.toFixed(2)}`
       )
     } else {
-      console.error(`[competitive] Invalid mode: ${mode}. Using multiplier neutral 1.0.`)
+      console.error(`[competitive] Invalid mode: ${rawMode}. Using multiplier neutral 1.0.`)
       finalPrice = aggregatedPrice
     }
 
@@ -306,37 +304,33 @@ export function validateCompetitiveAdjuster(
     }
   }
 
-  const mode = adjuster.mode ?? 'multiplier'
-  if (!['multiplier', 'add', 'subtract'].includes(mode)) {
+  const rawMode = adjuster.mode ?? 'multiplier'
+  const mode = rawMode === 'subtract' ? 'add' : rawMode
+  if (!['multiplier', 'add'].includes(mode)) {
     return {
       valid: false,
-      error: `Invalid mode: ${adjuster.mode}. Must be 'multiplier', 'add', or 'subtract'`,
+      error: `Invalid mode: ${adjuster.mode}. Must be 'multiplier' or 'add'`,
     }
   }
 
-  const value =
+  const rawValue =
     typeof adjuster.value === 'number' && isFinite(adjuster.value)
       ? adjuster.value
       : adjuster.multiplier
 
-  if (typeof value !== 'number' || !isFinite(value)) {
+  if (typeof rawValue !== 'number' || !isFinite(rawValue)) {
     return {
       valid: false,
-      error: `Adjustment value must be a finite number, got: ${value}`,
+      error: `Adjustment value must be a finite number, got: ${rawValue}`,
     }
   }
+
+  const value = rawMode === 'subtract' ? -Math.abs(rawValue) : rawValue
 
   if (mode === 'multiplier' && value <= 0) {
     return {
       valid: false,
       error: `Multiplier must be positive, got: ${value}`,
-    }
-  }
-
-  if ((mode === 'add' || mode === 'subtract') && value < 0) {
-    return {
-      valid: false,
-      error: `Add/Subtract value must be zero or positive, got: ${value}`,
     }
   }
 

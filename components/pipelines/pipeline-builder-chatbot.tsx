@@ -221,14 +221,16 @@ export function PipelineBuilderChatbot({
 
     const normalizedAdjusters = (stateToSave.adjusters ?? []).map((adj) => {
       if (adj.type === "competitive") {
-        const mode =
+        const rawMode =
           adj.mode === "multiplier" || adj.mode === "add" || adj.mode === "subtract"
             ? adj.mode
             : "multiplier";
-        const value =
+        const baseValue =
           typeof adj.value === "number"
             ? adj.value
-            : (typeof adj.multiplier === "number" ? adj.multiplier : (mode === "multiplier" ? 1 : 0));
+            : (typeof adj.multiplier === "number" ? adj.multiplier : (rawMode === "multiplier" ? 1 : 0));
+        const mode = rawMode === "subtract" ? "add" : rawMode;
+        const value = rawMode === "subtract" ? -Math.abs(baseValue) : baseValue;
         return {
           type: "competitive" as const,
           price_columns: Array.isArray(adj.price_columns) && adj.price_columns.length > 0
@@ -765,11 +767,14 @@ export function PipelineBuilderChatbot({
                   {adj.type === "competitive" && (
                     <span className="text-xs text-slate-500">
                       {adj.aggregation}{" "}
-                      {adj.mode === "add"
-                        ? `+ ${adj.value ?? 0}`
-                        : adj.mode === "subtract"
-                          ? `- ${adj.value ?? 0}`
-                          : `× ${adj.value ?? adj.multiplier ?? 1}`}
+                      {adj.mode === "multiplier"
+                        ? `× ${adj.value ?? adj.multiplier ?? 1}`
+                        : (() => {
+                            const rawDelta = Number(adj.value ?? 0)
+                            const delta = adj.mode === "subtract" ? -Math.abs(rawDelta) : rawDelta
+                            const sign = delta >= 0 ? "+" : "-"
+                            return `${sign} ${Math.abs(delta)}`
+                          })()}
                     </span>
                   )}
                   {adj.type === "temporal" && (

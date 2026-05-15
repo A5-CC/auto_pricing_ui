@@ -10,15 +10,16 @@ interface CompetitiveAdjusterCardProps {
 }
 
 export function CompetitiveAdjusterCard({ adjuster, stepNumber, totalSteps, onRemove }: CompetitiveAdjusterCardProps) {
-  const mode = adjuster.mode ?? 'multiplier'
-  const rawValue = Number(adjuster.value ?? adjuster.multiplier ?? (mode === 'multiplier' ? 1 : 0))
-  const safeValue = Number.isFinite(rawValue) ? rawValue : (mode === 'multiplier' ? 1 : 0)
-  const modeLabel = mode === 'multiplier' ? 'Multiplier' : mode === 'add' ? 'Add' : 'Subtract'
+  const rawMode = adjuster.mode ?? 'multiplier'
+  const mode = rawMode === 'subtract' ? 'add' : rawMode
+  const fallback = mode === 'multiplier' ? 1 : 0
+  const rawValue = Number(adjuster.value ?? adjuster.multiplier ?? fallback)
+  const normalizedValue = Number.isFinite(rawValue) ? rawValue : fallback
+  const safeValue = rawMode === 'subtract' ? -Math.abs(normalizedValue) : normalizedValue
+  const modeLabel = mode === 'multiplier' ? 'Multiplier' : 'Add/Subtract'
   const adjustmentDisplay = mode === 'multiplier'
     ? `× ${safeValue.toFixed(2)}`
-    : mode === 'add'
-      ? `+ $${safeValue.toFixed(2)}`
-      : `- $${safeValue.toFixed(2)}`
+    : `${safeValue >= 0 ? '+' : '-'} $${Math.abs(safeValue).toFixed(2)}`
   const sourceColumn = Array.isArray(adjuster.price_columns) && adjuster.price_columns.length > 0
     ? adjuster.price_columns[0]
     : '—'
