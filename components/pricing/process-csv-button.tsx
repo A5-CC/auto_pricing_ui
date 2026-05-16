@@ -1,3 +1,4 @@
+import type { AmenityAdjusterState } from "./process-csv-button"
 
 "use client"
 
@@ -61,7 +62,7 @@ type ResolvedCalculatedRows = {
   error: string | null
 }
 
-type ParsedCsv = {
+    import { toast } from "sonner"
   headers: string[]
   rows: string[][]
 }
@@ -830,9 +831,9 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
   const standardRateDragRef = useRef<{ x: number; y: number } | null>(null)
   const [amenityAdjuster, setAmenityAdjuster] = useState<AmenityAdjusterState>({
     applyToWeb: true,
-    premium: { mode: "multiplier", value: "" },
-    standard: { mode: "multiplier", value: "" },
-    economy: { mode: "multiplier", value: "" },
+    premium: { multiplier: "1", offset: "0" },
+    standard: { multiplier: "1", offset: "0" },
+    economy: { multiplier: "1", offset: "0" },
   })
   const [originalParsed, setOriginalParsed] = useState<ParsedCsv | null>(null)
   const [csvNumericVariables, setCsvNumericVariables] = useState<string[]>([])
@@ -880,20 +881,21 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
 
   const resolvedAmenityAdjuster = useMemo<ResolvedAmenityAdjuster>(() => {
     const parseEntry = (entry: AmenityAdjusterEntry) => {
-      const raw = entry.value.trim()
-      if (!raw) return undefined
-      const n = Number(raw)
-      if (!Number.isFinite(n)) return undefined
-      return { mode: entry.mode, value: n }
-    }
-
+      const m = Number(entry.multiplier.trim());
+      const o = Number(entry.offset.trim());
+      if (!Number.isFinite(m) && !Number.isFinite(o)) return undefined;
+      return {
+        multiplier: Number.isFinite(m) ? m : 1,
+        offset: Number.isFinite(o) ? o : 0,
+      };
+    };
     return {
       applyToWeb: amenityAdjuster.applyToWeb,
       premium: parseEntry(amenityAdjuster.premium),
       standard: parseEntry(amenityAdjuster.standard),
       economy: parseEntry(amenityAdjuster.economy),
-    }
-  }, [amenityAdjuster])
+    };
+  }, [amenityAdjuster]);
 
   const standardRateChart = useMemo(() => {
     const baseMinX = 20
@@ -1727,8 +1729,8 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
               <div className="font-medium text-muted-foreground">Tier</div>
-              <div className="font-medium text-muted-foreground">Mode</div>
-              <div className="font-medium text-muted-foreground">Value</div>
+              <div className="font-medium text-muted-foreground">Multiplier</div>
+              <div className="font-medium text-muted-foreground">Offset</div>
 
               {([
                 { key: "premium", label: "Premium" },
@@ -1738,41 +1740,27 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
                 <div key={tier.key} className="contents">
                   <div className="flex items-center">{tier.label}</div>
                   <div>
-                    <select
-                      className="h-8 w-full rounded-md border px-2 text-xs"
-                      value={amenityAdjuster[tier.key].mode}
+                    <Input
+                      className="h-8"
+                      placeholder={tier.key === "premium" ? "1.05" : tier.key === "standard" ? "1" : "0.95"}
+                      value={amenityAdjuster[tier.key].multiplier}
                       onChange={(e) =>
-                        setAmenityAdjuster((prev) => ({
+                        setAmenityAdjuster((prev: AmenityAdjusterState) => ({
                           ...prev,
-                          [tier.key]: { ...prev[tier.key], mode: e.target.value as AmenityAdjusterMode },
+                          [tier.key]: { ...prev[tier.key], multiplier: e.target.value },
                         }))
                       }
-                    >
-                      <option value="multiplier">Multiplier</option>
-                      <option value="delta">Add/Subtract</option>
-                    </select>
+                    />
                   </div>
                   <div>
                     <Input
                       className="h-8"
-                      placeholder={
-                        amenityAdjuster[tier.key].mode === "multiplier"
-                          ? tier.key === "premium"
-                            ? "1.05"
-                            : tier.key === "standard"
-                              ? "1"
-                              : "0.95"
-                          : tier.key === "economy"
-                            ? "-5"
-                            : tier.key === "standard"
-                              ? "0"
-                              : "5"
-                      }
-                      value={amenityAdjuster[tier.key].value}
+                      placeholder={tier.key === "economy" ? "-5" : tier.key === "standard" ? "0" : "5"}
+                      value={amenityAdjuster[tier.key].offset}
                       onChange={(e) =>
-                        setAmenityAdjuster((prev) => ({
+                        setAmenityAdjuster((prev: AmenityAdjusterState) => ({
                           ...prev,
-                          [tier.key]: { ...prev[tier.key], value: e.target.value },
+                          [tier.key]: { ...prev[tier.key], offset: e.target.value },
                         }))
                       }
                     />
