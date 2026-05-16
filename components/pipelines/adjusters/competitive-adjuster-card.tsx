@@ -11,16 +11,21 @@ interface CompetitiveAdjusterCardProps {
 
 export function CompetitiveAdjusterCard({ adjuster, stepNumber, totalSteps, onRemove }: CompetitiveAdjusterCardProps) {
   const multiplier = typeof adjuster.multiplier === 'number' && isFinite(adjuster.multiplier) ? adjuster.multiplier : 1;
-  const add = typeof adjuster.add === 'number' && isFinite(adjuster.add) ? adjuster.add : 0;
-  const subtract = typeof adjuster.subtract === 'number' && isFinite(adjuster.subtract) ? adjuster.subtract : 0;
+  // Offset is add - subtract, but since only one is ever set, just use add or -subtract
+  let offset = 0;
+  if (typeof adjuster.add === 'number' && isFinite(adjuster.add) && adjuster.add !== 0) {
+    offset = adjuster.add;
+  } else if (typeof adjuster.subtract === 'number' && isFinite(adjuster.subtract) && adjuster.subtract !== 0) {
+    offset = -adjuster.subtract;
+  }
   const sourceColumn = Array.isArray(adjuster.price_columns) && adjuster.price_columns.length > 0
     ? adjuster.price_columns[0]
     : '—';
 
   return (
     <AdjusterCardShell
-      stepNumber={stepNumber}
-      totalSteps={totalSteps}
+      stepNumber={totalSteps > 1 ? stepNumber : undefined}
+      totalSteps={totalSteps > 1 ? totalSteps : undefined}
       accentColor="#2563eb"
       className="border-blue-100/80 bg-white"
       onRemove={onRemove}
@@ -45,12 +50,8 @@ export function CompetitiveAdjusterCard({ adjuster, stepNumber, totalSteps, onRe
           <dd className="font-mono text-base">× {multiplier}</dd>
         </div>
         <div className="flex items-center justify-between gap-3">
-          <dt className="text-muted-foreground">Add</dt>
-          <dd className="font-mono text-base">+ ${add}</dd>
-        </div>
-        <div className="flex items-center justify-between gap-3">
-          <dt className="text-muted-foreground">Subtract</dt>
-          <dd className="font-mono text-base">- ${subtract}</dd>
+          <dt className="text-muted-foreground">Offset</dt>
+          <dd className="font-mono text-base">{offset >= 0 ? `+ $${offset}` : `- $${Math.abs(offset)}`}</dd>
         </div>
       </dl>
     </AdjusterCardShell>
