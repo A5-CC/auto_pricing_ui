@@ -270,8 +270,8 @@ export function PipelineBuilderChatbot({
       return acc;
     }, {} as Record<string, string[]>);
 
-    // Extract filter_modes from stateToSave or settings
-    const rawFilterModes = ((stateToSave as any).filter_modes ?? stateToSave.settings?.filter_modes ?? {}) as Record<string, string>;
+    // Extract filter_modes from settings only (not top-level)
+    const rawFilterModes = (stateToSave.settings?.filter_modes ?? {}) as Record<string, string>;
     const normalizedFilterModes = Object.entries(rawFilterModes).reduce((acc, [key, value]) => {
       if (!value) return acc;
       acc[key] = String(value);
