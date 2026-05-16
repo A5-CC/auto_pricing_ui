@@ -205,39 +205,24 @@ export function applyCompetitiveAdjuster(
     // Aggregate prices
     const aggregatedPrice = aggregatePrices(prices, adjuster.aggregation)
 
-    const rawMode = adjuster.mode ?? 'multiplier'
-    const mode = rawMode === 'subtract' ? 'add' : rawMode
-    const rawParsedValue =
-      typeof adjuster.value === 'number' && isFinite(adjuster.value)
-        ? adjuster.value
-        : (typeof adjuster.multiplier === 'number' && isFinite(adjuster.multiplier)
-            ? adjuster.multiplier
-            : (mode === 'multiplier' ? 1 : 0))
-    const parsedValue = rawMode === 'subtract' ? -Math.abs(rawParsedValue) : rawParsedValue
+    // Always apply multiplier, then add, then subtract
+    const multiplier = typeof adjuster.multiplier === 'number' && isFinite(adjuster.multiplier) ? adjuster.multiplier : 1;
+    const add = typeof adjuster.add === 'number' && isFinite(adjuster.add) ? adjuster.add : 0;
+    const subtract = typeof adjuster.subtract === 'number' && isFinite(adjuster.subtract) ? adjuster.subtract : 0;
 
-    let finalPrice = aggregatedPrice
-    if (mode === 'multiplier') {
-      if (parsedValue <= 0) {
-        console.error(`[competitive] Invalid multiplier: ${parsedValue}. Using 1.0 neutral.`)
-        finalPrice = aggregatedPrice
-      } else {
-        finalPrice = aggregatedPrice * parsedValue
-      }
-      console.log(
-        `[competitive] ${adjuster.aggregation}(${prices.length} prices) = $${aggregatedPrice.toFixed(2)} × ${parsedValue} = $${finalPrice.toFixed(2)}`
-      )
-    } else if (mode === 'add') {
-      finalPrice = aggregatedPrice + parsedValue
-      const operator = parsedValue >= 0 ? '+' : '-'
-      console.log(
-        `[competitive] ${adjuster.aggregation}(${prices.length} prices) = $${aggregatedPrice.toFixed(2)} ${operator} ${Math.abs(parsedValue)} = $${finalPrice.toFixed(2)}`
-      )
-    } else {
-      console.error(`[competitive] Invalid mode: ${rawMode}. Using multiplier neutral 1.0.`)
-      finalPrice = aggregatedPrice
+    let finalPrice = aggregatedPrice * multiplier;
+    if (multiplier !== 1) {
+      console.log(`[competitive] ${adjuster.aggregation}(${prices.length} prices) = $${aggregatedPrice.toFixed(2)} × ${multiplier} = $${finalPrice.toFixed(2)}`);
     }
-
-    return finalPrice
+    if (add !== 0) {
+      finalPrice += add;
+      console.log(`[competitive] ... + ${add} = $${finalPrice.toFixed(2)}`);
+    }
+    if (subtract !== 0) {
+      finalPrice -= subtract;
+      console.log(`[competitive] ... - ${subtract} = $${finalPrice.toFixed(2)}`);
+    }
+    return finalPrice;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
     console.error(

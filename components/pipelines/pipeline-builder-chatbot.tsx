@@ -229,7 +229,7 @@ export function PipelineBuilderChatbot({
           typeof adj.value === "number"
             ? adj.value
             : (typeof adj.multiplier === "number" ? adj.multiplier : (rawMode === "multiplier" ? 1 : 0));
-        const mode = rawMode === "subtract" ? "add" : rawMode;
+        const normalizedMode = rawMode === "subtract" ? "add" : rawMode;
         const value = rawMode === "subtract" ? -Math.abs(baseValue) : baseValue;
         return {
           type: "competitive" as const,
@@ -237,9 +237,10 @@ export function PipelineBuilderChatbot({
             ? adj.price_columns
             : ["monthly_rate_online", "monthly_rate_regular", "monthly_rate_instore"],
           aggregation: adj.aggregation ?? "min",
-          mode,
+          mode: rawMode, // Save the original mode (add, subtract, multiplier)
+          normalized_mode: normalizedMode, // Optionally include normalized_mode for internal use
           value,
-          multiplier: mode === "multiplier" ? value : 1,
+          multiplier: normalizedMode === "multiplier" ? value : 1,
         };
       }
 
@@ -279,12 +280,25 @@ export function PipelineBuilderChatbot({
       acc[key] = normalized;
       return acc;
     }, {} as Record<string, string[]>);
+
+    // Extract filter_modes from stateToSave or settings
+    const rawFilterModes = ((stateToSave as any).filter_modes ?? stateToSave.settings?.filter_modes ?? {}) as Record<string, string>;
+    const normalizedFilterModes = Object.entries(rawFilterModes).reduce((acc, [key, value]) => {
+      if (!value) return acc;
+      acc[key] = String(value);
+      return acc;
+    }, {} as Record<string, string>);
+
     const requestPayload = {
       name: trimmedName,
-      filters: normalizedUniversalFilters,
+      universal_filters: normalizedUniversalFilters,
+      filter_modes: normalizedFilterModes,
       adjusters: normalizedAdjusters as Adjuster[],
       settings: {
         ...(stateToSave.settings ?? {}),
+        // Remove universal_filters and filter_modes from settings if present
+        ...(stateToSave.settings?.universal_filters ? { universal_filters: undefined } : {}),
+        ...(stateToSave.settings?.filter_modes ? { filter_modes: undefined } : {}),
         rounding,
       },
     };

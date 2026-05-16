@@ -71,12 +71,12 @@ export interface TemporalAdjuster {
  *       Current implementation uses hardcoded default chain but supports custom arrays.
  */
 export interface CompetitivePriceAdjuster {
-  type: 'competitive'
-  price_columns: string[]       // Fallback chain (e.g., ["monthly_rate_online", "monthly_rate_regular"])
-  aggregation: 'min' | 'max' | 'avg'
-  mode?: 'multiplier' | 'add' | 'subtract'
-  value?: number
-  multiplier?: number
+  type: 'competitive';
+  price_columns: string[];       // Fallback chain (e.g., ["monthly_rate_online", "monthly_rate_regular"])
+  aggregation: 'min' | 'max' | 'avg';
+  multiplier?: number; // default 1
+  add?: number;        // default 0
+  subtract?: number;   // default 0
 }
 
 /**
