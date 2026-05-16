@@ -38,15 +38,16 @@ export function AddCompetitiveAdjusterDialog({
     ? availablePriceColumns
     : DEFAULT_PRICE_FALLBACK_CHAIN
   const [aggregation, setAggregation] = useState<'min' | 'max' | 'avg'>('min')
-  const [mode, setMode] = useState<'multiplier' | 'add'>('multiplier')
-  const [value, setValue] = useState('0.97')
+  const [multiplier, setMultiplier] = useState('0.97')
+  const [offset, setOffset] = useState('0')
   const [priceColumn, setPriceColumn] = useState<string>(priceColumns[0])
 
   const handleAdd = () => {
-    const parsedValue = parseFloat(value);
-    const safeMultiplier = mode === 'multiplier' && Number.isFinite(parsedValue) ? Math.max(0.0001, parsedValue) : 1;
-    const safeAdd = mode === 'add' && Number.isFinite(parsedValue) && parsedValue > 0 ? parsedValue : 0;
-    const safeSubtract = mode === 'add' && Number.isFinite(parsedValue) && parsedValue < 0 ? -parsedValue : 0;
+    const parsedMultiplier = parseFloat(multiplier);
+    const parsedOffset = parseFloat(offset);
+    const safeMultiplier = Number.isFinite(parsedMultiplier) ? Math.max(0.0001, parsedMultiplier) : 1;
+    const safeAdd = Number.isFinite(parsedOffset) && parsedOffset > 0 ? parsedOffset : 0;
+    const safeSubtract = Number.isFinite(parsedOffset) && parsedOffset < 0 ? -parsedOffset : 0;
 
     const adjuster: CompetitivePriceAdjuster = {
       type: 'competitive',
@@ -109,32 +110,32 @@ export function AddCompetitiveAdjusterDialog({
           </div>
 
           <div className="space-y-2">
-            <Label>Adjustment mode</Label>
-            <Select value={mode} onValueChange={(v) => setMode(v as 'multiplier' | 'add')}>
-              <SelectTrigger className="focus:ring-blue-500">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="multiplier">Multiplier</SelectItem>
-                <SelectItem value="add">Add/Subtract amount</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label>{mode === 'multiplier' ? 'Multiplier' : 'Amount'}</Label>
+            <Label>Multiplier</Label>
             <Input
               type="number"
               step="0.01"
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              placeholder={mode === 'multiplier' ? '0.97' : '-5 or 5'}
+              value={multiplier}
+              onChange={(e) => setMultiplier(e.target.value)}
+              placeholder="0.97"
               className="focus:ring-blue-500"
             />
             <p className="text-xs text-muted-foreground">
-              {mode === 'multiplier'
-                ? 'Example: 0.97 = 3% below competitors, 1.05 = 5% above'
-                : 'Use positive to add (e.g. 5) or negative to subtract (e.g. -5).'}
+              Example: 0.97 = 3% below competitors, 1.05 = 5% above
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Add/Subtract amount</Label>
+            <Input
+              type="number"
+              step="0.01"
+              value={offset}
+              onChange={(e) => setOffset(e.target.value)}
+              placeholder="-1 or 5"
+              className="focus:ring-blue-500"
+            />
+            <p className="text-xs text-muted-foreground">
+              Use positive to add (e.g. 5) or negative to subtract (e.g. -1).
             </p>
           </div>
         </div>
