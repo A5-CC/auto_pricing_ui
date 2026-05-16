@@ -1,4 +1,4 @@
-import type { AmenityAdjusterState } from "./process-csv-button"
+
 
 "use client"
 
@@ -62,10 +62,7 @@ type ResolvedCalculatedRows = {
   error: string | null
 }
 
-    import { toast } from "sonner"
-  headers: string[]
-  rows: string[][]
-}
+// ...existing code...
 
 type CsvRateChange = {
   id: string
@@ -248,12 +245,13 @@ function resolveAmenityTier(value: unknown): "premium" | "standard" | "economy" 
 
 function applyAmenityAdjustment(
   value: number,
-  adjuster?: { mode: AmenityAdjusterMode; value: number }
+  adjuster?: { multiplier?: number; add?: number; subtract?: number }
 ): number {
-  if (!adjuster || !Number.isFinite(value)) return value
-  if (!Number.isFinite(adjuster.value)) return value
-  if (adjuster.mode === "multiplier") return value * adjuster.value
-  return value + adjuster.value
+  if (!adjuster || !Number.isFinite(value)) return value;
+  const m = Number.isFinite(adjuster.multiplier) ? adjuster.multiplier! : 1;
+  const add = Number.isFinite(adjuster.add) ? adjuster.add! : 0;
+  const sub = Number.isFinite(adjuster.subtract) ? adjuster.subtract! : 0;
+  return value * m + add - sub;
 }
 
 function resolveStandardRateValue(webRate: number, functionBody?: string): number {
