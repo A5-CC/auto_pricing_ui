@@ -43,21 +43,21 @@ export function AddCompetitiveAdjusterDialog({
   const [priceColumn, setPriceColumn] = useState<string>(priceColumns[0])
 
   const handleAdd = () => {
-    const parsedValue = parseFloat(value)
-    const fallbackValue = mode === 'multiplier' ? 1 : 0
-    const safeValue = Number.isFinite(parsedValue) ? parsedValue : fallbackValue
+    const parsedValue = parseFloat(value);
+    const safeMultiplier = mode === 'multiplier' && Number.isFinite(parsedValue) ? Math.max(0.0001, parsedValue) : 1;
+    const safeAdd = mode === 'add' && Number.isFinite(parsedValue) && parsedValue > 0 ? parsedValue : 0;
+    const safeSubtract = mode === 'add' && Number.isFinite(parsedValue) && parsedValue < 0 ? -parsedValue : 0;
 
     const adjuster: CompetitivePriceAdjuster = {
       type: 'competitive',
       price_columns: priceColumn ? [priceColumn] : [priceColumns[0]],
       aggregation,
-      mode,
-      value: mode === 'multiplier' ? Math.max(0.0001, safeValue) : safeValue,
-      // Legacy compatibility with backends/consumers that still read `multiplier`.
-      multiplier: mode === 'multiplier' ? Math.max(0.0001, safeValue) : 1,
-    }
-    onAdd(adjuster)
-    onOpenChange(false)
+      multiplier: safeMultiplier,
+      add: safeAdd,
+      subtract: safeSubtract,
+    };
+    onAdd(adjuster);
+    onOpenChange(false);
   }
 
   return (
