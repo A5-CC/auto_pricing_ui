@@ -3,8 +3,8 @@ import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface AdjusterCardShellProps {
-  stepNumber: number
-  totalSteps: number
+  stepNumber?: number
+  totalSteps?: number
   accentColor: string
   badge: ReactNode
   children: ReactNode
@@ -29,12 +29,14 @@ export function AdjusterCardShell({
       )}
     >
       <div className="relative flex items-start justify-between gap-4">
-        <div className="space-y-2">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Step {stepNumber} of {totalSteps}
-          </p>
-          <ProgressDots accentColor={accentColor} activeIndex={stepNumber - 1} total={totalSteps} />
-        </div>
+        {(typeof stepNumber === 'number' && typeof totalSteps === 'number') && (
+          <div className="space-y-2">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Step {stepNumber} of {totalSteps}
+            </p>
+            <ProgressDots accentColor={accentColor} activeIndex={stepNumber - 1} total={totalSteps} />
+          </div>
+        )}
         {(badge || onRemove) && (
           <div className="flex items-center gap-2">
             {badge}
