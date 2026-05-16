@@ -289,41 +289,30 @@ export function validateCompetitiveAdjuster(
     }
   }
 
-  const rawMode = adjuster.mode ?? 'multiplier'
-  const mode = rawMode === 'subtract' ? 'add' : rawMode
-  if (!['multiplier', 'add'].includes(mode)) {
-    return {
-      valid: false,
-      error: `Invalid mode: ${adjuster.mode}. Must be 'multiplier' or 'add'`,
+
+  // Validate multiplier, add, and subtract fields
+  if (typeof adjuster.multiplier !== 'undefined') {
+    if (typeof adjuster.multiplier !== 'number' || !isFinite(adjuster.multiplier) || adjuster.multiplier <= 0) {
+      return {
+        valid: false,
+        error: `Multiplier must be a positive number, got: ${adjuster.multiplier}`,
+      };
+    }
+    if (adjuster.multiplier > 2.0) {
+      warnings.push(`Multiplier ${adjuster.multiplier} is unusually high (>2x markup). Is this intentional?`);
     }
   }
-
-  const rawValue =
-    typeof adjuster.value === 'number' && isFinite(adjuster.value)
-      ? adjuster.value
-      : adjuster.multiplier
-
-  if (typeof rawValue !== 'number' || !isFinite(rawValue)) {
+  if (typeof adjuster.add !== 'undefined' && (typeof adjuster.add !== 'number' || !isFinite(adjuster.add))) {
     return {
       valid: false,
-      error: `Adjustment value must be a finite number, got: ${rawValue}`,
-    }
+      error: `Add must be a finite number, got: ${adjuster.add}`,
+    };
   }
-
-  const value = rawMode === 'subtract' ? -Math.abs(rawValue) : rawValue
-
-  if (mode === 'multiplier' && value <= 0) {
+  if (typeof adjuster.subtract !== 'undefined' && (typeof adjuster.subtract !== 'number' || !isFinite(adjuster.subtract))) {
     return {
       valid: false,
-      error: `Multiplier must be positive, got: ${value}`,
-    }
-  }
-
-  // Warn if multiplier seems unusual
-  if (mode === 'multiplier' && value > 2.0) {
-    warnings.push(
-      `Multiplier ${value} is unusually high (>2x markup). Is this intentional?`
-    )
+      error: `Subtract must be a finite number, got: ${adjuster.subtract}`,
+    };
   }
 
   return {
