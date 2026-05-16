@@ -305,9 +305,9 @@ export interface AdjusterConfig {
   // Competitive adjuster fields
   price_columns?: string[];
   aggregation?: 'min' | 'max' | 'avg';
-  mode?: 'multiplier' | 'add' | 'subtract';
-  value?: number;
   multiplier?: number;
+  add?: number;
+  subtract?: number;
   // Function adjuster fields
   variable?: string;
   function_string?: string;

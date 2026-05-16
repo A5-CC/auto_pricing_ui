@@ -221,26 +221,15 @@ export function PipelineBuilderChatbot({
 
     const normalizedAdjusters = (stateToSave.adjusters ?? []).map((adj) => {
       if (adj.type === "competitive") {
-        const rawMode =
-          adj.mode === "multiplier" || adj.mode === "add" || adj.mode === "subtract"
-            ? adj.mode
-            : "multiplier";
-        const baseValue =
-          typeof adj.value === "number"
-            ? adj.value
-            : (typeof adj.multiplier === "number" ? adj.multiplier : (rawMode === "multiplier" ? 1 : 0));
-        const normalizedMode = rawMode === "subtract" ? "add" : rawMode;
-        const value = rawMode === "subtract" ? -Math.abs(baseValue) : baseValue;
         return {
           type: "competitive" as const,
           price_columns: Array.isArray(adj.price_columns) && adj.price_columns.length > 0
             ? adj.price_columns
             : ["monthly_rate_online", "monthly_rate_regular", "monthly_rate_instore"],
           aggregation: adj.aggregation ?? "min",
-          mode: rawMode, // Save the original mode (add, subtract, multiplier)
-          normalized_mode: normalizedMode, // Optionally include normalized_mode for internal use
-          value,
-          multiplier: normalizedMode === "multiplier" ? value : 1,
+          multiplier: typeof adj.multiplier === "number" && isFinite(adj.multiplier) ? adj.multiplier : 1,
+          add: typeof adj.add === "number" && isFinite(adj.add) ? adj.add : 0,
+          subtract: typeof adj.subtract === "number" && isFinite(adj.subtract) ? adj.subtract : 0,
         };
       }
 
@@ -780,15 +769,16 @@ export function PipelineBuilderChatbot({
                   </Badge>
                   {adj.type === "competitive" && (
                     <span className="text-xs text-slate-500">
-                      {adj.aggregation}{" "}
-                      {adj.mode === "multiplier"
-                        ? `× ${adj.value ?? adj.multiplier ?? 1}`
-                        : (() => {
-                            const rawDelta = Number(adj.value ?? 0)
-                            const delta = adj.mode === "subtract" ? -Math.abs(rawDelta) : rawDelta
-                            const sign = delta >= 0 ? "+" : "-"
-                            return `${sign} ${Math.abs(delta)}`
-                          })()}
+                      {adj.aggregation}
+                      {typeof adj.multiplier === "number" && adj.multiplier !== 1 && (
+                        <> × {adj.multiplier}</>
+                      )}
+                      {typeof adj.add === "number" && adj.add !== 0 && (
+                        <> + {adj.add}</>
+                      )}
+                      {typeof adj.subtract === "number" && adj.subtract !== 0 && (
+                        <> - {adj.subtract}</>
+                      )}
                     </span>
                   )}
                   {adj.type === "temporal" && (
