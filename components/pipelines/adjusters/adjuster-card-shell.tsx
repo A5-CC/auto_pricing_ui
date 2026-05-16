@@ -1,6 +1,6 @@
-import type { ReactNode } from 'react'
-import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { X } from 'lucide-react'
+import type { ReactNode } from 'react'
 
 interface AdjusterCardShellProps {
   stepNumber?: number
