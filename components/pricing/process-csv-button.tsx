@@ -97,26 +97,6 @@ type ReviewData = {
   reviewRows: ReviewRow[]
 }
 
-type AmenityAdjusterMode = "multiplier" | "delta"
-
-type AmenityAdjusterEntry = {
-  mode: AmenityAdjusterMode
-  value: string
-}
-
-type AmenityAdjusterState = {
-  applyToWeb: boolean
-  premium: AmenityAdjusterEntry
-  standard: AmenityAdjusterEntry
-  economy: AmenityAdjusterEntry
-}
-
-type ResolvedAmenityAdjuster = {
-  applyToWeb: boolean
-  premium?: { mode: AmenityAdjusterMode; value: number }
-  standard?: { mode: AmenityAdjusterMode; value: number }
-  economy?: { mode: AmenityAdjusterMode; value: number }
-}
 
 const DEFAULT_STANDARD_RATE_FUNCTION = "x < 100 ? 1.8x : x < 200 ? 1.6x + 20 : 1.4x + 60"
 
