@@ -264,16 +264,19 @@ export default function PipelinesPage() {
     const settingsFilters = normalizeFilterKeys((pipeline.filters ?? pipeline.settings?.universal_filters) as Record<string, string[]> | undefined)
     setUniversalFilters(settingsFilters)
 
-    const nestedFilterSettings = (pipeline.settings?.filter_settings ?? {}) as {
-      combinatoric_flags?: Record<string, boolean>
+    const nestedFilterSettings = (pipeline.settings?.filter_settings ?? {}) as Record<string, string>
+    const legacyNested = (pipeline.settings?.filter_settings ?? {}) as {
       filter_modes?: Record<string, string>
+      combinatoric_flags?: Record<string, boolean>
     }
 
     const normalizedFlags = normalizeCombinatoricFlagKeys(
-      (nestedFilterSettings.combinatoric_flags ?? pipeline.settings?.combinatoric_flags) as Record<string, boolean> | undefined
+      (legacyNested.combinatoric_flags ?? pipeline.settings?.combinatoric_flags) as Record<string, boolean> | undefined
     )
     const normalizedModes = normalizeFilterModeKeys(
-      (nestedFilterSettings.filter_modes ?? pipeline.settings?.filter_modes) as Record<string, string> | undefined
+      (Object.keys(nestedFilterSettings).length > 0
+        ? nestedFilterSettings
+        : (legacyNested.filter_modes ?? pipeline.settings?.filter_modes)) as Record<string, string> | undefined
     )
     const alignedFlags = Object.keys(settingsFilters).reduce((acc, key) => {
       const mode = normalizedModes[key]

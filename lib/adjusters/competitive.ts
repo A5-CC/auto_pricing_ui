@@ -205,22 +205,25 @@ export function applyCompetitiveAdjuster(
     // Aggregate prices
     const aggregatedPrice = aggregatePrices(prices, adjuster.aggregation)
 
-    // Always apply multiplier, then add, then subtract
+    // Always apply multiplier, then offset
     const multiplier = typeof adjuster.multiplier === 'number' && isFinite(adjuster.multiplier) ? adjuster.multiplier : 1;
-    const add = typeof adjuster.add === 'number' && isFinite(adjuster.add) ? adjuster.add : 0;
-    const subtract = typeof adjuster.subtract === 'number' && isFinite(adjuster.subtract) ? adjuster.subtract : 0;
+    const legacyAdd = typeof adjuster.add === 'number' && isFinite(adjuster.add) ? adjuster.add : 0;
+    const legacySubtract = typeof adjuster.subtract === 'number' && isFinite(adjuster.subtract) ? adjuster.subtract : 0;
+    const offset = typeof adjuster.offset === 'number' && isFinite(adjuster.offset)
+      ? adjuster.offset
+      : (legacyAdd - legacySubtract);
 
     let finalPrice = aggregatedPrice * multiplier;
     if (multiplier !== 1) {
       console.log(`[competitive] ${adjuster.aggregation}(${prices.length} prices) = $${aggregatedPrice.toFixed(2)} × ${multiplier} = $${finalPrice.toFixed(2)}`);
     }
-    if (add !== 0) {
-      finalPrice += add;
-      console.log(`[competitive] ... + ${add} = $${finalPrice.toFixed(2)}`);
-    }
-    if (subtract !== 0) {
-      finalPrice -= subtract;
-      console.log(`[competitive] ... - ${subtract} = $${finalPrice.toFixed(2)}`);
+    if (offset !== 0) {
+      finalPrice += offset;
+      if (offset > 0) {
+        console.log(`[competitive] ... + ${offset} = $${finalPrice.toFixed(2)}`);
+      } else {
+        console.log(`[competitive] ... - ${Math.abs(offset)} = $${finalPrice.toFixed(2)}`);
+      }
     }
     return finalPrice;
   } catch (error) {
@@ -289,8 +292,7 @@ export function validateCompetitiveAdjuster(
     }
   }
 
-
-  // Validate multiplier, add, and subtract fields
+  // Validate multiplier and offset fields
   if (typeof adjuster.multiplier !== 'undefined') {
     if (typeof adjuster.multiplier !== 'number' || !isFinite(adjuster.multiplier) || adjuster.multiplier <= 0) {
       return {
@@ -301,6 +303,12 @@ export function validateCompetitiveAdjuster(
     if (adjuster.multiplier > 2.0) {
       warnings.push(`Multiplier ${adjuster.multiplier} is unusually high (>2x markup). Is this intentional?`);
     }
+  }
+  if (typeof adjuster.offset !== 'undefined' && (typeof adjuster.offset !== 'number' || !isFinite(adjuster.offset))) {
+    return {
+      valid: false,
+      error: `Offset must be a finite number, got: ${adjuster.offset}`,
+    };
   }
   if (typeof adjuster.add !== 'undefined' && (typeof adjuster.add !== 'number' || !isFinite(adjuster.add))) {
     return {

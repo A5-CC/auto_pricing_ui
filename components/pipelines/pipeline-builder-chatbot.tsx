@@ -221,6 +221,11 @@ export function PipelineBuilderChatbot({
 
     const normalizedAdjusters = (stateToSave.adjusters ?? []).map((adj) => {
       if (adj.type === "competitive") {
+        const legacyAdd = typeof adj.add === "number" && isFinite(adj.add) ? adj.add : 0;
+        const legacySubtract = typeof adj.subtract === "number" && isFinite(adj.subtract) ? adj.subtract : 0;
+        const normalizedOffset = typeof adj.offset === "number" && isFinite(adj.offset)
+          ? adj.offset
+          : (legacyAdd - legacySubtract);
         return {
           type: "competitive" as const,
           price_columns: Array.isArray(adj.price_columns) && adj.price_columns.length > 0
@@ -228,8 +233,7 @@ export function PipelineBuilderChatbot({
             : ["monthly_rate_online", "monthly_rate_regular", "monthly_rate_instore"],
           aggregation: adj.aggregation ?? "min",
           multiplier: typeof adj.multiplier === "number" && isFinite(adj.multiplier) ? adj.multiplier : 1,
-          add: typeof adj.add === "number" && isFinite(adj.add) ? adj.add : 0,
-          subtract: typeof adj.subtract === "number" && isFinite(adj.subtract) ? adj.subtract : 0,
+          offset: normalizedOffset,
         };
       }
 

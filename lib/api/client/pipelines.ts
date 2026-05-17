@@ -306,6 +306,7 @@ export interface AdjusterConfig {
   price_columns?: string[];
   aggregation?: 'min' | 'max' | 'avg';
   multiplier?: number;
+  offset?: number;
   add?: number;
   subtract?: number;
   // Function adjuster fields

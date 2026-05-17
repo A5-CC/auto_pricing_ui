@@ -130,10 +130,7 @@ export interface PipelineRoundingSettings {
 
 export type PipelineFilterMode = 'combinatoric' | 'subset'
 
-export interface PipelineFilterSettings {
-  combinatoric_flags?: Record<string, boolean>
-  filter_modes?: Record<string, PipelineFilterMode>
-}
+export type PipelineFilterSettings = Record<string, PipelineFilterMode>
 
 
 

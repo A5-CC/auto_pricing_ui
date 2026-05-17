@@ -46,16 +46,14 @@ export function AddCompetitiveAdjusterDialog({
     const parsedMultiplier = parseFloat(multiplier);
     const parsedOffset = parseFloat(offset);
     const safeMultiplier = Number.isFinite(parsedMultiplier) ? Math.max(0.0001, parsedMultiplier) : 1;
-    const safeAdd = Number.isFinite(parsedOffset) && parsedOffset > 0 ? parsedOffset : 0;
-    const safeSubtract = Number.isFinite(parsedOffset) && parsedOffset < 0 ? -parsedOffset : 0;
+    const safeOffset = Number.isFinite(parsedOffset) ? parsedOffset : 0;
 
     const adjuster: CompetitivePriceAdjuster = {
       type: 'competitive',
       price_columns: priceColumn ? [priceColumn] : [priceColumns[0]],
       aggregation,
       multiplier: safeMultiplier,
-      add: safeAdd,
-      subtract: safeSubtract,
+      offset: safeOffset,
     };
     onAdd(adjuster);
     onOpenChange(false);

@@ -11,13 +11,10 @@ interface CompetitiveAdjusterCardProps {
 
 export function CompetitiveAdjusterCard({ adjuster, stepNumber, totalSteps, onRemove }: CompetitiveAdjusterCardProps) {
   const multiplier = typeof adjuster.multiplier === 'number' && isFinite(adjuster.multiplier) ? adjuster.multiplier : 1;
-  // Offset is add - subtract, but since only one is ever set, just use add or -subtract
-  let offset = 0;
-  if (typeof adjuster.add === 'number' && isFinite(adjuster.add) && adjuster.add !== 0) {
-    offset = adjuster.add;
-  } else if (typeof adjuster.subtract === 'number' && isFinite(adjuster.subtract) && adjuster.subtract !== 0) {
-    offset = -adjuster.subtract;
-  }
+  const offset = typeof adjuster.offset === 'number' && isFinite(adjuster.offset)
+    ? adjuster.offset
+    : (typeof adjuster.add === 'number' && isFinite(adjuster.add) ? adjuster.add : 0)
+      - (typeof adjuster.subtract === 'number' && isFinite(adjuster.subtract) ? adjuster.subtract : 0);
   const sourceColumn = Array.isArray(adjuster.price_columns) && adjuster.price_columns.length > 0
     ? adjuster.price_columns[0]
     : '—';

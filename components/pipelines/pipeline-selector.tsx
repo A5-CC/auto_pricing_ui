@@ -164,10 +164,7 @@ export function PipelineSelector({
         adjusters: currentAdjusters,
         settings: {
           ...baseSettings,
-          filter_settings: {
-            combinatoric_flags: mergedCombinatoricFlags,
-            filter_modes: mergedFilterModes,
-          },
+          filter_settings: mergedFilterModes,
         },
       });
       const extras = readLocalExtras();
@@ -175,10 +172,7 @@ export function PipelineSelector({
         filters: mergedFilters,
         settings: {
           ...baseSettings,
-          filter_settings: {
-            combinatoric_flags: mergedCombinatoricFlags,
-            filter_modes: mergedFilterModes,
-          },
+          filter_settings: mergedFilterModes,
         } as Record<string, unknown>,
       };
       writeLocalExtras(extras);
