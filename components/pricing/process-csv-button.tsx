@@ -110,8 +110,16 @@ type CsvRateChange = {
 type ReviewRow = {
   id: string
   rowIndex: number
+  traceCalculatedRowIndex: number | null
+  traceTargetId: string | null
   facilityName: string
   unitSize: string
+  totalUnits: string
+  occupied: string
+  available: string
+  vacancy: string
+  occupancy: string
+  amenities: string
   currentWebRate: string
   proposedWebRate: string
   currentStandardRate: string
@@ -127,6 +135,10 @@ type ReviewData = {
   processedRows: string[][]
   changes: CsvRateChange[]
   reviewRows: ReviewRow[]
+}
+
+type ProcessedCsvResult = ParsedCsv & {
+  traceByCsvRowIndex: Record<number, number>
 }
 
 
@@ -146,6 +158,11 @@ const NEW_STANDARD_RATE_COLUMNS = new Set(["newstandardrate"])
 const CURRENT_RENT_RATE_COLUMNS = new Set(["currentrentrate"])
 const NEW_RENT_RATE_COLUMNS = new Set(["newrentrate"])
 const MATCHED_UNIT_AREA_COLUMNS = new Set(["matchedunitarea", "unitareamatch"])
+const TOTAL_UNITS_COLUMNS = new Set(["totalunits"])
+const OCCUPIED_COLUMNS = new Set(["occupied"])
+const AVAILABLE_COLUMNS = new Set(["available"])
+const VACANCY_COLUMNS = new Set(["vacancy"])
+const OCCUPANCY_COLUMNS = new Set(["occupancy"])
 const RATE_VARIABLE_EXCLUSIONS = new Set([
   "currentwebrate",
   "newwebrate",
@@ -562,13 +579,24 @@ function buildChanges(original: ParsedCsv, processed: ParsedCsv): CsvRateChange[
   return changes
 }
 
-function buildReviewRows(original: ParsedCsv, processed: ParsedCsv, changes: CsvRateChange[]): ReviewRow[] {
+function buildReviewRows(
+  original: ParsedCsv,
+  processed: ParsedCsv,
+  changes: CsvRateChange[],
+  traceByCsvRowIndex?: Record<number, number>
+): ReviewRow[] {
   const headers = processed.headers.length ? processed.headers : original.headers
   const facilityNameIndex = findColumnIndex(headers, FACILITY_NAME_COLUMNS)
   const unitSizeIndex = findColumnIndex(headers, UNIT_SIZE_COLUMNS)
   const currentWebRateIndex = findColumnIndex(headers, CURRENT_WEB_RATE_COLUMNS)
   const currentRentRateIndex = findColumnIndex(headers, CURRENT_RENT_RATE_COLUMNS)
   const currentStandardRateIndex = findColumnIndex(headers, CURRENT_STANDARD_RATE_COLUMNS)
+  const totalUnitsIndex = findColumnIndex(headers, TOTAL_UNITS_COLUMNS)
+  const occupiedIndex = findColumnIndex(headers, OCCUPIED_COLUMNS)
+  const availableIndex = findColumnIndex(headers, AVAILABLE_COLUMNS)
+  const vacancyIndex = findColumnIndex(headers, VACANCY_COLUMNS)
+  const occupancyIndex = findColumnIndex(headers, OCCUPANCY_COLUMNS)
+  const amenitiesIndex = findColumnIndex(headers, UNIT_AMENITIES_COLUMNS)
   const newWebRateIndex = findColumnIndex(headers, NEW_WEB_RATE_COLUMNS)
   const newStandardRateIndex = findColumnIndex(headers, NEW_STANDARD_RATE_COLUMNS)
 
@@ -582,8 +610,20 @@ function buildReviewRows(original: ParsedCsv, processed: ParsedCsv, changes: Csv
     const baseRow: ReviewRow = existing ?? {
       id: `row-${change.rowIndex}`,
       rowIndex: change.rowIndex,
+      traceCalculatedRowIndex: Number.isFinite(traceByCsvRowIndex?.[change.rowIndex])
+        ? Number(traceByCsvRowIndex?.[change.rowIndex])
+        : null,
+      traceTargetId: Number.isFinite(traceByCsvRowIndex?.[change.rowIndex])
+        ? `calculated-price-row-${Number(traceByCsvRowIndex?.[change.rowIndex])}`
+        : null,
       facilityName: getCellValue(originalRow, facilityNameIndex) || getCellValue(processedRow, facilityNameIndex),
       unitSize: getCellValue(originalRow, unitSizeIndex) || getCellValue(processedRow, unitSizeIndex),
+      totalUnits: getCellValue(originalRow, totalUnitsIndex) || getCellValue(processedRow, totalUnitsIndex),
+      occupied: getCellValue(originalRow, occupiedIndex) || getCellValue(processedRow, occupiedIndex),
+      available: getCellValue(originalRow, availableIndex) || getCellValue(processedRow, availableIndex),
+      vacancy: getCellValue(originalRow, vacancyIndex) || getCellValue(processedRow, vacancyIndex),
+      occupancy: getCellValue(originalRow, occupancyIndex) || getCellValue(processedRow, occupancyIndex),
+      amenities: getCellValue(originalRow, amenitiesIndex) || getCellValue(processedRow, amenitiesIndex),
       currentWebRate: getCellValue(originalRow, currentWebRateIndex) || getCellValue(originalRow, currentRentRateIndex),
       proposedWebRate: getCellValue(processedRow, newWebRateIndex),
       currentStandardRate: getCellValue(originalRow, currentStandardRateIndex),
@@ -623,7 +663,7 @@ function applyCalculatedPricesToCsv(
   popupAdjusters: Adjuster[] = [],
   amenityAdjuster?: ResolvedAmenityAdjuster,
   standardRateFunction?: string
-): ParsedCsv {
+): ProcessedCsvResult {
   const webRounding = rounding?.enabled === true
     ? {
         enabled: true,
@@ -696,19 +736,29 @@ function applyCalculatedPricesToCsv(
     for (const row of rows) row.push("")
   }
 
-  const priceLookup = new Map<string, number>()
-  const cityPriceLookup = new Map<string, number>()
-  const areaLookup = new Map<string, Array<{ area: number; price: number }>>()
+  const priceLookup = new Map<string, { price: number; calculatedRowIndex: number }>()
+  const cityPriceLookup = new Map<string, { price: number; calculatedRowIndex: number }>()
+  const areaLookup = new Map<string, Array<{ area: number; price: number; calculatedRowIndex: number }>>()
+  const traceByCsvRowIndex: Record<number, number> = {}
   let hasUnitAreaRows = false
 
   const areaBucketKey = (place: string, driveUpAccess: string) => `${place}__${driveUpAccess || ""}`
-  const addAreaCandidate = (bucket: string, area: number, price: number) => {
+  const setLookupIfMissing = (
+    map: Map<string, { price: number; calculatedRowIndex: number }>,
+    key: string,
+    value: { price: number; calculatedRowIndex: number }
+  ) => {
+    if (!map.has(key)) map.set(key, value)
+  }
+
+  const addAreaCandidate = (bucket: string, area: number, price: number, calculatedRowIndex: number) => {
     const next = areaLookup.get(bucket) ?? []
-    next.push({ area, price })
+    next.push({ area, price, calculatedRowIndex })
     areaLookup.set(bucket, next)
   }
 
-  for (const calculatedRow of calculatedRows) {
+  for (let calculatedRowIndex = 0; calculatedRowIndex < calculatedRows.length; calculatedRowIndex++) {
+    const calculatedRow = calculatedRows[calculatedRowIndex]
     if (typeof calculatedRow.price !== "number" || Number.isNaN(calculatedRow.price)) continue
     const rawLocation =
       calculatedRow.comboMap.client_location ??
@@ -727,33 +777,34 @@ function applyCalculatedPricesToCsv(
     if (!location || (!dimensionToken && !areaToken)) continue
     const webPrice = applyConfiguredRounding(calculatedRow.price, webRounding)
     const price = webPrice
+    const pricedRow = { price, calculatedRowIndex }
     if (dimensionToken) {
-      priceLookup.set(buildPriceLookupKey(location, dimensionToken, driveUpAccess), price)
-      if (locationKey) priceLookup.set(buildPriceLookupKey(locationKey, dimensionToken, driveUpAccess), price)
-      if (city) cityPriceLookup.set(buildPriceLookupKey(city, dimensionToken, driveUpAccess), price)
-      if (cityKey) cityPriceLookup.set(buildPriceLookupKey(cityKey, dimensionToken, driveUpAccess), price)
+      setLookupIfMissing(priceLookup, buildPriceLookupKey(location, dimensionToken, driveUpAccess), pricedRow)
+      if (locationKey) setLookupIfMissing(priceLookup, buildPriceLookupKey(locationKey, dimensionToken, driveUpAccess), pricedRow)
+      if (city) setLookupIfMissing(cityPriceLookup, buildPriceLookupKey(city, dimensionToken, driveUpAccess), pricedRow)
+      if (cityKey) setLookupIfMissing(cityPriceLookup, buildPriceLookupKey(cityKey, dimensionToken, driveUpAccess), pricedRow)
     }
     if (areaToken) {
-      priceLookup.set(buildPriceLookupKey(location, areaToken, driveUpAccess), price)
-      if (locationKey) priceLookup.set(buildPriceLookupKey(locationKey, areaToken, driveUpAccess), price)
-      if (city) cityPriceLookup.set(buildPriceLookupKey(city, areaToken, driveUpAccess), price)
-      if (cityKey) cityPriceLookup.set(buildPriceLookupKey(cityKey, areaToken, driveUpAccess), price)
+      setLookupIfMissing(priceLookup, buildPriceLookupKey(location, areaToken, driveUpAccess), pricedRow)
+      if (locationKey) setLookupIfMissing(priceLookup, buildPriceLookupKey(locationKey, areaToken, driveUpAccess), pricedRow)
+      if (city) setLookupIfMissing(cityPriceLookup, buildPriceLookupKey(city, areaToken, driveUpAccess), pricedRow)
+      if (cityKey) setLookupIfMissing(cityPriceLookup, buildPriceLookupKey(cityKey, areaToken, driveUpAccess), pricedRow)
 
       const parsedArea = parseAreaTokenValue(areaToken)
       if (parsedArea !== null) {
-        addAreaCandidate(areaBucketKey(location, driveUpAccess), parsedArea, price)
-        addAreaCandidate(areaBucketKey(location, ""), parsedArea, price)
+        addAreaCandidate(areaBucketKey(location, driveUpAccess), parsedArea, price, calculatedRowIndex)
+        addAreaCandidate(areaBucketKey(location, ""), parsedArea, price, calculatedRowIndex)
         if (locationKey) {
-          addAreaCandidate(areaBucketKey(locationKey, driveUpAccess), parsedArea, price)
-          addAreaCandidate(areaBucketKey(locationKey, ""), parsedArea, price)
+          addAreaCandidate(areaBucketKey(locationKey, driveUpAccess), parsedArea, price, calculatedRowIndex)
+          addAreaCandidate(areaBucketKey(locationKey, ""), parsedArea, price, calculatedRowIndex)
         }
         if (city) {
-          addAreaCandidate(areaBucketKey(city, driveUpAccess), parsedArea, price)
-          addAreaCandidate(areaBucketKey(city, ""), parsedArea, price)
+          addAreaCandidate(areaBucketKey(city, driveUpAccess), parsedArea, price, calculatedRowIndex)
+          addAreaCandidate(areaBucketKey(city, ""), parsedArea, price, calculatedRowIndex)
         }
         if (cityKey) {
-          addAreaCandidate(areaBucketKey(cityKey, driveUpAccess), parsedArea, price)
-          addAreaCandidate(areaBucketKey(cityKey, ""), parsedArea, price)
+          addAreaCandidate(areaBucketKey(cityKey, driveUpAccess), parsedArea, price, calculatedRowIndex)
+          addAreaCandidate(areaBucketKey(cityKey, ""), parsedArea, price, calculatedRowIndex)
         }
       }
     }
@@ -764,7 +815,8 @@ function applyCalculatedPricesToCsv(
   }
 
   let matchedRows = 0
-  for (const row of rows) {
+  for (let csvRowIndex = 0; csvRowIndex < rows.length; csvRowIndex++) {
+    const row = rows[csvRowIndex]
     const csvRow = rowToRecord(headers, row)
     const location = normalizeLocationKey(getCellValue(row, locationIndex))
     const locationKey = location
@@ -776,7 +828,7 @@ function applyCalculatedPricesToCsv(
     let matchedAreaValue = ""
     const allowDimensionMatching = !hasUnitAreaRows
 
-    let mappedPrice =
+    let mappedMatch =
       (areaToken && driveUpAccess ? priceLookup.get(buildPriceLookupKey(location, areaToken, driveUpAccess)) : undefined) ??
       (areaToken ? priceLookup.get(buildPriceLookupKey(location, areaToken)) : undefined) ??
       (areaToken && driveUpAccess && locationKey ? priceLookup.get(buildPriceLookupKey(locationKey, areaToken, driveUpAccess)) : undefined) ??
@@ -794,11 +846,11 @@ function applyCalculatedPricesToCsv(
       ?? (allowDimensionMatching && dimensionToken && driveUpAccess && cityKey ? cityPriceLookup.get(buildPriceLookupKey(cityKey, dimensionToken, driveUpAccess)) : undefined)
       ?? (allowDimensionMatching && dimensionToken && cityKey ? cityPriceLookup.get(buildPriceLookupKey(cityKey, dimensionToken)) : undefined)
 
-    if (mappedPrice !== undefined && areaToken) {
+    if (mappedMatch !== undefined && areaToken) {
       matchedAreaValue = areaToken.replace(/^area:/, "")
     }
 
-    if (mappedPrice === undefined && areaToken) {
+    if (mappedMatch === undefined && areaToken) {
       const targetArea = parseAreaTokenValue(areaToken)
       if (targetArea !== null) {
         const candidateBuckets = [
@@ -808,7 +860,7 @@ function applyCalculatedPricesToCsv(
           areaBucketKey(city, ""),
         ]
 
-        let best: { area: number; price: number; delta: number } | null = null
+        let best: { area: number; price: number; delta: number; calculatedRowIndex: number } | null = null
         for (const bucket of candidateBuckets) {
           if (!bucket.startsWith("__")) {
             const candidates = areaLookup.get(bucket) ?? []
@@ -816,7 +868,7 @@ function applyCalculatedPricesToCsv(
               const delta = Math.abs(c.area - targetArea)
               if (delta > 3) continue
               if (!best || delta < best.delta) {
-                best = { area: c.area, price: c.price, delta }
+                best = { area: c.area, price: c.price, delta, calculatedRowIndex: c.calculatedRowIndex }
               }
             }
             if (best && best.delta === 0) break
@@ -824,15 +876,15 @@ function applyCalculatedPricesToCsv(
         }
 
         if (best) {
-          mappedPrice = best.price
+          mappedMatch = { price: best.price, calculatedRowIndex: best.calculatedRowIndex }
           matchedAreaValue = Number.isInteger(best.area) ? String(Math.trunc(best.area)) : String(best.area)
         }
       }
     }
 
-    if (mappedPrice === undefined) continue
+    if (mappedMatch === undefined) continue
 
-    const baseWebRate = mappedPrice
+    const baseWebRate = mappedMatch.price
     const adjustedWebRate = applyPopupAdjustersToWebRate(baseWebRate, csvRow, popupAdjusters)
     let effectiveWebRate = Number.isFinite(adjustedWebRate) ? adjustedWebRate : baseWebRate
 
@@ -858,6 +910,7 @@ function applyCalculatedPricesToCsv(
     row[newWebRateIndex] = finalWebRate
     row[newStandardRateIndex] = standardRate
     row[matchedUnitAreaIndex] = matchedAreaValue
+    traceByCsvRowIndex[csvRowIndex] = mappedMatch.calculatedRowIndex
     matchedRows += 1
   }
 
@@ -868,7 +921,7 @@ function applyCalculatedPricesToCsv(
     )
   }
 
-  return { headers, rows }
+  return { headers, rows, traceByCsvRowIndex }
 }
 
 export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsBundle, rounding, pricingContext, inline = false }: ProcessCsvButtonProps) {
@@ -877,6 +930,7 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
   const [isProcessing, setIsProcessing] = useState(false)
   const [reviewData, setReviewData] = useState<ReviewData | null>(null)
   const [approvedChanges, setApprovedChanges] = useState<Record<string, boolean>>({})
+  const [traceSelections, setTraceSelections] = useState<Record<string, boolean>>({})
   const [popupAdjusters, setPopupAdjusters] = useState<Adjuster[]>([])
   const [showLevels, setShowLevels] = useState(false)
   const [standardRateOpen, setStandardRateOpen] = useState(false)
@@ -1074,6 +1128,7 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
     setIsProcessing(false)
     setReviewData(null)
     setApprovedChanges({})
+    setTraceSelections({})
     setPopupAdjusters([])
     setAmenityAdjuster({
       applyToWeb: true,
@@ -1091,6 +1146,35 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
     return approvals
   }
 
+  const buildDefaultTraceSelections = (rows: ReviewRow[]) => {
+    const selections: Record<string, boolean> = {}
+    for (const row of rows) selections[row.id] = false
+    return selections
+  }
+
+  const jumpToTraceTarget = (targetId: string | null) => {
+    if (!targetId) return
+    const target = document.getElementById(targetId)
+    target?.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" })
+  }
+
+  const toggleTraceSelection = (row: ReviewRow) => {
+    setTraceSelections((prev) => {
+      const nextChecked = !Boolean(prev[row.id])
+      if (nextChecked) jumpToTraceTarget(row.traceTargetId)
+      return { ...prev, [row.id]: nextChecked }
+    })
+  }
+
+  const setAllTraceSelections = (checked: boolean) => {
+    if (!reviewData) return
+    const next: Record<string, boolean> = {}
+    for (const row of reviewData.reviewRows) {
+      next[row.id] = checked
+    }
+    setTraceSelections(next)
+  }
+
   const rebuildReviewFromOriginal = useCallback((original: ParsedCsv, nextAdjusters: Adjuster[]) => {
     if (resolvedCalculatedRows.error) {
       throw new Error(resolvedCalculatedRows.error)
@@ -1105,7 +1189,7 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
     )
     const headers = processed.headers.length ? processed.headers : original.headers
     const changes = buildChanges(original, processed)
-    const reviewRows = buildReviewRows(original, processed, changes)
+    const reviewRows = buildReviewRows(original, processed, changes, processed.traceByCsvRowIndex)
     const nextReviewData: ReviewData = {
       fileName: file?.name ?? "client.csv",
       headers,
@@ -1116,6 +1200,7 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
     }
     setReviewData(nextReviewData)
     setApprovedChanges(buildDefaultApprovals(changes))
+    setTraceSelections(buildDefaultTraceSelections(reviewRows))
   }, [
     file?.name,
     resolvedCalculatedRows.error,
@@ -1213,17 +1298,18 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
 
       const headers = processed.headers.length ? processed.headers : original.headers
       const changes = buildChanges(original, processed)
-      const reviewRows = buildReviewRows(original, processed, changes)
+      const reviewRowsWithTrace = buildReviewRows(original, processed, changes, processed.traceByCsvRowIndex)
       const nextReviewData: ReviewData = {
         fileName: file.name,
         headers,
         originalRows: original.rows,
         processedRows: processed.rows,
         changes,
-        reviewRows,
+        reviewRows: reviewRowsWithTrace,
       }
 
       setApprovedChanges(buildDefaultApprovals(changes))
+      setTraceSelections(buildDefaultTraceSelections(reviewRowsWithTrace))
       setReviewData(nextReviewData)
       toast.success("Current pipeline pricing applied in the browser. Review changes before download.")
     } catch (error) {
@@ -1282,6 +1368,7 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
       setIsProcessing(false)
       setReviewData(null)
       setApprovedChanges({})
+      setTraceSelections({})
       setPopupAdjusters([])
       setAmenityAdjuster({
         applyToWeb: true,
@@ -1460,7 +1547,7 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
             <div className="flex flex-wrap items-center gap-2">
               <Button type="button" variant="outline" size="sm" onClick={() => setAllApprovals(true)}>Approve all</Button>
               <Button type="button" variant="outline" size="sm" onClick={() => setAllApprovals(false)}>Reject all</Button>
-              <Button type="button" variant="outline" size="sm" onClick={() => { setReviewData(null); setApprovedChanges({}) }}>Choose another CSV</Button>
+              <Button type="button" variant="outline" size="sm" onClick={() => { setReviewData(null); setApprovedChanges({}); setTraceSelections({}) }}>Choose another CSV</Button>
             </div>
             <div className="overflow-auto rounded-md border" style={{ maxHeight: "calc(100vh - 420px)" }}>
               {reviewData.reviewRows.length === 0 ? (
@@ -1469,9 +1556,36 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
                 <table className="w-full text-sm">
                   <thead className="sticky top-0 bg-background border-b">
                     <tr>
+                      <th className="px-3 py-2 text-left font-medium">
+                        <div className="flex flex-col gap-1">
+                          <span>Trace</span>
+                          <div className="flex items-center gap-1 text-[10px]">
+                            <button
+                              type="button"
+                              className="rounded border px-1.5 py-0.5 hover:bg-muted"
+                              onClick={() => setAllTraceSelections(true)}
+                            >
+                              All
+                            </button>
+                            <button
+                              type="button"
+                              className="rounded border px-1.5 py-0.5 hover:bg-muted"
+                              onClick={() => setAllTraceSelections(false)}
+                            >
+                              Clear
+                            </button>
+                          </div>
+                        </div>
+                      </th>
                       <th className="px-3 py-2 text-left font-medium">Row</th>
                       <th className="px-3 py-2 text-left font-medium">Facility</th>
                       <th className="px-3 py-2 text-left font-medium">Unit</th>
+                      <th className="px-3 py-2 text-left font-medium">Total Units</th>
+                      <th className="px-3 py-2 text-left font-medium">Occupied</th>
+                      <th className="px-3 py-2 text-left font-medium">Available</th>
+                      <th className="px-3 py-2 text-left font-medium">Vacancy</th>
+                      <th className="px-3 py-2 text-left font-medium">Occupancy</th>
+                      <th className="px-3 py-2 text-left font-medium">Amenities</th>
                       <th className="px-3 py-2 text-left font-medium">Current Web</th>
                       <th className="px-3 py-2 text-left font-medium">New Web</th>
                       <th className="px-3 py-2 text-left font-medium">Web Decision</th>
@@ -1483,9 +1597,41 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
                   <tbody>
                     {reviewData.reviewRows.map((row: ReviewRow) => (
                       <tr key={row.id} className="border-b last:border-b-0">
+                        <td className="px-3 py-2 align-top">
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => toggleTraceSelection(row)}
+                              className="inline-flex items-center justify-center"
+                              aria-label={`Toggle trace for row ${row.rowIndex + 2}`}
+                              title={row.traceTargetId ? "Trace to matching row" : "No trace target"}
+                            >
+                              <span
+                                className={`h-2.5 w-2.5 rounded-full border ${traceSelections[row.id] ? "bg-blue-600 border-blue-600" : "bg-transparent border-muted-foreground/60"}`}
+                              />
+                            </button>
+                            <span className={`h-px w-6 ${traceSelections[row.id] ? "bg-blue-500" : "bg-muted-foreground/30"}`} />
+                            {row.traceTargetId ? (
+                              <button
+                                type="button"
+                                className="text-xs text-blue-600 hover:underline"
+                                onClick={() => jumpToTraceTarget(row.traceTargetId)}
+                                title="Jump to matching row"
+                              >
+                                ↖
+                              </button>
+                            ) : null}
+                          </div>
+                        </td>
                         <td className="px-3 py-2 align-top">{row.rowIndex + 2}</td>
                         <td className="px-3 py-2 align-top">{row.facilityName || "—"}</td>
                         <td className="px-3 py-2 align-top">{row.unitSize || "—"}</td>
+                        <td className="px-3 py-2 align-top">{row.totalUnits || "—"}</td>
+                        <td className="px-3 py-2 align-top">{row.occupied || "—"}</td>
+                        <td className="px-3 py-2 align-top">{row.available || "—"}</td>
+                        <td className="px-3 py-2 align-top">{row.vacancy || "—"}</td>
+                        <td className="px-3 py-2 align-top">{row.occupancy || "—"}</td>
+                        <td className="px-3 py-2 align-top">{row.amenities || "—"}</td>
                         <td className="px-3 py-2 align-top text-muted-foreground">{row.currentWebRate || "—"}</td>
                         <td className="px-3 py-2 align-top">{row.proposedWebRate || "—"}</td>
                         <td className="px-3 py-2 align-top">
@@ -1949,6 +2095,7 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
                 onClick={() => {
                   setReviewData(null)
                   setApprovedChanges({})
+                  setTraceSelections({})
                 }}
               >
                 Choose another CSV
@@ -1964,9 +2111,36 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
                 <table className="w-full text-sm">
                   <thead className="sticky top-0 bg-background border-b">
                     <tr>
+                      <th className="px-3 py-2 text-left font-medium">
+                        <div className="flex flex-col gap-1">
+                          <span>Trace</span>
+                          <div className="flex items-center gap-1 text-[10px]">
+                            <button
+                              type="button"
+                              className="rounded border px-1.5 py-0.5 hover:bg-muted"
+                              onClick={() => setAllTraceSelections(true)}
+                            >
+                              All
+                            </button>
+                            <button
+                              type="button"
+                              className="rounded border px-1.5 py-0.5 hover:bg-muted"
+                              onClick={() => setAllTraceSelections(false)}
+                            >
+                              Clear
+                            </button>
+                          </div>
+                        </div>
+                      </th>
                       <th className="px-3 py-2 text-left font-medium">Row</th>
                       <th className="px-3 py-2 text-left font-medium">Facility</th>
                       <th className="px-3 py-2 text-left font-medium">Unit</th>
+                      <th className="px-3 py-2 text-left font-medium">Total Units</th>
+                      <th className="px-3 py-2 text-left font-medium">Occupied</th>
+                      <th className="px-3 py-2 text-left font-medium">Available</th>
+                      <th className="px-3 py-2 text-left font-medium">Vacancy</th>
+                      <th className="px-3 py-2 text-left font-medium">Occupancy</th>
+                      <th className="px-3 py-2 text-left font-medium">Amenities</th>
                       <th className="px-3 py-2 text-left font-medium">Current Web</th>
                       <th className="px-3 py-2 text-left font-medium">New Web</th>
                       <th className="px-3 py-2 text-left font-medium">Web Decision</th>
@@ -1978,9 +2152,41 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
                   <tbody>
                     {reviewData.reviewRows.map((row: ReviewRow) => (
                       <tr key={row.id} className="border-b last:border-b-0">
+                        <td className="px-3 py-2 align-top">
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => toggleTraceSelection(row)}
+                              className="inline-flex items-center justify-center"
+                              aria-label={`Toggle trace for row ${row.rowIndex + 2}`}
+                              title={row.traceTargetId ? "Trace to matching row" : "No trace target"}
+                            >
+                              <span
+                                className={`h-2.5 w-2.5 rounded-full border ${traceSelections[row.id] ? "bg-blue-600 border-blue-600" : "bg-transparent border-muted-foreground/60"}`}
+                              />
+                            </button>
+                            <span className={`h-px w-6 ${traceSelections[row.id] ? "bg-blue-500" : "bg-muted-foreground/30"}`} />
+                            {row.traceTargetId ? (
+                              <button
+                                type="button"
+                                className="text-xs text-blue-600 hover:underline"
+                                onClick={() => jumpToTraceTarget(row.traceTargetId)}
+                                title="Jump to matching row"
+                              >
+                                ↖
+                              </button>
+                            ) : null}
+                          </div>
+                        </td>
                         <td className="px-3 py-2 align-top">{row.rowIndex + 2}</td>
                         <td className="px-3 py-2 align-top">{row.facilityName || "—"}</td>
                         <td className="px-3 py-2 align-top">{row.unitSize || "—"}</td>
+                        <td className="px-3 py-2 align-top">{row.totalUnits || "—"}</td>
+                        <td className="px-3 py-2 align-top">{row.occupied || "—"}</td>
+                        <td className="px-3 py-2 align-top">{row.available || "—"}</td>
+                        <td className="px-3 py-2 align-top">{row.vacancy || "—"}</td>
+                        <td className="px-3 py-2 align-top">{row.occupancy || "—"}</td>
+                        <td className="px-3 py-2 align-top">{row.amenities || "—"}</td>
                         <td className="px-3 py-2 align-top text-muted-foreground">{row.currentWebRate || "—"}</td>
                         <td className="px-3 py-2 align-top">{row.proposedWebRate || "—"}</td>
                         <td className="px-3 py-2 align-top">

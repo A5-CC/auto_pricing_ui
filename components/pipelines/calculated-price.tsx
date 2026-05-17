@@ -353,7 +353,7 @@ export function CalculatedPrice({
         </thead>
         <tbody>
           {rows.map((r, i) => (
-            <tr key={i} className="even:bg-gray-50">
+            <tr id={`calculated-price-row-${i}`} data-calculated-row-index={i} key={i} className="even:bg-gray-50">
               {columnOrder.map((h) =>
                 h === 'Price' ? (
                   <td key={h} className="border px-3 py-2 font-bold" style={getColumnCellStyle(h)}>
