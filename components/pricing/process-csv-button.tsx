@@ -7,10 +7,10 @@ type ParsedCsv = {
 
 "use client"
 
-import { AddFunctionAdjusterDialog } from "@/components/pipelines/adjusters/add-function-adjuster-dialog"
-import { useAdjusterDialog } from "@/components/pipelines/adjusters/use-adjuster-dialog"
-import type { CalculatedPriceRow } from "@/components/pipelines/calculated-price"
-import { Button } from "@/components/ui/button"
+import { AddFunctionAdjusterDialog } from "@/components/pipelines/adjusters/add-function-adjuster-dialog";
+import { useAdjusterDialog } from "@/components/pipelines/adjusters/use-adjuster-dialog";
+import type { CalculatedPriceRow } from "@/components/pipelines/calculated-price";
+import { Button } from "@/components/ui/button";
 import {
     Dialog,
     DialogContent,
@@ -19,16 +19,16 @@ import {
     DialogHeader,
     DialogTitle,
     DialogTrigger,
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import type { Adjuster } from '@/lib/adjusters'
-import { evaluateSafeFunction } from "@/lib/adjusters"
-import type { E1DataRow } from "@/lib/api/types"
-import { FileSpreadsheet, Info, Loader2, Trash2 } from "lucide-react"
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react"
-import { toast } from "sonner"
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import type { Adjuster } from '@/lib/adjusters';
+import { evaluateSafeFunction } from "@/lib/adjusters";
+import type { E1DataRow } from "@/lib/api/types";
+import { FileSpreadsheet, Info, Loader2, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { toast } from "sonner";
 
 interface ProcessCsvButtonProps {
   snapshotId: string
