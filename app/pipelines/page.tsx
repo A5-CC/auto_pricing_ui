@@ -657,22 +657,22 @@ export default function PipelinesPage() {
       />
 
       {/* Universal Filters Section - marked for chatbot navigation */}
-      <div data-section="universal-filters">
-        <UniversalPipelineFilters
-          rows={dataResponse?.data ?? []}
-          pricingSchemas={pricingSchemas}
-          selectedFilters={universalFilters}
-          setSelectedFilters={setUniversalFilters}
-          combinatoricFlags={universalCombinatoric}
-          setCombinatoricFlags={setUniversalCombinatoric}
-        />
-      </div>
+      <div className="overflow-x-auto">
+        <div className="flex items-start">
+          <section className="w-full shrink-0 pr-6 space-y-4">
+            <div data-section="universal-filters">
+              <UniversalPipelineFilters
+                rows={dataResponse?.data ?? []}
+                pricingSchemas={pricingSchemas}
+                selectedFilters={universalFilters}
+                setSelectedFilters={setUniversalFilters}
+                combinatoricFlags={universalCombinatoric}
+                setCombinatoricFlags={setUniversalCombinatoric}
+              />
+            </div>
 
-      {/* Price Calculation Section - marked for chatbot navigation */}
-      <div data-section="price-calculation">
-        <div className="overflow-x-auto">
-          <div className="flex min-w-max items-start gap-6">
-            <div className="min-w-[900px] flex-1 space-y-4">
+            {/* Price Calculation Section - marked for chatbot navigation */}
+            <div data-section="price-calculation" className="space-y-4">
               <SectionLabel
                 text="Price Calculation"
                 right={
@@ -796,7 +796,7 @@ export default function PipelinesPage() {
                 onRemoveAdjuster={handleRemoveAdjuster}
               />
 
-              <div className="min-h-0">
+              <div className="min-h-0 overflow-x-auto">
                 <CalculatedPrice
                   competitorData={subsetFilteredRows}
                   clientAvailableUnits={clientDataResponse?.data.length || 0}
@@ -809,16 +809,17 @@ export default function PipelinesPage() {
                 />
               </div>
             </div>
+          </section>
 
-            <aside className="w-[560px] flex-shrink-0 space-y-4 self-start sticky top-6">
-              <div className="flex items-center gap-2">
-                <FileSpreadsheet className="h-5 w-5 text-muted-foreground" />
-                <h2 className="text-2xl font-bold">Effect Pricing</h2>
-              </div>
+          <aside className="w-full shrink-0 pl-6 space-y-4 self-start">
+              <SectionLabel
+                text="Effect Pricing"
+                right={<FileSpreadsheet className="h-4 w-4 text-muted-foreground" />}
+              />
               <ProcessCsvButton {...processCsvProps} inline />
-            </aside>
-          </div>
+          </aside>
         </div>
+      </div>
 
         <AddCompetitiveAdjusterDialog
           open={competitiveDialog.open}
@@ -838,7 +839,6 @@ export default function PipelinesPage() {
           onOpenChange={temporalDialog.setOpen}
           onAdd={handleAddAdjuster}
         />
-      </div>
       </div>{/* end loading guard */}
     </main>
   );
