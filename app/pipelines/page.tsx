@@ -126,7 +126,8 @@ export default function PipelinesPage() {
     Record<string, ColumnStatistics>
   >({});
   const activeLoadRef = useRef(0)
-  const universalFiltersSectionRef = useRef<HTMLDivElement | null>(null)
+  const horizontalPagesRef = useRef<HTMLDivElement | null>(null)
+  const priceCalculationSectionRef = useRef<HTMLDivElement | null>(null)
   const [effectPricingOffset, setEffectPricingOffset] = useState(0)
 
   // Mirror /pricing: keep an unfiltered snapshot in memory and filter client-side.
@@ -554,11 +555,14 @@ export default function PipelinesPage() {
   }, [roundingOffset])
 
   useEffect(() => {
-    const element = universalFiltersSectionRef.current
-    if (!element) return
+    const container = horizontalPagesRef.current
+    const priceCalculationSection = priceCalculationSectionRef.current
+    if (!container || !priceCalculationSection) return
 
     const updateOffset = () => {
-      setEffectPricingOffset(element.offsetHeight + 16)
+      const containerTop = container.getBoundingClientRect().top
+      const priceCalculationTop = priceCalculationSection.getBoundingClientRect().top
+      setEffectPricingOffset(Math.max(0, priceCalculationTop - containerTop))
     }
 
     updateOffset()
@@ -567,14 +571,15 @@ export default function PipelinesPage() {
       updateOffset()
     })
 
-    observer.observe(element)
+    observer.observe(container)
+    observer.observe(priceCalculationSection)
     window.addEventListener("resize", updateOffset)
 
     return () => {
       observer.disconnect()
       window.removeEventListener("resize", updateOffset)
     }
-  }, [pricingSchemas, universalFilters, universalCombinatoric, dataResponse])
+  }, [pricingSchemas, universalFilters, universalCombinatoric, dataResponse, isDev, loading, canAddAdjusters, canAddNonCompetitiveAdjusters, pipelineNeedsBase])
 
   // Small dev debug: counts and sample rows to help diagnose missing competitor data
   const devDebug = useMemo(() => {
@@ -683,9 +688,9 @@ export default function PipelinesPage() {
 
       {/* Universal Filters Section - marked for chatbot navigation */}
       <div className="overflow-x-auto">
-        <div className="flex items-start">
+        <div className="flex items-start" ref={horizontalPagesRef}>
           <section className="w-full shrink-0 pr-6 space-y-4">
-            <div data-section="universal-filters" ref={universalFiltersSectionRef}>
+            <div data-section="universal-filters">
               <UniversalPipelineFilters
                 rows={dataResponse?.data ?? []}
                 pricingSchemas={pricingSchemas}
@@ -697,7 +702,7 @@ export default function PipelinesPage() {
             </div>
 
             {/* Price Calculation Section - marked for chatbot navigation */}
-            <div data-section="price-calculation" className="space-y-4">
+            <div data-section="price-calculation" className="space-y-4" ref={priceCalculationSectionRef}>
               <SectionLabel
                 text="Price Calculation"
                 right={
