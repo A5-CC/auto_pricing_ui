@@ -1267,41 +1267,19 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
 
     return (
       <div className="flex flex-col gap-4 h-full min-h-0">
-        {/* Panel header */}
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="space-y-1.5">
-            <h3 className="text-base font-semibold leading-none tracking-tight">
-              {reviewData ? "Review CSV Changes" : "Apply pricing algorithms"}
-            </h3>
-            <div className="text-sm text-muted-foreground space-y-1">
-              {reviewData ? (
-                <>
-                  Review each algorithm change before final download.
-                  <span className="text-xs text-muted-foreground block mt-1">
-                    Reviewing only New Web Rate / New Standard Rate changes.
-                    <br />
-                    Rows changed: {reviewData.reviewRows.length.toLocaleString()} · Changes approved: {approvedCount.toLocaleString()} / {reviewData.changes.length.toLocaleString()}
-                  </span>
-                </>
-              ) : (
-                <>
-                  Upload a client CSV and apply pricing algorithms.
-                  <span className="text-xs text-muted-foreground block mt-1">
-                    Supported filters: client_location, unit_dimensions or unit_area (from CSV Area), has_drive_up_access.
-                    <br />
-                    Competitive adjusters appear after upload in the review screen.
-                    <br />
-                    Uses the currently displayed pipeline price table in the browser.
-                    <br />
-                    Drive-up matching uses CSV &apos;Unit Type&apos; when present.
-                    <br />
-                    Ensure columns: &apos;Facility Name&apos;, &apos;Size&apos;, &apos;Current Web Rate&apos;, &apos;Current Standard Rate&apos;, &apos;New Web Rate&apos;, &apos;New Standard Rate&apos;.
-                  </span>
-                </>
-              )}
+        {/* Panel header — only shown when reviewing changes */}
+        {reviewData && (
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="space-y-1.5">
+              <div className="text-sm text-muted-foreground space-y-1">
+                <span className="text-xs text-muted-foreground block">
+                  Reviewing only New Web Rate / New Standard Rate changes.
+                  <br />
+                  Rows changed: {reviewData.reviewRows.length.toLocaleString()} · Changes approved: {approvedCount.toLocaleString()} / {reviewData.changes.length.toLocaleString()}
+                </span>
+              </div>
             </div>
-          </div>
-          {reviewData ? (
+            {true ? (
             <Dialog open={standardRateOpen} onOpenChange={setStandardRateOpen}>
               <DialogTrigger asChild>
                 <Button type="button" variant="outline" size="sm">
@@ -1383,7 +1361,8 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
               </DialogContent>
             </Dialog>
           ) : null}
-        </div>
+          </div>
+        )}
 
         {/* Panel body */}
         {!reviewData ? (

@@ -832,10 +832,10 @@ export default function PipelinesPage() {
       </div>{/* end loading guard */}
         </main>
         {/* ── Right: Effect Pricing panel ── */}
-        <aside className="flex-shrink-0 w-[560px] border-l px-4 py-6 space-y-4 self-start sticky top-0 min-h-screen">
-          <div className="flex items-center gap-2 mb-2">
-            <FileSpreadsheet className="h-4 w-4 text-muted-foreground" />
-            <h2 className="text-base font-semibold">Effect Pricing</h2>
+        <aside className="flex-shrink-0 w-[560px] px-4 py-6 space-y-4 self-start sticky top-0 min-h-screen">
+          <div className="flex items-center gap-2 mb-6">
+            <FileSpreadsheet className="h-5 w-5 text-muted-foreground" />
+            <h2 className="text-2xl font-bold">Effect Pricing</h2>
           </div>
           <ProcessCsvButton {...processCsvProps} inline />
         </aside>
