@@ -6,6 +6,30 @@ type ParsedCsv = {
   rows: string[][];
 }
 
+type AmenityAdjusterEntry = {
+  multiplier: string
+  offset: string
+}
+
+type AmenityAdjusterState = {
+  applyToWeb: boolean
+  premium: AmenityAdjusterEntry
+  standard: AmenityAdjusterEntry
+  economy: AmenityAdjusterEntry
+}
+
+type ResolvedAmenityAdjusterEntry = {
+  multiplier: number
+  offset: number
+}
+
+type ResolvedAmenityAdjuster = {
+  applyToWeb: boolean
+  premium?: ResolvedAmenityAdjusterEntry
+  standard?: ResolvedAmenityAdjusterEntry
+  economy?: ResolvedAmenityAdjusterEntry
+}
+
 import { AddFunctionAdjusterDialog } from "@/components/pipelines/adjusters/add-function-adjuster-dialog";
 import { useAdjusterDialog } from "@/components/pipelines/adjusters/use-adjuster-dialog";
 import type { CalculatedPriceRow } from "@/components/pipelines/calculated-price";
@@ -249,13 +273,14 @@ function resolveAmenityTier(value: unknown): "premium" | "standard" | "economy" 
 
 function applyAmenityAdjustment(
   value: number,
-  adjuster?: { multiplier?: number; add?: number; subtract?: number }
+  adjuster?: { multiplier?: number; add?: number; subtract?: number; offset?: number }
 ): number {
   if (!adjuster || !Number.isFinite(value)) return value;
   const m = Number.isFinite(adjuster.multiplier) ? adjuster.multiplier! : 1;
   const add = Number.isFinite(adjuster.add) ? adjuster.add! : 0;
   const sub = Number.isFinite(adjuster.subtract) ? adjuster.subtract! : 0;
-  return value * m + add - sub;
+  const offset = Number.isFinite(adjuster.offset) ? adjuster.offset! : 0;
+  return value * m + add - sub + offset;
 }
 
 function resolveStandardRateValue(webRate: number, functionBody?: string): number {
@@ -1022,9 +1047,9 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
     setPopupAdjusters([])
     setAmenityAdjuster({
       applyToWeb: true,
-      premium: { mode: "multiplier", value: "" },
-      standard: { mode: "multiplier", value: "" },
-      economy: { mode: "multiplier", value: "" },
+      premium: { multiplier: "1", offset: "0" },
+      standard: { multiplier: "1", offset: "0" },
+      economy: { multiplier: "1", offset: "0" },
     })
     setOriginalParsed(null)
     setCsvNumericVariables([])
