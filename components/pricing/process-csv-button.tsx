@@ -624,6 +624,23 @@ function applyCalculatedPricesToCsv(
   amenityAdjuster?: ResolvedAmenityAdjuster,
   standardRateFunction?: string
 ): ParsedCsv {
+  const webRounding = rounding?.enabled === true
+    ? {
+        enabled: true,
+        offset: Number.isFinite(rounding.offset) ? rounding.offset : 0,
+      }
+    : {
+        enabled: false,
+        offset: 0,
+      }
+
+  const standardRounding = rounding?.standard?.enabled === true
+    ? {
+        enabled: true,
+        offset: Number.isFinite(rounding.standard.offset) ? rounding.standard.offset : 0,
+      }
+    : webRounding
+
   const headers = [...original.headers]
   const rows = original.rows.map((row) => [...row])
 
@@ -708,7 +725,7 @@ function applyCalculatedPricesToCsv(
     if (areaToken) hasUnitAreaRows = true
     const driveUpAccess = normalizeDriveUpAccessValue(calculatedRow.comboMap.has_drive_up_access)
     if (!location || (!dimensionToken && !areaToken)) continue
-    const webPrice = applyConfiguredRounding(calculatedRow.price, rounding)
+    const webPrice = applyConfiguredRounding(calculatedRow.price, webRounding)
     const price = webPrice
     if (dimensionToken) {
       priceLookup.set(buildPriceLookupKey(location, dimensionToken, driveUpAccess), price)
@@ -830,11 +847,10 @@ function applyCalculatedPricesToCsv(
       effectiveWebRate = applyAmenityAdjustment(effectiveWebRate, amenityConfig)
     }
 
-    const roundedEffectiveWebRate = applyConfiguredRounding(effectiveWebRate, rounding)
+    const roundedEffectiveWebRate = applyConfiguredRounding(effectiveWebRate, webRounding)
     const finalWebRate = formatCurrency(roundedEffectiveWebRate)
     const standardRateFallback = getCellValue(row, findColumnIndex(headers, CURRENT_STANDARD_RATE_COLUMNS))
     const standardRateValue = resolveStandardRateValue(roundedEffectiveWebRate, standardRateFunction)
-    const standardRounding = rounding?.standard ?? rounding
     const roundedStandardRate = applyConfiguredRounding(standardRateValue, standardRounding)
     const standardRate = Number.isFinite(roundedStandardRate)
       ? formatCurrency(roundedStandardRate)
