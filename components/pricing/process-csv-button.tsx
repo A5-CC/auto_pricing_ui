@@ -1,3 +1,8 @@
+// ParsedCsv type for CSV parsing utilities
+type ParsedCsv = {
+  headers: string[];
+  rows: string[][];
+};
 
 
 "use client"
