@@ -2,7 +2,7 @@
 type ParsedCsv = {
   headers: string[];
   rows: string[][];
-};
+}
 
 
 "use client"
