@@ -83,6 +83,8 @@ interface ProcessCsvButtonProps {
     combinatoricFlags: Record<string, boolean>
     availableVariables: string[]
   }
+  /** When true, renders as an inline panel instead of a dialog button */
+  inline?: boolean
 }
 
 type ResolvedCalculatedRows = {
@@ -841,7 +843,7 @@ function applyCalculatedPricesToCsv(
   return { headers, rows }
 }
 
-export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsBundle, rounding, pricingContext }: ProcessCsvButtonProps) {
+export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsBundle, rounding, pricingContext, inline = false }: ProcessCsvButtonProps) {
   const [open, setOpen] = useState(false)
   const [file, setFile] = useState<File | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
@@ -1244,6 +1246,337 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
   const approvedCount = reviewData
     ? reviewData.changes.filter((c: CsvRateChange) => approvedChanges[c.id] === true).length
     : 0
+
+  // ── Inline panel render ──────────────────────────────────────────────────
+  if (inline) {
+    const inlineResetState = () => {
+      setFile(null)
+      setIsProcessing(false)
+      setReviewData(null)
+      setApprovedChanges({})
+      setPopupAdjusters([])
+      setAmenityAdjuster({
+        applyToWeb: true,
+        premium: { multiplier: "1", offset: "0" },
+        standard: { multiplier: "1", offset: "0" },
+        economy: { multiplier: "1", offset: "0" },
+      })
+      setOriginalParsed(null)
+      setCsvNumericVariables([])
+    }
+
+    return (
+      <div className="flex flex-col gap-4 h-full min-h-0">
+        {/* Panel header */}
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="space-y-1.5">
+            <h3 className="text-base font-semibold leading-none tracking-tight">
+              {reviewData ? "Review CSV Changes" : "Apply pricing algorithms"}
+            </h3>
+            <div className="text-sm text-muted-foreground space-y-1">
+              {reviewData ? (
+                <>
+                  Review each algorithm change before final download.
+                  <span className="text-xs text-muted-foreground block mt-1">
+                    Reviewing only New Web Rate / New Standard Rate changes.
+                    <br />
+                    Rows changed: {reviewData.reviewRows.length.toLocaleString()} · Changes approved: {approvedCount.toLocaleString()} / {reviewData.changes.length.toLocaleString()}
+                  </span>
+                </>
+              ) : (
+                <>
+                  Upload a client CSV and apply pricing algorithms.
+                  <span className="text-xs text-muted-foreground block mt-1">
+                    Supported filters: client_location, unit_dimensions or unit_area (from CSV Area), has_drive_up_access.
+                    <br />
+                    Competitive adjusters appear after upload in the review screen.
+                    <br />
+                    Uses the currently displayed pipeline price table in the browser.
+                    <br />
+                    Drive-up matching uses CSV &apos;Unit Type&apos; when present.
+                    <br />
+                    Ensure columns: &apos;Facility Name&apos;, &apos;Size&apos;, &apos;Current Web Rate&apos;, &apos;Current Standard Rate&apos;, &apos;New Web Rate&apos;, &apos;New Standard Rate&apos;.
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
+          {reviewData ? (
+            <Dialog open={standardRateOpen} onOpenChange={setStandardRateOpen}>
+              <DialogTrigger asChild>
+                <Button type="button" variant="outline" size="sm">
+                  Standard Rate Function
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[900px]">
+                <DialogHeader>
+                  <DialogTitle>Standard rate function</DialogTitle>
+                  <DialogDescription>
+                    The standard rate is calculated from the web rate using the current curve.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="rounded-md bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+                    <div className="flex flex-col gap-2">
+                      <div>
+                        <div>Current curve:</div>
+                        <div>{`Standard = ${DEFAULT_STANDARD_RATE_FUNCTION}`}</div>
+                      </div>
+                      <div className="relative">
+                        <svg
+                          viewBox={`0 0 ${standardRateChart.svgWidth} ${standardRateChart.svgHeight}`}
+                          className="h-[420px] w-full rounded border bg-white cursor-grab active:cursor-grabbing"
+                          onMouseDown={(event) => handleStandardRateDragStart(event.clientX, event.clientY)}
+                          onMouseMove={(event) => handleStandardRateDragMove(event.clientX, event.clientY)}
+                          onMouseUp={handleStandardRateDragEnd}
+                          onMouseLeave={handleStandardRateDragEnd}
+                          onTouchStart={(event) => { const touch = event.touches[0]; if (touch) handleStandardRateDragStart(touch.clientX, touch.clientY) }}
+                          onTouchMove={(event) => { const touch = event.touches[0]; if (touch) handleStandardRateDragMove(touch.clientX, touch.clientY) }}
+                          onTouchEnd={handleStandardRateDragEnd}
+                        >
+                          <defs>
+                            <linearGradient id="grid-inline" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0" stopColor="currentColor" stopOpacity="0.08" />
+                              <stop offset="1" stopColor="currentColor" stopOpacity="0.08" />
+                            </linearGradient>
+                          </defs>
+                          <rect x={standardRateChart.margin.left} y={standardRateChart.margin.top} width={standardRateChart.plotWidth} height={standardRateChart.plotHeight} fill="url(#grid-inline)" />
+                          <line x1={standardRateChart.margin.left} y1={standardRateChart.margin.top} x2={standardRateChart.margin.left} y2={standardRateChart.margin.top + standardRateChart.plotHeight} stroke="currentColor" strokeOpacity="0.4" />
+                          <line x1={standardRateChart.margin.left} y1={standardRateChart.margin.top + standardRateChart.plotHeight} x2={standardRateChart.margin.left + standardRateChart.plotWidth} y2={standardRateChart.margin.top + standardRateChart.plotHeight} stroke="currentColor" strokeOpacity="0.4" />
+                          {standardRateChart.xTicks.map((tick) => (
+                            <g key={`gx2-${tick.value}`}>
+                              <line x1={tick.x} y1={standardRateChart.margin.top} x2={tick.x} y2={standardRateChart.margin.top + standardRateChart.plotHeight} stroke="currentColor" strokeOpacity="0.08" />
+                              <text x={tick.x} y={standardRateChart.margin.top + standardRateChart.plotHeight + 20} textAnchor="middle" fontSize="10" fill="currentColor" fillOpacity="0.7">{tick.label}</text>
+                            </g>
+                          ))}
+                          {standardRateChart.yTicks.map((tick) => (
+                            <g key={`gy2-${tick.value}`}>
+                              <line x1={standardRateChart.margin.left} y1={tick.y} x2={standardRateChart.margin.left + standardRateChart.plotWidth} y2={tick.y} stroke="currentColor" strokeOpacity="0.08" />
+                              <text x={standardRateChart.margin.left - 8} y={tick.y + 3} textAnchor="end" fontSize="10" fill="currentColor" fillOpacity="0.7">{tick.label}</text>
+                            </g>
+                          ))}
+                          {standardRateChart.breakpoints.map((bp) => (
+                            <line key={`bp2-${bp.value}`} x1={bp.x} y1={standardRateChart.margin.top} x2={bp.x} y2={standardRateChart.margin.top + standardRateChart.plotHeight} stroke="currentColor" strokeOpacity="0.35" strokeDasharray="6 6" />
+                          ))}
+                          <path d={standardRateChart.path} fill="none" stroke="currentColor" strokeWidth="2" />
+                          <text x={standardRateChart.margin.left + standardRateChart.plotWidth / 2} y={standardRateChart.svgHeight - 12} textAnchor="middle" fontSize="11" fill="currentColor" fillOpacity="0.7">Web Rate ($)</text>
+                          <text x={14} y={standardRateChart.margin.top + standardRateChart.plotHeight / 2} textAnchor="middle" fontSize="11" fill="currentColor" fillOpacity="0.7" transform={`rotate(-90 14 ${standardRateChart.margin.top + standardRateChart.plotHeight / 2})`}>Standard Rate ($)</text>
+                        </svg>
+                        <div className="absolute right-2 top-2 flex flex-col gap-2">
+                          <Button type="button" size="sm" variant="secondary" onClick={() => setStandardRateZoomX((prev) => Math.min(4, Number((prev + 0.25).toFixed(2))))}>Zoom X +</Button>
+                          <Button type="button" size="sm" variant="secondary" onClick={() => setStandardRateZoomX((prev) => Math.max(1, Number((prev - 0.25).toFixed(2))))}>Zoom X -</Button>
+                          <Button type="button" size="sm" variant="secondary" onClick={() => setStandardRateZoomY((prev) => Math.min(4, Number((prev + 0.25).toFixed(2))))}>Zoom Y +</Button>
+                          <Button type="button" size="sm" variant="secondary" onClick={() => setStandardRateZoomY((prev) => Math.max(1, Number((prev - 0.25).toFixed(2))))}>Zoom Y -</Button>
+                          <Button type="button" size="sm" variant="outline" onClick={() => { setStandardRateZoomX(1); setStandardRateZoomY(1); setStandardRatePanX(0); setStandardRatePanY(0) }}>Reset</Button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="standard-rate-function-inline" className="text-xs font-medium text-muted-foreground">Custom function (x = web rate)</Label>
+                    <Input id="standard-rate-function-inline" placeholder="Example: x < 100 ? 1.8 * x : x < 200 ? 1.6 * x : 1.4 * x" value={standardRateFunction} onChange={(e) => setStandardRateFunction(e.target.value)} />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button type="button" onClick={() => { toast.success("Standard rate function saved."); setStandardRateOpen(false) }}>Save</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          ) : null}
+        </div>
+
+        {/* Panel body */}
+        {!reviewData ? (
+          <div className="flex flex-col items-center justify-center gap-5 rounded-lg border-2 border-dashed border-muted-foreground/25 p-10 text-center">
+            <div className="flex flex-col items-center gap-2">
+              <FileSpreadsheet className="h-10 w-10 text-muted-foreground/50" />
+              <p className="text-sm font-medium">Upload your client CSV</p>
+              <p className="text-xs text-muted-foreground">
+                Requires columns: Facility Name, Size, Current Web Rate,<br />
+                Current Standard Rate, New Web Rate, New Standard Rate.
+              </p>
+            </div>
+            <div className="flex flex-col items-center gap-3 w-full max-w-xs">
+              <input
+                id="csv-file-inline"
+                type="file"
+                accept=".csv"
+                className="hidden"
+                onChange={(e: ChangeEvent<HTMLInputElement>) => setFile(e.target.files?.[0] || null)}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={() => document.getElementById("csv-file-inline")?.click()}
+              >
+                <FileSpreadsheet className="mr-2 h-4 w-4" />
+                {file ? file.name : "Choose CSV file…"}
+              </Button>
+              {file && (
+                <p className="text-xs text-muted-foreground truncate max-w-full">
+                  Selected: <span className="font-medium text-foreground">{file.name}</span>
+                </p>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-3 flex-1 min-h-0 overflow-hidden">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm font-medium">Adjusters</span>
+              <Button type="button" size="sm" variant="outline" onClick={functionDialog.handleOpen}>Competitive</Button>
+              <Button type="button" size="sm" variant="outline" onClick={() => setShowLevels(true)}>Levels</Button>
+            </div>
+            <div className="rounded-md border p-3 space-y-2">
+              {popupAdjusters.length === 0 ? (
+                <p className="text-xs text-muted-foreground">No competitive adjusters configured.</p>
+              ) : (
+                popupAdjusters.map((adj: Adjuster, idx: number) => {
+                  const fn = adj as { variable?: string; function_string?: string }
+                  const summary = adj.type === 'function' && fn.variable && fn.function_string
+                    ? `f(${fn.variable}) = ${fn.function_string}`
+                    : adj.type
+                  return (
+                    <div key={`${adj.type}-${idx}`} className="flex items-center justify-between rounded border px-2 py-1.5 gap-3">
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-xs font-medium capitalize">{idx + 1}. Competitive adjuster</span>
+                        <span className="text-xs text-muted-foreground font-mono truncate">{summary}</span>
+                      </div>
+                      <Button type="button" size="sm" variant="ghost" onClick={() => handleRemovePopupAdjuster(idx)} className="h-7 px-2" aria-label="Remove adjuster">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  )
+                })
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={() => setAllApprovals(true)}>Approve all</Button>
+              <Button type="button" variant="outline" size="sm" onClick={() => setAllApprovals(false)}>Reject all</Button>
+              <Button type="button" variant="outline" size="sm" onClick={() => { setReviewData(null); setApprovedChanges({}) }}>Choose another CSV</Button>
+            </div>
+            <div className="overflow-auto rounded-md border" style={{ maxHeight: "calc(100vh - 420px)" }}>
+              {reviewData.reviewRows.length === 0 ? (
+                <div className="p-4 text-sm text-muted-foreground">No changes were produced by pricing algorithms. You can still download the processed CSV.</div>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 bg-background border-b">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-medium">Row</th>
+                      <th className="px-3 py-2 text-left font-medium">Facility</th>
+                      <th className="px-3 py-2 text-left font-medium">Unit</th>
+                      <th className="px-3 py-2 text-left font-medium">Current Web</th>
+                      <th className="px-3 py-2 text-left font-medium">New Web</th>
+                      <th className="px-3 py-2 text-left font-medium">Web Decision</th>
+                      <th className="px-3 py-2 text-left font-medium">Current Standard</th>
+                      <th className="px-3 py-2 text-left font-medium">New Standard</th>
+                      <th className="px-3 py-2 text-left font-medium">Standard Decision</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {reviewData.reviewRows.map((row: ReviewRow) => (
+                      <tr key={row.id} className="border-b last:border-b-0">
+                        <td className="px-3 py-2 align-top">{row.rowIndex + 2}</td>
+                        <td className="px-3 py-2 align-top">{row.facilityName || "—"}</td>
+                        <td className="px-3 py-2 align-top">{row.unitSize || "—"}</td>
+                        <td className="px-3 py-2 align-top text-muted-foreground">{row.currentWebRate || "—"}</td>
+                        <td className="px-3 py-2 align-top">{row.proposedWebRate || "—"}</td>
+                        <td className="px-3 py-2 align-top">
+                          {row.webRateChange ? (
+                            <div className="flex items-center gap-2">
+                              <Button type="button" size="sm" variant={approvedChanges[row.webRateChange.id] === true ? "default" : "outline"} onClick={() => setChangeApproval(row.webRateChange!.id, true)}>Approve</Button>
+                              <Button type="button" size="sm" variant={approvedChanges[row.webRateChange.id] === false ? "destructive" : "outline"} onClick={() => setChangeApproval(row.webRateChange!.id, false)}>Deny</Button>
+                            </div>
+                          ) : <span className="text-muted-foreground">—</span>}
+                        </td>
+                        <td className="px-3 py-2 align-top text-muted-foreground">{row.currentStandardRate || "—"}</td>
+                        <td className="px-3 py-2 align-top">{row.proposedStandardRate || "—"}</td>
+                        <td className="px-3 py-2 align-top">
+                          {row.standardRateChange ? (
+                            <div className="flex items-center gap-2">
+                              <Button type="button" size="sm" variant={approvedChanges[row.standardRateChange.id] === true ? "default" : "outline"} onClick={() => setChangeApproval(row.standardRateChange!.id, true)}>Approve</Button>
+                              <Button type="button" size="sm" variant={approvedChanges[row.standardRateChange.id] === false ? "destructive" : "outline"} onClick={() => setChangeApproval(row.standardRateChange!.id, false)}>Deny</Button>
+                            </div>
+                          ) : <span className="text-muted-foreground">—</span>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Panel footer */}
+        <div className="flex flex-wrap gap-2 pt-2 border-t">
+          {!reviewData ? (
+            <Button
+              onClick={handleProcess}
+              disabled={!file || isProcessing}
+              className="w-full"
+            >
+              {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isProcessing ? "Applying…" : "Apply Pricing Algorithms"}
+            </Button>
+          ) : (
+            <>
+              <Button type="button" variant="outline" onClick={() => { if (!reviewData) return; const csv = toCsvText(reviewData.headers, reviewData.processedRows); downloadCsv(csv, `processed_all_${reviewData.fileName}`); toast.success("Downloaded CSV with all algorithm changes."); inlineResetState() }}>
+                Download All Changes
+              </Button>
+              <Button type="button" onClick={() => { if (!reviewData) return; const mergedRows = reviewData.processedRows.map((row: string[]) => [...row]); for (const change of reviewData.changes) { if (approvedChanges[change.id] !== true) { if (!mergedRows[change.rowIndex]) continue; mergedRows[change.rowIndex][change.columnIndex] = change.originalValue } }; const csv = toCsvText(reviewData.headers, mergedRows); downloadCsv(csv, `processed_approved_${reviewData.fileName}`); toast.success("Downloaded CSV with approved changes only."); inlineResetState() }}>
+                Download Approved Changes
+              </Button>
+            </>
+          )}
+        </div>
+
+        {/* Supporting dialogs */}
+        <AddFunctionAdjusterDialog
+          open={functionDialog.open}
+          onOpenChange={functionDialog.setOpen}
+          onAdd={handleAddPopupAdjuster}
+          availableVariables={csvNumericVariables.filter((name: string) => !RATE_VARIABLE_EXCLUSIONS.has(normalizeColumnKey(name)))}
+          competitorData={pricingContext?.competitorData ?? []}
+          clientAvailableUnits={pricingContext?.clientAvailableUnits ?? 0}
+          includeAvailableUnits={false}
+        />
+        <Dialog open={showLevels} onOpenChange={setShowLevels}>
+          <DialogContent className="sm:max-w-[520px]">
+            <DialogHeader>
+              <DialogTitle>Levels</DialogTitle>
+              <DialogDescription>Configure Unit Amenities adjustments (Premium, Standard, Economy).</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center gap-3 text-xs">
+                <span className="text-muted-foreground">Apply to:</span>
+                <label className="inline-flex items-center gap-1">
+                  <input type="checkbox" checked={amenityAdjuster.applyToWeb} onChange={(e) => setAmenityAdjuster((prev) => ({ ...prev, applyToWeb: e.target.checked }))} />
+                  <span>Web rate</span>
+                </label>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                <div className="font-medium text-muted-foreground">Tier</div>
+                <div className="font-medium text-muted-foreground">Multiplier</div>
+                <div className="font-medium text-muted-foreground">Offset</div>
+                {([{ key: "premium", label: "Premium" }, { key: "standard", label: "Standard" }, { key: "economy", label: "Economy" }] as const).map((tier) => (
+                  <div key={tier.key} className="contents">
+                    <div className="flex items-center">{tier.label}</div>
+                    <div><Input className="h-8" placeholder={tier.key === "premium" ? "1.05" : tier.key === "standard" ? "1" : "0.95"} value={amenityAdjuster[tier.key].multiplier} onChange={(e) => setAmenityAdjuster((prev: AmenityAdjusterState) => ({ ...prev, [tier.key]: { ...prev[tier.key], multiplier: e.target.value } }))} /></div>
+                    <div><Input className="h-8" placeholder={tier.key === "economy" ? "-5" : tier.key === "standard" ? "0" : "5"} value={amenityAdjuster[tier.key].offset} onChange={(e) => setAmenityAdjuster((prev: AmenityAdjusterState) => ({ ...prev, [tier.key]: { ...prev[tier.key], offset: e.target.value } }))} /></div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setShowLevels(false)}>Done</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+    )
+  }
+  // ── End inline panel render ──────────────────────────────────────────────
 
   return (
     <div className="flex items-center gap-2">

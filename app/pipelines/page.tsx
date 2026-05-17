@@ -28,7 +28,7 @@ import type {
   PricingSchemas,
   PricingSnapshot,
 } from "@/lib/api/types";
-import { Calculator, Clock, Plus, TrendingDown } from "lucide-react";
+import { Calculator, Clock, Plus, TrendingDown, FileSpreadsheet } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { UniversalPipelineFilters } from "../pipelines/components/universal-pipeline-filters";
@@ -578,76 +578,78 @@ export default function PipelinesPage() {
   }
 
   /* ---------------- Render ---------------- */
-  return (
-    <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 space-y-4 sm:space-y-5">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Pipelines</h1>
-      </div>
-      {isRefreshing && (
-        <div className="flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
-          <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-blue-400 border-t-transparent" />
-          Refreshing pricing data in background…
-        </div>
-      )}
-      {loading && !dataResponse && (
-        <div className="text-xs text-muted-foreground">Loading pricing data…</div>
-      )}
-      <header>
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <div className="min-w-0">
-          </div>
-          <div className="flex items-center gap-2">
-            <ProcessCsvButton
-              snapshotId={selectedSnapshot}
-              filters={{
-                // Legacy explicit
-                competitors: selectedCompetitors,
-                locations: selectedLocations,
-                unit_dimensions: selectedDimensions,
-                unitCategories: selectedUnitCategories,
-                // Include universal filters (dynamic keys like 'facility_location_city')
-                ...universalFilters
-              }}
-              adjusters={localAdjusters}
-              combinatoric={universalCombinatoric}
-              rounding={{
-                enabled: roundingEnabled,
-                offset: roundingOffset,
-              }}
-              calculatedRows={calculatedPriceTable.rows}
-              pricingContext={{
-                competitorData: subsetFilteredRows,
-                clientAvailableUnits: clientDataResponse?.data.length || 0,
-                currentDate,
-                filters: mergedFilters,
-                combinatoricFlags: mergedCombinatoricFlags,
-                availableVariables,
-              }}
-            />
-            <PipelineSelector
-              currentFilters={universalFilters}
-              currentAdjusters={localAdjusters}
-              currentSettings={{
-                rounding: {
-                  enabled: roundingEnabled,
-                  offset: roundingOffset,
-                },
-                combinatoric_flags: universalCombinatoric,
-              }}
-              onLoadPipeline={handleLoadPipeline}
-              onPipelineChange={handlePipelineChange}
-            />
-          </div>
-        </div>
-      </header>
+  const processCsvProps = {
+    snapshotId: selectedSnapshot,
+    filters: {
+      competitors: selectedCompetitors,
+      locations: selectedLocations,
+      unit_dimensions: selectedDimensions,
+      unitCategories: selectedUnitCategories,
+      ...universalFilters,
+    },
+    adjusters: localAdjusters,
+    combinatoric: universalCombinatoric,
+    rounding: {
+      enabled: roundingEnabled,
+      offset: roundingOffset,
+    },
+    calculatedRows: calculatedPriceTable.rows,
+    pricingContext: {
+      competitorData: subsetFilteredRows,
+      clientAvailableUnits: clientDataResponse?.data.length || 0,
+      currentDate,
+      filters: mergedFilters,
+      combinatoricFlags: mergedCombinatoricFlags,
+      availableVariables,
+    },
+  }
 
-      <div>
-      {error && (
-        <Alert variant="destructive">
-          <AlertTitle>Error</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
+  return (
+    <div className="overflow-x-auto">
+      <div className="flex flex-row min-w-max">
+        {/* ── Left: pipeline content ── */}
+        <main className="w-[min(1280px,100vw)] px-4 py-6 sm:px-6 space-y-4 sm:space-y-5 flex-shrink-0">
+          <div className="flex items-center justify-between mb-6">
+            <h1 className="text-2xl font-bold">Pipelines</h1>
+          </div>
+          {isRefreshing && (
+            <div className="flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
+              <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-blue-400 border-t-transparent" />
+              Refreshing pricing data in background…
+            </div>
+          )}
+          {loading && !dataResponse && (
+            <div className="text-xs text-muted-foreground">Loading pricing data…</div>
+          )}
+          <header>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="min-w-0">
+              </div>
+              <div className="flex items-center gap-2">
+                <PipelineSelector
+                  currentFilters={universalFilters}
+                  currentAdjusters={localAdjusters}
+                  currentSettings={{
+                    rounding: {
+                      enabled: roundingEnabled,
+                      offset: roundingOffset,
+                    },
+                    combinatoric_flags: universalCombinatoric,
+                  }}
+                  onLoadPipeline={handleLoadPipeline}
+                  onPipelineChange={handlePipelineChange}
+                />
+              </div>
+            </div>
+          </header>
+
+          <div>
+          {error && (
+            <Alert variant="destructive">
+              <AlertTitle>Error</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
 
       <PricingOverview
         selectedSnapshot={selectedSnapshot}
@@ -828,7 +830,17 @@ export default function PipelinesPage() {
         />
       </div>
       </div>{/* end loading guard */}
-    </main>
+        </main>
+        {/* ── Right: Effect Pricing panel ── */}
+        <aside className="flex-shrink-0 w-[560px] border-l px-4 py-6 space-y-4 self-start sticky top-0 min-h-screen">
+          <div className="flex items-center gap-2 mb-2">
+            <FileSpreadsheet className="h-4 w-4 text-muted-foreground" />
+            <h2 className="text-base font-semibold">Effect Pricing</h2>
+          </div>
+          <ProcessCsvButton {...processCsvProps} inline />
+        </aside>
+      </div>
+    </div>
   );
 }
 
