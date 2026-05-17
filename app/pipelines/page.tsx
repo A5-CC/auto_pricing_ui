@@ -605,10 +605,7 @@ export default function PipelinesPage() {
   }
 
   return (
-    <div className="overflow-x-auto">
-      <div className="flex flex-row min-w-max">
-        {/* ── Left: pipeline content ── */}
-        <main className="w-[min(1280px,100vw)] px-4 py-6 sm:px-6 space-y-4 sm:space-y-5 flex-shrink-0">
+    <main className="px-4 py-6 sm:px-6 space-y-4 sm:space-y-5">
           <div className="flex items-center justify-between mb-6">
             <h1 className="text-2xl font-bold">Pipelines</h1>
           </div>
@@ -672,142 +669,155 @@ export default function PipelinesPage() {
       </div>
 
       {/* Price Calculation Section - marked for chatbot navigation */}
-      <div className="space-y-4" data-section="price-calculation">
-        <SectionLabel
-          text="Price Calculation"
-          right={
-            <div className="text-xs text-muted-foreground">
-              {priceDiagnostics.pricesFound}/{priceDiagnostics.competitorRows}{" "}
-              units with prices
-            </div>
-          }
-        />
-
-        <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-2 sm:gap-3 rounded-lg border bg-muted/30 p-3">
-          <Button type="button" variant="outline" size="sm">
-            Rounding
-          </Button>
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="rounding-enabled"
-              checked={roundingEnabled}
-              onCheckedChange={(checked) => setRoundingEnabled(Boolean(checked))}
-            />
-            <label htmlFor="rounding-enabled" className="text-sm">
-              Enable
-            </label>
-          </div>
-          <div className="flex items-center gap-2">
-            <label htmlFor="rounding-offset" className="text-xs text-muted-foreground">
-              Round to
-            </label>
-            <div className="relative">
-              <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
-                $
-              </span>
-              <Input
-                id="rounding-offset"
-                type="text"
-                inputMode="decimal"
-                value={roundingOffsetInput}
-                onChange={(e) => handleRoundingOffsetChange(e.target.value)}
-                className="h-8 w-[120px] pl-5"
+      <div data-section="price-calculation">
+        <div className="overflow-x-auto">
+          <div className="flex min-w-max items-start gap-6">
+            <div className="min-w-[900px] flex-1 space-y-4">
+              <SectionLabel
+                text="Price Calculation"
+                right={
+                  <div className="text-xs text-muted-foreground">
+                    {priceDiagnostics.pricesFound}/{priceDiagnostics.competitorRows}{" "}
+                    units with prices
+                  </div>
+                }
               />
-            </div>
-            <span className="text-xs text-muted-foreground">($0.00 to $1.00)</span>
-          </div>
-        </div>
 
-        {isDev && devDebug && (
-          <div className="text-xs text-muted-foreground">
-            <details className="mb-2">
-              <summary className="cursor-pointer">Dev dataset debug</summary>
-              <div className="mt-2">
-                <div>Total rows from competitors endpoint: {devDebug.total}</div>
-                <div>Competitor rows (excluding modSTORAGE): {devDebug.competitorCount}</div>
-                <div>Client rows from client endpoint: {devDebug.clientCount}</div>
-                <div className="mt-2">Sample rows (first 3):
-                  <pre className="text-[11px] p-2 bg-slate-50 rounded border mt-1 overflow-auto">{JSON.stringify(devDebug.sample, null, 2)}</pre>
+              <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-2 sm:gap-3 rounded-lg border bg-muted/30 p-3">
+                <Button type="button" variant="outline" size="sm">
+                  Rounding
+                </Button>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="rounding-enabled"
+                    checked={roundingEnabled}
+                    onCheckedChange={(checked) => setRoundingEnabled(Boolean(checked))}
+                  />
+                  <label htmlFor="rounding-enabled" className="text-sm">
+                    Enable
+                  </label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <label htmlFor="rounding-offset" className="text-xs text-muted-foreground">
+                    Round to
+                  </label>
+                  <div className="relative">
+                    <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                      $
+                    </span>
+                    <Input
+                      id="rounding-offset"
+                      type="text"
+                      inputMode="decimal"
+                      value={roundingOffsetInput}
+                      onChange={(e) => handleRoundingOffsetChange(e.target.value)}
+                      className="h-8 w-[120px] pl-5"
+                    />
+                  </div>
+                  <span className="text-xs text-muted-foreground">($0.00 to $1.00)</span>
                 </div>
               </div>
-            </details>
-          </div>
-        )}
 
-        {!loading && hasActiveFilterSelections && !canAddAdjusters && (
-          <PriceDataWarning competitorData={subsetFilteredRows} />
-        )}
+              {isDev && devDebug && (
+                <div className="text-xs text-muted-foreground">
+                  <details className="mb-2">
+                    <summary className="cursor-pointer">Dev dataset debug</summary>
+                    <div className="mt-2">
+                      <div>Total rows from competitors endpoint: {devDebug.total}</div>
+                      <div>Competitor rows (excluding modSTORAGE): {devDebug.competitorCount}</div>
+                      <div>Client rows from client endpoint: {devDebug.clientCount}</div>
+                      <div className="mt-2">Sample rows (first 3):
+                        <pre className="text-[11px] p-2 bg-slate-50 rounded border mt-1 overflow-auto">{JSON.stringify(devDebug.sample, null, 2)}</pre>
+                      </div>
+                    </div>
+                  </details>
+                </div>
+              )}
 
-        {pipelineNeedsBase && (
-          <Alert className="border-amber-200 bg-amber-50">
-            <AlertTitle>Competitive step required</AlertTitle>
-            <AlertDescription>
-              Step 1 must be a competitive adjuster to establish the base price.
-              Remove or re-add cards until a competitive card leads the
-              pipeline.
-            </AlertDescription>
-          </Alert>
-        )}
+              {!loading && hasActiveFilterSelections && !canAddAdjusters && (
+                <PriceDataWarning competitorData={subsetFilteredRows} />
+              )}
 
-        <AdjustersList
-          adjusters={localAdjusters}
-          actions={
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1 rounded-full bg-muted/40 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                <Plus className="h-3.5 w-3.5" /> Add adjuster
-              </span>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={!canAddAdjusters}
-                onClick={competitiveDialog.handleOpen}
-                className="border-blue-200 text-blue-700 hover:bg-blue-50 hover:text-blue-800 disabled:opacity-50"
-                title={
-                  !canAddAdjusters
-                    ? "Add competitor data with prices to enable adjusters"
-                    : undefined
+              {pipelineNeedsBase && (
+                <Alert className="border-amber-200 bg-amber-50">
+                  <AlertTitle>Competitive step required</AlertTitle>
+                  <AlertDescription>
+                    Step 1 must be a competitive adjuster to establish the base price.
+                    Remove or re-add cards until a competitive card leads the
+                    pipeline.
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              <AdjustersList
+                adjusters={localAdjusters}
+                actions={
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-muted/40 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      <Plus className="h-3.5 w-3.5" /> Add adjuster
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={!canAddAdjusters}
+                      onClick={competitiveDialog.handleOpen}
+                      className="border-blue-200 text-blue-700 hover:bg-blue-50 hover:text-blue-800 disabled:opacity-50"
+                      title={
+                        !canAddAdjusters
+                          ? "Add competitor data with prices to enable adjusters"
+                          : undefined
+                      }
+                    >
+                      <TrendingDown className="h-4 w-4 mr-1.5" />
+                      Competitive
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={!canAddNonCompetitiveAdjusters}
+                      onClick={functionDialog.handleOpen}
+                      className="border-amber-200 text-amber-700 hover:bg-amber-50 hover:text-amber-800 disabled:opacity-50"
+                    >
+                      <Calculator className="h-4 w-4 mr-1.5" />
+                      Function
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={!canAddNonCompetitiveAdjusters}
+                      onClick={temporalDialog.handleOpen}
+                      className="border-violet-200 text-violet-700 hover:bg-violet-50 hover:text-violet-800 disabled:opacity-50"
+                    >
+                      <Clock className="h-4 w-4 mr-1.5" />
+                      Temporal
+                    </Button>
+                  </div>
                 }
-              >
-                <TrendingDown className="h-4 w-4 mr-1.5" />
-                Competitive
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={!canAddNonCompetitiveAdjusters}
-                onClick={functionDialog.handleOpen}
-                className="border-amber-200 text-amber-700 hover:bg-amber-50 hover:text-amber-800 disabled:opacity-50"
-              >
-                <Calculator className="h-4 w-4 mr-1.5" />
-                Function
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={!canAddNonCompetitiveAdjusters}
-                onClick={temporalDialog.handleOpen}
-                className="border-violet-200 text-violet-700 hover:bg-violet-50 hover:text-violet-800 disabled:opacity-50"
-              >
-                <Clock className="h-4 w-4 mr-1.5" />
-                Temporal
-              </Button>
+                onRemoveAdjuster={handleRemoveAdjuster}
+              />
+
+              <div className="min-h-0">
+                <CalculatedPrice
+                  competitorData={subsetFilteredRows}
+                  clientAvailableUnits={clientDataResponse?.data.length || 0}
+                  adjusters={localAdjusters}
+                  currentDate={currentDate}
+                  filters={mergedFilters}
+                  combinatoricFlags={mergedCombinatoricFlags}
+                  roundingEnabled={roundingEnabled}
+                  roundingOffset={roundingOffset}
+                />
+              </div>
             </div>
-          }
-          onRemoveAdjuster={handleRemoveAdjuster}
-        />
 
-        <div className="min-h-0 flex-1">
-
-          <CalculatedPrice
-            competitorData={subsetFilteredRows}
-            clientAvailableUnits={clientDataResponse?.data.length || 0}
-            adjusters={localAdjusters}
-            currentDate={currentDate}
-            filters={mergedFilters}
-            combinatoricFlags={mergedCombinatoricFlags}
-            roundingEnabled={roundingEnabled}
-            roundingOffset={roundingOffset}
-          />
+            <aside className="w-[560px] flex-shrink-0 space-y-4 self-start sticky top-6">
+              <div className="flex items-center gap-2">
+                <FileSpreadsheet className="h-5 w-5 text-muted-foreground" />
+                <h2 className="text-2xl font-bold">Effect Pricing</h2>
+              </div>
+              <ProcessCsvButton {...processCsvProps} inline />
+            </aside>
+          </div>
         </div>
 
         <AddCompetitiveAdjusterDialog
@@ -830,17 +840,7 @@ export default function PipelinesPage() {
         />
       </div>
       </div>{/* end loading guard */}
-        </main>
-        {/* ── Right: Effect Pricing panel ── */}
-        <aside className="flex-shrink-0 w-[560px] px-4 py-6 space-y-4 self-start sticky top-0 min-h-screen">
-          <div className="flex items-center gap-2 mb-6">
-            <FileSpreadsheet className="h-5 w-5 text-muted-foreground" />
-            <h2 className="text-2xl font-bold">Effect Pricing</h2>
-          </div>
-          <ProcessCsvButton {...processCsvProps} inline />
-        </aside>
-      </div>
-    </div>
+    </main>
   );
 }
 
