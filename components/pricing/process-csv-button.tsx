@@ -43,6 +43,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -935,6 +936,15 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
   const [showLevels, setShowLevels] = useState(false)
   const [standardRateOpen, setStandardRateOpen] = useState(false)
   const [standardRateFunction, setStandardRateFunction] = useState(DEFAULT_STANDARD_RATE_FUNCTION)
+  const [standardRateRoundingEnabled, setStandardRateRoundingEnabled] = useState(
+    Boolean(rounding?.standard?.enabled ?? rounding?.enabled ?? false)
+  )
+  const [standardRateRoundingOffset, setStandardRateRoundingOffset] = useState(
+    Number(rounding?.standard?.offset ?? rounding?.offset ?? 0)
+  )
+  const [standardRateRoundingOffsetInput, setStandardRateRoundingOffsetInput] = useState(
+    String(Number(rounding?.standard?.offset ?? rounding?.offset ?? 0))
+  )
   const [standardRateZoomX, setStandardRateZoomX] = useState(1)
   const [standardRateZoomY, setStandardRateZoomY] = useState(1)
   const [standardRatePanX, setStandardRatePanX] = useState(0)
@@ -1007,6 +1017,42 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
       economy: parseEntry(amenityAdjuster.economy),
     };
   }, [amenityAdjuster]);
+
+  useEffect(() => {
+    const nextEnabled = Boolean(rounding?.standard?.enabled ?? rounding?.enabled ?? false)
+    const rawOffset = Number(rounding?.standard?.offset ?? rounding?.offset ?? 0)
+    const nextOffset = Number.isFinite(rawOffset) ? rawOffset : 0
+    setStandardRateRoundingEnabled(nextEnabled)
+    setStandardRateRoundingOffset(nextOffset)
+  }, [rounding?.enabled, rounding?.offset, rounding?.standard?.enabled, rounding?.standard?.offset])
+
+  useEffect(() => {
+    setStandardRateRoundingOffsetInput(String(standardRateRoundingOffset))
+  }, [standardRateRoundingOffset])
+
+  const handleStandardRateRoundingOffsetChange = (value: string) => {
+    setStandardRateRoundingOffsetInput(value)
+    const sanitized = value.replace(/[^0-9.]/g, "")
+    if (sanitized === "" || sanitized === ".") return
+    const next = Number(sanitized)
+    if (Number.isNaN(next)) return
+    const clamped = Math.min(1, Math.max(0, next))
+    setStandardRateRoundingOffset(clamped)
+  }
+
+  const effectiveRounding = useMemo(() => {
+    const baseEnabled = Boolean(rounding?.enabled)
+    const baseOffsetRaw = Number(rounding?.offset ?? 0)
+    const baseOffset = Number.isFinite(baseOffsetRaw) ? baseOffsetRaw : 0
+    return {
+      enabled: baseEnabled,
+      offset: baseOffset,
+      standard: {
+        enabled: standardRateRoundingEnabled,
+        offset: standardRateRoundingOffset,
+      },
+    }
+  }, [rounding?.enabled, rounding?.offset, standardRateRoundingEnabled, standardRateRoundingOffset])
 
   const standardRateChart = useMemo(() => {
     const baseMinX = 20
@@ -1158,6 +1204,46 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
     target?.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" })
   }
 
+  const clearCalculatedTraceHighlights = () => {
+    const rows = document.querySelectorAll('tr[data-calculated-row-index]')
+    rows.forEach((row) => {
+      const rowEl = row as HTMLElement
+      rowEl.style.backgroundColor = ""
+      rowEl.style.boxShadow = ""
+      const cells = rowEl.querySelectorAll("td")
+      cells.forEach((cell) => {
+        const cellEl = cell as HTMLElement
+        cellEl.style.outline = ""
+        cellEl.style.outlineOffset = ""
+        cellEl.style.backgroundColor = ""
+      })
+    })
+  }
+
+  const applyCalculatedTraceHighlights = (targetIds: string[]) => {
+    clearCalculatedTraceHighlights()
+    for (const id of targetIds) {
+      const row = document.getElementById(id)
+      if (!row) continue
+      const rowEl = row as HTMLElement
+      rowEl.style.backgroundColor = "rgba(59, 130, 246, 0.10)"
+      rowEl.style.boxShadow = "inset 0 0 0 1px rgba(59, 130, 246, 0.45)"
+
+      const cells = rowEl.querySelectorAll("td")
+      if (cells.length > 0) {
+        const firstCell = cells[0] as HTMLElement
+        firstCell.style.outline = "2px solid rgba(59, 130, 246, 0.75)"
+        firstCell.style.outlineOffset = "-2px"
+        firstCell.style.backgroundColor = "rgba(59, 130, 246, 0.14)"
+
+        const priceCell = cells[cells.length - 1] as HTMLElement
+        priceCell.style.outline = "2px solid rgba(59, 130, 246, 0.75)"
+        priceCell.style.outlineOffset = "-2px"
+        priceCell.style.backgroundColor = "rgba(59, 130, 246, 0.14)"
+      }
+    }
+  }
+
   const toggleTraceSelection = (row: ReviewRow) => {
     setTraceSelections((prev) => {
       const nextChecked = !Boolean(prev[row.id])
@@ -1175,6 +1261,23 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
     setTraceSelections(next)
   }
 
+  useEffect(() => {
+    if (!reviewData) {
+      clearCalculatedTraceHighlights()
+      return
+    }
+
+    const selectedTargetIds = reviewData.reviewRows
+      .filter((row) => Boolean(traceSelections[row.id]) && Boolean(row.traceTargetId))
+      .map((row) => row.traceTargetId as string)
+
+    applyCalculatedTraceHighlights(selectedTargetIds)
+
+    return () => {
+      clearCalculatedTraceHighlights()
+    }
+  }, [traceSelections, reviewData])
+
   const rebuildReviewFromOriginal = useCallback((original: ParsedCsv, nextAdjusters: Adjuster[]) => {
     if (resolvedCalculatedRows.error) {
       throw new Error(resolvedCalculatedRows.error)
@@ -1182,7 +1285,7 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
     const processed = applyCalculatedPricesToCsv(
       original,
       resolvedCalculatedRows.rows,
-      rounding,
+      effectiveRounding,
       nextAdjusters,
       resolvedAmenityAdjuster,
       standardRateFunction,
@@ -1205,7 +1308,7 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
     file?.name,
     resolvedCalculatedRows.error,
     resolvedCalculatedRows.rows,
-    rounding,
+    effectiveRounding,
     resolvedAmenityAdjuster,
     standardRateFunction,
   ])
@@ -1286,7 +1389,7 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
       const processed = applyCalculatedPricesToCsv(
         original,
         resolvedCalculatedRows.rows,
-        rounding,
+        effectiveRounding,
         popupAdjusters,
         resolvedAmenityAdjuster,
         standardRateFunction,
@@ -1469,6 +1572,42 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
                     <Label htmlFor="standard-rate-function-inline" className="text-xs font-medium text-muted-foreground">Custom function (x = web rate)</Label>
                     <Input id="standard-rate-function-inline" placeholder="Example: x < 100 ? 1.8 * x : x < 200 ? 1.6 * x : 1.4 * x" value={standardRateFunction} onChange={(e) => setStandardRateFunction(e.target.value)} />
                   </div>
+                  <div className="rounded-lg border bg-muted/30 p-3 space-y-3">
+                    <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-2 sm:gap-3">
+                      <Button type="button" variant="outline" size="sm">
+                        Rounding (Standard Rate)
+                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id="standard-rate-rounding-enabled-inline"
+                          checked={standardRateRoundingEnabled}
+                          onCheckedChange={(checked: unknown) => setStandardRateRoundingEnabled(Boolean(checked))}
+                        />
+                        <label htmlFor="standard-rate-rounding-enabled-inline" className="text-sm">
+                          Enable
+                        </label>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <label htmlFor="standard-rate-rounding-offset-inline" className="text-xs text-muted-foreground">
+                          Round to
+                        </label>
+                        <div className="relative">
+                          <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                            $
+                          </span>
+                          <Input
+                            id="standard-rate-rounding-offset-inline"
+                            type="text"
+                            inputMode="decimal"
+                            value={standardRateRoundingOffsetInput}
+                            onChange={(e) => handleStandardRateRoundingOffsetChange(e.target.value)}
+                            className="h-8 w-[120px] pl-5"
+                          />
+                        </div>
+                        <span className="text-xs text-muted-foreground">($0.00 to $1.00)</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
                 <DialogFooter>
                   <Button type="button" onClick={() => { toast.success("Standard rate function saved."); setStandardRateOpen(false) }}>Save</Button>
@@ -1597,8 +1736,8 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
                   <tbody>
                     {reviewData.reviewRows.map((row: ReviewRow) => (
                       <tr key={row.id} className="border-b last:border-b-0">
-                        <td className="px-3 py-2 align-top">
-                          <div className="flex items-center gap-1">
+                        <td className={`px-3 py-2 align-top ${traceSelections[row.id] ? "bg-blue-50/60" : ""}`}>
+                          <div className="flex items-center gap-1.5">
                             <button
                               type="button"
                               onClick={() => toggleTraceSelection(row)}
@@ -1607,14 +1746,14 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
                               title={row.traceTargetId ? "Trace to matching row" : "No trace target"}
                             >
                               <span
-                                className={`h-2.5 w-2.5 rounded-full border ${traceSelections[row.id] ? "bg-blue-600 border-blue-600" : "bg-transparent border-muted-foreground/60"}`}
+                                className={`h-3 w-3 rounded-full border ${traceSelections[row.id] ? "bg-blue-600 border-blue-600" : "bg-transparent border-muted-foreground/60"}`}
                               />
                             </button>
-                            <span className={`h-px w-6 ${traceSelections[row.id] ? "bg-blue-500" : "bg-muted-foreground/30"}`} />
+                            <span className={`h-0.5 w-10 ${traceSelections[row.id] ? "bg-blue-600" : "bg-muted-foreground/40"}`} />
                             {row.traceTargetId ? (
                               <button
                                 type="button"
-                                className="text-xs text-blue-600 hover:underline"
+                                className={`text-xs ${traceSelections[row.id] ? "text-blue-700" : "text-blue-600"} hover:underline`}
                                 onClick={() => jumpToTraceTarget(row.traceTargetId)}
                                 title="Jump to matching row"
                               >
@@ -2002,6 +2141,42 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
                         onChange={(e) => setStandardRateFunction(e.target.value)}
                       />
                     </div>
+                    <div className="rounded-lg border bg-muted/30 p-3 space-y-3">
+                      <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-2 sm:gap-3">
+                        <Button type="button" variant="outline" size="sm">
+                          Rounding (Standard Rate)
+                        </Button>
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            id="standard-rate-rounding-enabled"
+                            checked={standardRateRoundingEnabled}
+                            onCheckedChange={(checked: unknown) => setStandardRateRoundingEnabled(Boolean(checked))}
+                          />
+                          <label htmlFor="standard-rate-rounding-enabled" className="text-sm">
+                            Enable
+                          </label>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <label htmlFor="standard-rate-rounding-offset" className="text-xs text-muted-foreground">
+                            Round to
+                          </label>
+                          <div className="relative">
+                            <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                              $
+                            </span>
+                            <Input
+                              id="standard-rate-rounding-offset"
+                              type="text"
+                              inputMode="decimal"
+                              value={standardRateRoundingOffsetInput}
+                              onChange={(e) => handleStandardRateRoundingOffsetChange(e.target.value)}
+                              className="h-8 w-[120px] pl-5"
+                            />
+                          </div>
+                          <span className="text-xs text-muted-foreground">($0.00 to $1.00)</span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                   <DialogFooter>
                     <Button
@@ -2152,8 +2327,8 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
                   <tbody>
                     {reviewData.reviewRows.map((row: ReviewRow) => (
                       <tr key={row.id} className="border-b last:border-b-0">
-                        <td className="px-3 py-2 align-top">
-                          <div className="flex items-center gap-1">
+                        <td className={`px-3 py-2 align-top ${traceSelections[row.id] ? "bg-blue-50/60" : ""}`}>
+                          <div className="flex items-center gap-1.5">
                             <button
                               type="button"
                               onClick={() => toggleTraceSelection(row)}
@@ -2162,14 +2337,14 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
                               title={row.traceTargetId ? "Trace to matching row" : "No trace target"}
                             >
                               <span
-                                className={`h-2.5 w-2.5 rounded-full border ${traceSelections[row.id] ? "bg-blue-600 border-blue-600" : "bg-transparent border-muted-foreground/60"}`}
+                                className={`h-3 w-3 rounded-full border ${traceSelections[row.id] ? "bg-blue-600 border-blue-600" : "bg-transparent border-muted-foreground/60"}`}
                               />
                             </button>
-                            <span className={`h-px w-6 ${traceSelections[row.id] ? "bg-blue-500" : "bg-muted-foreground/30"}`} />
+                            <span className={`h-0.5 w-10 ${traceSelections[row.id] ? "bg-blue-600" : "bg-muted-foreground/40"}`} />
                             {row.traceTargetId ? (
                               <button
                                 type="button"
-                                className="text-xs text-blue-600 hover:underline"
+                                className={`text-xs ${traceSelections[row.id] ? "text-blue-700" : "text-blue-600"} hover:underline`}
                                 onClick={() => jumpToTraceTarget(row.traceTargetId)}
                                 title="Jump to matching row"
                               >
