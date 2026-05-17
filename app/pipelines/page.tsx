@@ -88,6 +88,9 @@ export default function PipelinesPage() {
   const [roundingEnabled, setRoundingEnabled] = useState(false);
   const [roundingOffset, setRoundingOffset] = useState(0);
   const [roundingOffsetInput, setRoundingOffsetInput] = useState("0");
+  const [standardRoundingEnabled, setStandardRoundingEnabled] = useState(false);
+  const [standardRoundingOffset, setStandardRoundingOffset] = useState(0);
+  const [standardRoundingOffsetInput, setStandardRoundingOffsetInput] = useState("0");
   
   // dialogs
   const competitiveDialog = useAdjusterDialog();
@@ -551,6 +554,10 @@ export default function PipelinesPage() {
     setRoundingOffsetInput(String(roundingOffset))
   }, [roundingOffset])
 
+  useEffect(() => {
+    setStandardRoundingOffsetInput(String(standardRoundingOffset))
+  }, [standardRoundingOffset])
+
   // Small dev debug: counts and sample rows to help diagnose missing competitor data
   const devDebug = useMemo(() => {
     try {
@@ -577,6 +584,18 @@ export default function PipelinesPage() {
     setRoundingOffset(clamped)
   }
 
+  const handleStandardRoundingOffsetChange = (value: string) => {
+    setStandardRoundingOffsetInput(value)
+    const sanitized = value.replace(/[^0-9.]/g, "")
+    if (sanitized === "" || sanitized === ".") {
+      return
+    }
+    const next = Number(sanitized)
+    if (Number.isNaN(next)) return
+    const clamped = Math.min(1, Math.max(0, next))
+    setStandardRoundingOffset(clamped)
+  }
+
   /* ---------------- Render ---------------- */
   const processCsvProps = {
     snapshotId: selectedSnapshot,
@@ -592,6 +611,10 @@ export default function PipelinesPage() {
     rounding: {
       enabled: roundingEnabled,
       offset: roundingOffset,
+      standard: {
+        enabled: standardRoundingEnabled,
+        offset: standardRoundingOffset,
+      },
     },
     calculatedRows: calculatedPriceTable.rows,
     pricingContext: {
@@ -683,38 +706,77 @@ export default function PipelinesPage() {
                 }
               />
 
-              <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-2 sm:gap-3 rounded-lg border bg-muted/30 p-3">
-                <Button type="button" variant="outline" size="sm">
-                  Rounding
-                </Button>
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="rounding-enabled"
-                    checked={roundingEnabled}
-                    onCheckedChange={(checked) => setRoundingEnabled(Boolean(checked))}
-                  />
-                  <label htmlFor="rounding-enabled" className="text-sm">
-                    Enable
-                  </label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <label htmlFor="rounding-offset" className="text-xs text-muted-foreground">
-                    Round to
-                  </label>
-                  <div className="relative">
-                    <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
-                      $
-                    </span>
-                    <Input
-                      id="rounding-offset"
-                      type="text"
-                      inputMode="decimal"
-                      value={roundingOffsetInput}
-                      onChange={(e) => handleRoundingOffsetChange(e.target.value)}
-                      className="h-8 w-[120px] pl-5"
+              <div className="rounded-lg border bg-muted/30 p-3 space-y-3">
+                <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-2 sm:gap-3">
+                  <Button type="button" variant="outline" size="sm">
+                    Rounding (All)
+                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="rounding-enabled"
+                      checked={roundingEnabled}
+                      onCheckedChange={(checked) => setRoundingEnabled(Boolean(checked))}
                     />
+                    <label htmlFor="rounding-enabled" className="text-sm">
+                      Enable
+                    </label>
                   </div>
-                  <span className="text-xs text-muted-foreground">($0.00 to $1.00)</span>
+                  <div className="flex items-center gap-2">
+                    <label htmlFor="rounding-offset" className="text-xs text-muted-foreground">
+                      Round to
+                    </label>
+                    <div className="relative">
+                      <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                        $
+                      </span>
+                      <Input
+                        id="rounding-offset"
+                        type="text"
+                        inputMode="decimal"
+                        value={roundingOffsetInput}
+                        onChange={(e) => handleRoundingOffsetChange(e.target.value)}
+                        className="h-8 w-[120px] pl-5"
+                      />
+                    </div>
+                    <span className="text-xs text-muted-foreground">($0.00 to $1.00)</span>
+                  </div>
+                </div>
+
+                <div className="h-px bg-border" />
+
+                <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-2 sm:gap-3">
+                  <Button type="button" variant="outline" size="sm">
+                    Rounding (Standard Rate)
+                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="standard-rounding-enabled"
+                      checked={standardRoundingEnabled}
+                      onCheckedChange={(checked) => setStandardRoundingEnabled(Boolean(checked))}
+                    />
+                    <label htmlFor="standard-rounding-enabled" className="text-sm">
+                      Enable
+                    </label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label htmlFor="standard-rounding-offset" className="text-xs text-muted-foreground">
+                      Round to
+                    </label>
+                    <div className="relative">
+                      <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                        $
+                      </span>
+                      <Input
+                        id="standard-rounding-offset"
+                        type="text"
+                        inputMode="decimal"
+                        value={standardRoundingOffsetInput}
+                        onChange={(e) => handleStandardRoundingOffsetChange(e.target.value)}
+                        className="h-8 w-[120px] pl-5"
+                      />
+                    </div>
+                    <span className="text-xs text-muted-foreground">($0.00 to $1.00)</span>
+                  </div>
                 </div>
               </div>
 

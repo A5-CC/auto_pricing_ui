@@ -69,6 +69,10 @@ interface ProcessCsvButtonProps {
   rounding?: {
     enabled: boolean
     offset: number
+    standard?: {
+      enabled: boolean
+      offset: number
+    }
   }
   calculatedRows?: CalculatedPriceRow[]
   calculatedRowsBundle?: Array<{
@@ -608,7 +612,14 @@ function buildReviewRows(original: ParsedCsv, processed: ParsedCsv, changes: Csv
 function applyCalculatedPricesToCsv(
   original: ParsedCsv,
   calculatedRows: CalculatedPriceRow[],
-  rounding?: { enabled: boolean; offset: number },
+  rounding?: {
+    enabled: boolean
+    offset: number
+    standard?: {
+      enabled: boolean
+      offset: number
+    }
+  },
   popupAdjusters: Adjuster[] = [],
   amenityAdjuster?: ResolvedAmenityAdjuster,
   standardRateFunction?: string
@@ -823,7 +834,8 @@ function applyCalculatedPricesToCsv(
     const finalWebRate = formatCurrency(roundedEffectiveWebRate)
     const standardRateFallback = getCellValue(row, findColumnIndex(headers, CURRENT_STANDARD_RATE_COLUMNS))
     const standardRateValue = resolveStandardRateValue(roundedEffectiveWebRate, standardRateFunction)
-    const roundedStandardRate = applyConfiguredRounding(standardRateValue, rounding)
+    const standardRounding = rounding?.standard ?? rounding
+    const roundedStandardRate = applyConfiguredRounding(standardRateValue, standardRounding)
     const standardRate = Number.isFinite(roundedStandardRate)
       ? formatCurrency(roundedStandardRate)
       : standardRateFallback
