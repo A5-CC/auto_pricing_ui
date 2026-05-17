@@ -274,20 +274,34 @@ export function PipelineBuilderChatbot({
     const rawFilterModes = (stateToSave.settings?.filter_modes ?? {}) as Record<string, string>;
     const normalizedFilterModes = Object.entries(rawFilterModes).reduce((acc, [key, value]) => {
       if (!value) return acc;
-      acc[key] = String(value);
+      if (value === "combinatoric" || value === "subset") {
+        acc[key] = value;
+      }
       return acc;
-    }, {} as Record<string, string>);
+    }, {} as Record<string, "combinatoric" | "subset">);
+
+    const normalizedCombinatoricFlags = Object.entries(normalizedFilterModes).reduce((acc, [key, value]) => {
+      if (value === "combinatoric") acc[key] = true;
+      if (value === "subset") acc[key] = false;
+      return acc;
+    }, {} as Record<string, boolean>);
+
+    const baseSettings = { ...((stateToSave.settings ?? {}) as Record<string, unknown>) };
+    delete (baseSettings as { universal_filters?: unknown }).universal_filters;
+    delete (baseSettings as { filter_modes?: unknown }).filter_modes;
+    delete (baseSettings as { combinatoric_flags?: unknown }).combinatoric_flags;
+    delete (baseSettings as { filter_settings?: unknown }).filter_settings;
 
     const requestPayload = {
       name: trimmedName,
-      universal_filters: normalizedUniversalFilters,
-      filter_modes: normalizedFilterModes,
+      filters: normalizedUniversalFilters,
       adjusters: normalizedAdjusters as Adjuster[],
       settings: {
-        ...(stateToSave.settings ?? {}),
-        // Remove universal_filters and filter_modes from settings if present
-        ...(stateToSave.settings?.universal_filters ? { universal_filters: undefined } : {}),
-        ...(stateToSave.settings?.filter_modes ? { filter_modes: undefined } : {}),
+        ...baseSettings,
+        filter_settings: {
+          combinatoric_flags: normalizedCombinatoricFlags,
+          filter_modes: normalizedFilterModes,
+        },
         rounding,
       },
     };

@@ -121,7 +121,6 @@ export interface E1FilterResponse {
   // filters_applied: Record<string, unknown>
 }
 
-/**
 // PipelineFilters interface removed
 
 export interface PipelineRoundingSettings {
@@ -130,6 +129,11 @@ export interface PipelineRoundingSettings {
 }
 
 export type PipelineFilterMode = 'combinatoric' | 'subset'
+
+export interface PipelineFilterSettings {
+  combinatoric_flags?: Record<string, boolean>
+  filter_modes?: Record<string, PipelineFilterMode>
+}
 
 
 

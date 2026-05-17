@@ -157,9 +157,13 @@ export default function PipelineBundlesPage() {
     return selectedPipelines.map((pipeline) => {
       const adjusters = pipeline.adjusters || [];
       const settings = (pipeline.settings ?? {}) as Record<string, unknown>;
+      const nestedFilterSettings = (settings.filter_settings ?? {}) as {
+        combinatoric_flags?: Record<string, boolean>
+        filter_modes?: Record<string, string>
+      }
       const settingsFilters = normalizeFilterKeys((pipeline.filters ?? settings.universal_filters) as Record<string, string[]> | undefined);
-      const normalizedFlags = normalizeCombinatoricFlagKeys((settings.combinatoric_flags as Record<string, boolean> | undefined));
-      const normalizedModes = normalizeFilterModeKeys((settings.filter_modes as Record<string, string> | undefined));
+      const normalizedFlags = normalizeCombinatoricFlagKeys(((nestedFilterSettings.combinatoric_flags ?? settings.combinatoric_flags) as Record<string, boolean> | undefined));
+      const normalizedModes = normalizeFilterModeKeys(((nestedFilterSettings.filter_modes ?? settings.filter_modes) as Record<string, string> | undefined));
 
       const normalizedSettingsFilters = Object.entries(settingsFilters).reduce((acc, [key, values]) => {
         if (!Array.isArray(values) || values.length === 0) return acc;
