@@ -126,6 +126,8 @@ export default function PipelinesPage() {
     Record<string, ColumnStatistics>
   >({});
   const activeLoadRef = useRef(0)
+  const universalFiltersSectionRef = useRef<HTMLDivElement | null>(null)
+  const [effectPricingOffset, setEffectPricingOffset] = useState(0)
 
   // Mirror /pricing: keep an unfiltered snapshot in memory and filter client-side.
   const baseRows = useMemo(() => dataResponse?.data ?? [], [dataResponse]);
@@ -551,6 +553,29 @@ export default function PipelinesPage() {
     setRoundingOffsetInput(String(roundingOffset))
   }, [roundingOffset])
 
+  useEffect(() => {
+    const element = universalFiltersSectionRef.current
+    if (!element) return
+
+    const updateOffset = () => {
+      setEffectPricingOffset(element.offsetHeight + 16)
+    }
+
+    updateOffset()
+
+    const observer = new ResizeObserver(() => {
+      updateOffset()
+    })
+
+    observer.observe(element)
+    window.addEventListener("resize", updateOffset)
+
+    return () => {
+      observer.disconnect()
+      window.removeEventListener("resize", updateOffset)
+    }
+  }, [pricingSchemas, universalFilters, universalCombinatoric, dataResponse])
+
   // Small dev debug: counts and sample rows to help diagnose missing competitor data
   const devDebug = useMemo(() => {
     try {
@@ -660,7 +685,7 @@ export default function PipelinesPage() {
       <div className="overflow-x-auto">
         <div className="flex items-start">
           <section className="w-full shrink-0 pr-6 space-y-4">
-            <div data-section="universal-filters">
+            <div data-section="universal-filters" ref={universalFiltersSectionRef}>
               <UniversalPipelineFilters
                 rows={dataResponse?.data ?? []}
                 pricingSchemas={pricingSchemas}
@@ -812,6 +837,7 @@ export default function PipelinesPage() {
           </section>
 
           <aside className="w-full shrink-0 pl-6 space-y-4 self-start">
+              <div aria-hidden="true" style={{ height: effectPricingOffset }} />
               <SectionLabel
                 text="Effect Pricing"
                 right={<FileSpreadsheet className="h-4 w-4 text-muted-foreground" />}
