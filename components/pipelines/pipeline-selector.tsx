@@ -84,13 +84,13 @@ export function PipelineSelector({
     }
   }, []);
 
-  // Normalize pipeline for UI: prefer top-level filters, with legacy fallback.
+  // Normalize pipeline for UI: use root-level filters only.
   const normalizePipelineForUi = useCallback((
     pipeline: Pipeline,
     extra?: LocalPipelineExtra
   ): Pipeline => {
     const mergedFilters = {
-      ...(((pipeline.filters ?? pipeline.settings?.universal_filters) as Record<string, string[]> | undefined) ?? {}),
+      ...((pipeline.filters as Record<string, string[]> | undefined) ?? {}),
       ...(extra?.filters ?? {}),
     };
     return {
@@ -131,7 +131,7 @@ export function PipelineSelector({
     const pipeline = pipelines.find((p: Pipeline) => p.id === pipelineId);
     if (pipeline) {
       setSelectedPipelineId(pipelineId);
-      onLoadPipeline(pipeline.filters ?? (pipeline.settings?.universal_filters as Record<string, string[]> | undefined) ?? Object.create(null));
+      onLoadPipeline(pipeline.filters ?? Object.create(null));
       onPipelineChange?.(pipeline);
     }
   };
