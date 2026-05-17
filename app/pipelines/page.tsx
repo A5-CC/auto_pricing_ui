@@ -28,7 +28,7 @@ import type {
   PricingSchemas,
   PricingSnapshot,
 } from "@/lib/api/types";
-import { Calculator, Clock, FileSpreadsheet, Plus, TrendingDown } from "lucide-react";
+import { Calculator, Clock, Plus, TrendingDown } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { UniversalPipelineFilters } from "../pipelines/components/universal-pipeline-filters";
@@ -876,7 +876,6 @@ export default function PipelinesPage() {
           <aside className="w-full shrink-0 pl-6 space-y-4 self-start">
               <SectionLabel
                 text="Effect Pricing"
-                right={<FileSpreadsheet className="h-4 w-4 text-muted-foreground" />}
               />
               <ProcessCsvButton {...processCsvProps} inline />
           </aside>
