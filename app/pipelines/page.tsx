@@ -126,9 +126,6 @@ export default function PipelinesPage() {
     Record<string, ColumnStatistics>
   >({});
   const activeLoadRef = useRef(0)
-  const horizontalPagesRef = useRef<HTMLDivElement | null>(null)
-  const priceCalculationSectionRef = useRef<HTMLDivElement | null>(null)
-  const [effectPricingOffset, setEffectPricingOffset] = useState(0)
 
   // Mirror /pricing: keep an unfiltered snapshot in memory and filter client-side.
   const baseRows = useMemo(() => dataResponse?.data ?? [], [dataResponse]);
@@ -554,33 +551,6 @@ export default function PipelinesPage() {
     setRoundingOffsetInput(String(roundingOffset))
   }, [roundingOffset])
 
-  useEffect(() => {
-    const container = horizontalPagesRef.current
-    const priceCalculationSection = priceCalculationSectionRef.current
-    if (!container || !priceCalculationSection) return
-
-    const updateOffset = () => {
-      const containerTop = container.getBoundingClientRect().top
-      const priceCalculationTop = priceCalculationSection.getBoundingClientRect().top
-      setEffectPricingOffset(Math.max(0, priceCalculationTop - containerTop))
-    }
-
-    updateOffset()
-
-    const observer = new ResizeObserver(() => {
-      updateOffset()
-    })
-
-    observer.observe(container)
-    observer.observe(priceCalculationSection)
-    window.addEventListener("resize", updateOffset)
-
-    return () => {
-      observer.disconnect()
-      window.removeEventListener("resize", updateOffset)
-    }
-  }, [pricingSchemas, universalFilters, universalCombinatoric, dataResponse, isDev, loading, canAddAdjusters, canAddNonCompetitiveAdjusters, pipelineNeedsBase])
-
   // Small dev debug: counts and sample rows to help diagnose missing competitor data
   const devDebug = useMemo(() => {
     try {
@@ -688,7 +658,7 @@ export default function PipelinesPage() {
 
       {/* Universal Filters Section - marked for chatbot navigation */}
       <div className="overflow-x-auto">
-        <div className="flex items-start" ref={horizontalPagesRef}>
+        <div className="flex items-start">
           <section className="w-full shrink-0 pr-6 space-y-4">
             <div data-section="universal-filters">
               <UniversalPipelineFilters
@@ -702,7 +672,7 @@ export default function PipelinesPage() {
             </div>
 
             {/* Price Calculation Section - marked for chatbot navigation */}
-            <div data-section="price-calculation" className="space-y-4" ref={priceCalculationSectionRef}>
+            <div data-section="price-calculation" className="space-y-4">
               <SectionLabel
                 text="Price Calculation"
                 right={
@@ -842,7 +812,6 @@ export default function PipelinesPage() {
           </section>
 
           <aside className="w-full shrink-0 pl-6 space-y-4 self-start">
-              <div aria-hidden="true" style={{ height: effectPricingOffset }} />
               <SectionLabel
                 text="Effect Pricing"
                 right={<FileSpreadsheet className="h-4 w-4 text-muted-foreground" />}
