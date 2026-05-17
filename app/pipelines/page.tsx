@@ -28,7 +28,7 @@ import type {
   PricingSchemas,
   PricingSnapshot,
 } from "@/lib/api/types";
-import { Calculator, Clock, Plus, TrendingDown, FileSpreadsheet } from "lucide-react";
+import { Calculator, Clock, FileSpreadsheet, Plus, TrendingDown } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { UniversalPipelineFilters } from "../pipelines/components/universal-pipeline-filters";
