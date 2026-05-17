@@ -125,7 +125,7 @@ export function AddCompetitiveAdjusterDialog({
           </div>
 
           <div className="space-y-2">
-            <Label>Add/Subtract amount</Label>
+            <Label>Offset</Label>
             <Input
               type="number"
               step="0.01"
@@ -135,7 +135,7 @@ export function AddCompetitiveAdjusterDialog({
               className="focus:ring-blue-500"
             />
             <p className="text-xs text-muted-foreground">
-              Use positive to add (e.g. 5) or negative to subtract (e.g. -1).
+              Positive adds, negative subtracts.
             </p>
           </div>
         </div>
