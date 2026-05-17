@@ -2,9 +2,8 @@
 type ParsedCsv = {
   headers: string[];
   rows: string[][];
+
 }
-
-
 "use client"
 
 import { AddFunctionAdjusterDialog } from "@/components/pipelines/adjusters/add-function-adjuster-dialog";
