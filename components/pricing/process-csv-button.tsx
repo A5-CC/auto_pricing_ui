@@ -34,6 +34,7 @@ import { AddFunctionAdjusterDialog } from "@/components/pipelines/adjusters/add-
 import { useAdjusterDialog } from "@/components/pipelines/adjusters/use-adjuster-dialog";
 import type { CalculatedPriceRow } from "@/components/pipelines/calculated-price";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -43,7 +44,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
