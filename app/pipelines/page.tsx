@@ -680,7 +680,7 @@ export default function PipelinesPage() {
       />
 
       {/* Universal Filters Section - marked for chatbot navigation */}
-      <div className="overflow-x-auto">
+      <div className="mt-4 overflow-x-auto">
         <div className="flex items-start">
           <section className="w-full shrink-0 pr-6 space-y-4">
             <div data-section="universal-filters">
