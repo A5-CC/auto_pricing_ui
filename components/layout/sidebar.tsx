@@ -12,7 +12,6 @@ import {
     LogOut,
     MapPin,
     Menu,
-    MessageCircle,
     PlayCircle,
     Settings,
     TrendingUp,
@@ -40,7 +39,7 @@ const MENU_SECTIONS: MenuSection[] = [
     title: 'PRICING',
     collapsible: false,
     items: [
-      { label: 'Chat Assistant', href: '/', icon: <MessageCircle className="h-4 w-4" /> },
+      // { label: 'Chat Assistant', href: '/', icon: <MessageCircle className="h-4 w-4" /> },
       { label: 'Pipeline Bundles', href: '/pipeline-bundles', icon: <Zap className="h-4 w-4 rotate-45" /> },
       { label: 'Pipelines', href: '/pipelines', icon: <Zap className="h-4 w-4" /> },
       { label: 'Competitor Pricing', href: '/pricing', icon: <TrendingUp className="h-4 w-4" /> },
