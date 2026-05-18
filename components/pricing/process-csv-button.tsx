@@ -151,7 +151,6 @@ const CURRENT_STANDARD_RATE_COLUMNS = new Set(["currentstandardrate"])
 const FACILITY_NAME_COLUMNS = new Set(["facilityname"])
 const UNIT_SIZE_COLUMNS = new Set(["size", "unitsize", "unitdimensions"])
 const AREA_COLUMNS = new Set(["area", "unitarea", "sqft", "squarefeet"])
-const UNIT_TYPE_COLUMNS = new Set(["unittype", "unittypecode", "unittypecategory"])
 const UNIT_AMENITIES_COLUMNS = new Set(["unitamenities", "amenities", "unit_amenities"])
 const LOCATION_COLUMNS = new Set(["facilityname"])
 const NEW_WEB_RATE_COLUMNS = new Set(["newwebrate", "newrentrate"])
@@ -179,6 +178,9 @@ function isReviewableRateColumn(columnName: string): boolean {
   return REVIEWABLE_RATE_COLUMNS.has(normalizeColumnKey(columnName))
 }
 
+// =========================
+// Mapping helpers (CSV <-> pipeline keys)
+// =========================
 function findColumnIndex(headers: string[], candidates: Set<string>): number {
   return headers.findIndex((header) => candidates.has(normalizeColumnKey(header)))
 }
@@ -247,6 +249,38 @@ function parseAreaTokenValue(areaToken: string): number | null {
   return Number.isFinite(n) ? n : null
 }
 
+function isTruthyFlag(value: unknown): boolean {
+  if (typeof value === "boolean") return value
+  const normalized = normalizeMatchValue(value)
+  return ["true", "yes", "y", "1"].includes(normalized)
+}
+
+function hasClimateControlledAmenity(value: unknown): boolean {
+  const normalized = normalizeMatchValue(value)
+  if (!normalized) return false
+  return (
+    normalized.includes("climate-controlled") ||
+    normalized.includes("climate controlled") ||
+    normalized.includes("climatecontrolled")
+  )
+}
+
+function hasElevatorAccessAmenity(value: unknown): boolean {
+  const normalized = normalizeMatchValue(value)
+  if (!normalized) return false
+  return (
+    normalized.includes("elevator access") ||
+    normalized.includes("elevator-access") ||
+    normalized.includes("elevatoraccess")
+  )
+}
+
+function hasFirstFloorAmenity(value: unknown): boolean {
+  const normalized = normalizeMatchValue(value)
+  if (!normalized) return false
+  return normalized.includes("1st floor") || normalized.includes("first floor")
+}
+
 function normalizeDriveUpAccessValue(value: unknown): "true" | "false" | "" {
   if (typeof value === "boolean") return value ? "true" : "false"
 
@@ -261,6 +295,60 @@ function normalizeDriveUpAccessValue(value: unknown): "true" | "false" | "" {
   if (["false", "no", "n", "0"].includes(normalized)) return "false"
 
   return "false"
+}
+
+function buildAmenityToken(parts: string[]): string {
+  const uniq = Array.from(new Set(parts.filter(Boolean))).sort()
+  return uniq.join("|")
+}
+
+function buildCalculatedAmenityRequirementToken(comboMap: Record<string, unknown>): string {
+  const requiredParts: string[] = []
+  if (normalizeDriveUpAccessValue(comboMap.has_drive_up_access) === "true") requiredParts.push("drive-up")
+  if (isTruthyFlag(comboMap.is_climate_controlled)) requiredParts.push("climate-controlled")
+  if (isTruthyFlag(comboMap.has_elevator_access)) requiredParts.push("elevator-access")
+  if (hasFirstFloorAmenity(comboMap.storage_level_description)) requiredParts.push("1st-floor")
+  return buildAmenityToken(requiredParts)
+}
+
+function buildCsvAmenityTokenSubsets(value: unknown): string[] {
+  const presentParts: string[] = []
+  if (normalizeDriveUpAccessValue(value) === "true") presentParts.push("drive-up")
+  if (hasClimateControlledAmenity(value)) presentParts.push("climate-controlled")
+  if (hasElevatorAccessAmenity(value)) presentParts.push("elevator-access")
+  if (hasFirstFloorAmenity(value)) presentParts.push("1st-floor")
+
+  const uniq = Array.from(new Set(presentParts)).sort()
+  const subsets: string[] = [""]
+  const total = 1 << uniq.length
+  for (let mask = 1; mask < total; mask++) {
+    const subset: string[] = []
+    for (let i = 0; i < uniq.length; i++) {
+      if (mask & (1 << i)) subset.push(uniq[i])
+    }
+    subsets.push(buildAmenityToken(subset))
+  }
+
+  subsets.sort((a, b) => {
+    const aLen = a ? a.split("|").length : 0
+    const bLen = b ? b.split("|").length : 0
+    return bLen - aLen
+  })
+  return Array.from(new Set(subsets))
+}
+
+function findLookupByAmenitySubsets(
+  map: Map<string, { price: number; calculatedRowIndex: number }>,
+  place: string,
+  dimensionOrAreaToken: string,
+  amenitySubsets: string[]
+): { price: number; calculatedRowIndex: number } | undefined {
+  for (const subset of amenitySubsets) {
+    const key = buildPriceLookupKey(place, dimensionOrAreaToken, subset || undefined)
+    const match = map.get(key)
+    if (match) return match
+  }
+  return undefined
 }
 
 function buildPriceLookupKey(location: string, dimension: string, driveUpAccess?: string): string {
@@ -650,6 +738,9 @@ function buildReviewRows(
   return Array.from(byRow.values()).sort((a, b) => a.rowIndex - b.rowIndex)
 }
 
+// =========================
+// Core mapping engine (calculated rows -> uploaded CSV)
+// =========================
 function applyCalculatedPricesToCsv(
   original: ParsedCsv,
   calculatedRows: CalculatedPriceRow[],
@@ -691,7 +782,6 @@ function applyCalculatedPricesToCsv(
   const locationIndex = findColumnIndex(headers, LOCATION_COLUMNS)
   const unitSizeIndex = findColumnIndex(headers, UNIT_SIZE_COLUMNS)
   const areaIndex = findColumnIndex(headers, AREA_COLUMNS)
-  const unitTypeIndex = findColumnIndex(headers, UNIT_TYPE_COLUMNS)
   const unitAmenitiesIndex = findColumnIndex(headers, UNIT_AMENITIES_COLUMNS)
   let newWebRateIndex = findColumnIndex(headers, NEW_WEB_RATE_COLUMNS)
   let newStandardRateIndex = findColumnIndex(headers, NEW_STANDARD_RATE_COLUMNS)
@@ -746,7 +836,7 @@ function applyCalculatedPricesToCsv(
   const traceByCsvRowIndex: Record<number, number> = {}
   let hasUnitAreaRows = false
 
-  const areaBucketKey = (place: string, driveUpAccess: string) => `${place}__${driveUpAccess || ""}`
+  const areaBucketKey = (place: string) => place
   const setLookupIfMissing = (
     map: Map<string, { price: number; calculatedRowIndex: number }>,
     key: string,
@@ -755,9 +845,9 @@ function applyCalculatedPricesToCsv(
     if (!map.has(key)) map.set(key, value)
   }
 
-  const addAreaCandidate = (bucket: string, area: number, price: number, calculatedRowIndex: number) => {
+  const addAreaCandidate = (bucket: string, area: number, price: number, calculatedRowIndex: number, amenityRequirementToken: string) => {
     const next = areaLookup.get(bucket) ?? []
-    next.push({ area, price, calculatedRowIndex })
+    next.push({ area, price, calculatedRowIndex, amenityRequirementToken } as { area: number; price: number; calculatedRowIndex: number; amenityRequirementToken: string })
     areaLookup.set(bucket, next)
   }
 
@@ -777,38 +867,34 @@ function applyCalculatedPricesToCsv(
     const dimensionToken = getDimensionLookupToken(calculatedRow.comboMap.unit_dimensions)
     const areaToken = getAreaLookupToken(calculatedRow.comboMap.unit_area)
     if (areaToken) hasUnitAreaRows = true
-    const driveUpAccess = normalizeDriveUpAccessValue(calculatedRow.comboMap.has_drive_up_access)
+    const amenityRequirementToken = buildCalculatedAmenityRequirementToken(calculatedRow.comboMap as Record<string, unknown>)
     if (!location || (!dimensionToken && !areaToken)) continue
     const webPrice = applyConfiguredRounding(calculatedRow.price, webRounding)
     const price = webPrice
     const pricedRow = { price, calculatedRowIndex }
     if (dimensionToken) {
-      setLookupIfMissing(priceLookup, buildPriceLookupKey(location, dimensionToken, driveUpAccess), pricedRow)
-      if (locationKey) setLookupIfMissing(priceLookup, buildPriceLookupKey(locationKey, dimensionToken, driveUpAccess), pricedRow)
-      if (city) setLookupIfMissing(cityPriceLookup, buildPriceLookupKey(city, dimensionToken, driveUpAccess), pricedRow)
-      if (cityKey) setLookupIfMissing(cityPriceLookup, buildPriceLookupKey(cityKey, dimensionToken, driveUpAccess), pricedRow)
+      setLookupIfMissing(priceLookup, buildPriceLookupKey(location, dimensionToken, amenityRequirementToken || undefined), pricedRow)
+      if (locationKey) setLookupIfMissing(priceLookup, buildPriceLookupKey(locationKey, dimensionToken, amenityRequirementToken || undefined), pricedRow)
+      if (city) setLookupIfMissing(cityPriceLookup, buildPriceLookupKey(city, dimensionToken, amenityRequirementToken || undefined), pricedRow)
+      if (cityKey) setLookupIfMissing(cityPriceLookup, buildPriceLookupKey(cityKey, dimensionToken, amenityRequirementToken || undefined), pricedRow)
     }
     if (areaToken) {
-      setLookupIfMissing(priceLookup, buildPriceLookupKey(location, areaToken, driveUpAccess), pricedRow)
-      if (locationKey) setLookupIfMissing(priceLookup, buildPriceLookupKey(locationKey, areaToken, driveUpAccess), pricedRow)
-      if (city) setLookupIfMissing(cityPriceLookup, buildPriceLookupKey(city, areaToken, driveUpAccess), pricedRow)
-      if (cityKey) setLookupIfMissing(cityPriceLookup, buildPriceLookupKey(cityKey, areaToken, driveUpAccess), pricedRow)
+      setLookupIfMissing(priceLookup, buildPriceLookupKey(location, areaToken, amenityRequirementToken || undefined), pricedRow)
+      if (locationKey) setLookupIfMissing(priceLookup, buildPriceLookupKey(locationKey, areaToken, amenityRequirementToken || undefined), pricedRow)
+      if (city) setLookupIfMissing(cityPriceLookup, buildPriceLookupKey(city, areaToken, amenityRequirementToken || undefined), pricedRow)
+      if (cityKey) setLookupIfMissing(cityPriceLookup, buildPriceLookupKey(cityKey, areaToken, amenityRequirementToken || undefined), pricedRow)
 
       const parsedArea = parseAreaTokenValue(areaToken)
       if (parsedArea !== null) {
-        addAreaCandidate(areaBucketKey(location, driveUpAccess), parsedArea, price, calculatedRowIndex)
-        addAreaCandidate(areaBucketKey(location, ""), parsedArea, price, calculatedRowIndex)
+        addAreaCandidate(areaBucketKey(location), parsedArea, price, calculatedRowIndex, amenityRequirementToken)
         if (locationKey) {
-          addAreaCandidate(areaBucketKey(locationKey, driveUpAccess), parsedArea, price, calculatedRowIndex)
-          addAreaCandidate(areaBucketKey(locationKey, ""), parsedArea, price, calculatedRowIndex)
+          addAreaCandidate(areaBucketKey(locationKey), parsedArea, price, calculatedRowIndex, amenityRequirementToken)
         }
         if (city) {
-          addAreaCandidate(areaBucketKey(city, driveUpAccess), parsedArea, price, calculatedRowIndex)
-          addAreaCandidate(areaBucketKey(city, ""), parsedArea, price, calculatedRowIndex)
+          addAreaCandidate(areaBucketKey(city), parsedArea, price, calculatedRowIndex, amenityRequirementToken)
         }
         if (cityKey) {
-          addAreaCandidate(areaBucketKey(cityKey, driveUpAccess), parsedArea, price, calculatedRowIndex)
-          addAreaCandidate(areaBucketKey(cityKey, ""), parsedArea, price, calculatedRowIndex)
+          addAreaCandidate(areaBucketKey(cityKey), parsedArea, price, calculatedRowIndex, amenityRequirementToken)
         }
       }
     }
@@ -828,27 +914,21 @@ function applyCalculatedPricesToCsv(
     const cityKey = normalizeLocationKey(city)
     const dimensionToken = unitSizeIndex >= 0 ? getDimensionLookupToken(getCellValue(row, unitSizeIndex)) : ""
     const areaToken = areaIndex >= 0 ? getAreaLookupToken(getCellValue(row, areaIndex)) : ""
-    const driveUpAccess = unitTypeIndex >= 0 ? normalizeDriveUpAccessValue(getCellValue(row, unitTypeIndex)) : ""
+    const amenitySubsets = unitAmenitiesIndex >= 0
+      ? buildCsvAmenityTokenSubsets(getCellValue(row, unitAmenitiesIndex))
+      : [""]
     let matchedAreaValue = ""
     const allowDimensionMatching = !hasUnitAreaRows
 
     let mappedMatch =
-      (areaToken && driveUpAccess ? priceLookup.get(buildPriceLookupKey(location, areaToken, driveUpAccess)) : undefined) ??
-      (areaToken ? priceLookup.get(buildPriceLookupKey(location, areaToken)) : undefined) ??
-      (areaToken && driveUpAccess && locationKey ? priceLookup.get(buildPriceLookupKey(locationKey, areaToken, driveUpAccess)) : undefined) ??
-      (areaToken && locationKey ? priceLookup.get(buildPriceLookupKey(locationKey, areaToken)) : undefined) ??
-      (areaToken && driveUpAccess && city ? cityPriceLookup.get(buildPriceLookupKey(city, areaToken, driveUpAccess)) : undefined) ??
-      (areaToken && city ? cityPriceLookup.get(buildPriceLookupKey(city, areaToken)) : undefined) ??
-      (areaToken && driveUpAccess && cityKey ? cityPriceLookup.get(buildPriceLookupKey(cityKey, areaToken, driveUpAccess)) : undefined) ??
-      (areaToken && cityKey ? cityPriceLookup.get(buildPriceLookupKey(cityKey, areaToken)) : undefined) ??
-      (allowDimensionMatching && dimensionToken && driveUpAccess ? priceLookup.get(buildPriceLookupKey(location, dimensionToken, driveUpAccess)) : undefined) ??
-      (allowDimensionMatching && dimensionToken ? priceLookup.get(buildPriceLookupKey(location, dimensionToken)) : undefined) ??
-      (allowDimensionMatching && dimensionToken && driveUpAccess && locationKey ? priceLookup.get(buildPriceLookupKey(locationKey, dimensionToken, driveUpAccess)) : undefined) ??
-      (allowDimensionMatching && dimensionToken && locationKey ? priceLookup.get(buildPriceLookupKey(locationKey, dimensionToken)) : undefined) ??
-      (allowDimensionMatching && dimensionToken && driveUpAccess && city ? cityPriceLookup.get(buildPriceLookupKey(city, dimensionToken, driveUpAccess)) : undefined) ??
-      (allowDimensionMatching && dimensionToken && city ? cityPriceLookup.get(buildPriceLookupKey(city, dimensionToken)) : undefined)
-      ?? (allowDimensionMatching && dimensionToken && driveUpAccess && cityKey ? cityPriceLookup.get(buildPriceLookupKey(cityKey, dimensionToken, driveUpAccess)) : undefined)
-      ?? (allowDimensionMatching && dimensionToken && cityKey ? cityPriceLookup.get(buildPriceLookupKey(cityKey, dimensionToken)) : undefined)
+      (areaToken ? findLookupByAmenitySubsets(priceLookup, location, areaToken, amenitySubsets) : undefined) ??
+      (areaToken && locationKey ? findLookupByAmenitySubsets(priceLookup, locationKey, areaToken, amenitySubsets) : undefined) ??
+      (areaToken && city ? findLookupByAmenitySubsets(cityPriceLookup, city, areaToken, amenitySubsets) : undefined) ??
+      (areaToken && cityKey ? findLookupByAmenitySubsets(cityPriceLookup, cityKey, areaToken, amenitySubsets) : undefined) ??
+      (allowDimensionMatching && dimensionToken ? findLookupByAmenitySubsets(priceLookup, location, dimensionToken, amenitySubsets) : undefined) ??
+      (allowDimensionMatching && dimensionToken && locationKey ? findLookupByAmenitySubsets(priceLookup, locationKey, dimensionToken, amenitySubsets) : undefined) ??
+      (allowDimensionMatching && dimensionToken && city ? findLookupByAmenitySubsets(cityPriceLookup, city, dimensionToken, amenitySubsets) : undefined)
+      ?? (allowDimensionMatching && dimensionToken && cityKey ? findLookupByAmenitySubsets(cityPriceLookup, cityKey, dimensionToken, amenitySubsets) : undefined)
 
     if (mappedMatch !== undefined && areaToken) {
       matchedAreaValue = areaToken.replace(/^area:/, "")
@@ -858,17 +938,16 @@ function applyCalculatedPricesToCsv(
       const targetArea = parseAreaTokenValue(areaToken)
       if (targetArea !== null) {
         const candidateBuckets = [
-          areaBucketKey(location, driveUpAccess),
-          areaBucketKey(location, ""),
-          areaBucketKey(city, driveUpAccess),
-          areaBucketKey(city, ""),
+          areaBucketKey(location),
+          areaBucketKey(city),
         ]
 
         let best: { area: number; price: number; delta: number; calculatedRowIndex: number } | null = null
         for (const bucket of candidateBuckets) {
           if (!bucket.startsWith("__")) {
-            const candidates = areaLookup.get(bucket) ?? []
+            const candidates = (areaLookup.get(bucket) ?? []) as Array<{ area: number; price: number; delta?: number; calculatedRowIndex: number; amenityRequirementToken?: string }>
             for (const c of candidates) {
+              if (!amenitySubsets.includes(c.amenityRequirementToken ?? "")) continue
               const delta = Math.abs(c.area - targetArea)
               if (delta > 3) continue
               if (!best || delta < best.delta) {
@@ -981,12 +1060,12 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
         const location = normalizeMatchValue(row.comboMap.client_location)
         const dimensionToken = getDimensionLookupToken(row.comboMap.unit_dimensions)
         const areaToken = getAreaLookupToken(row.comboMap.unit_area)
-        const driveUpAccess = normalizeDriveUpAccessValue(row.comboMap.has_drive_up_access)
+        const amenityRequirementToken = buildCalculatedAmenityRequirementToken(row.comboMap as Record<string, unknown>)
 
         const keyToken = areaToken || dimensionToken
         if (!location || !keyToken) continue
 
-        const key = buildPriceLookupKey(location, keyToken, driveUpAccess)
+        const key = buildPriceLookupKey(location, keyToken, amenityRequirementToken || undefined)
         const existingOwner = ownerByKey.get(key)
         if (existingOwner && existingOwner !== pipelineName) {
           return {
@@ -1149,7 +1228,7 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
   // - unit_dimensions: "Unit Dimensions"
   // - client_location: "Facility Location"
   // - competitor_name: "Competitor Name"
-  // - has_drive_up_access: optional drive-up match via CSV Unit Type
+  // - has_drive_up_access: optional match via CSV Unit Amenities
   // All other filters must be empty.
 
   const allowedKeys = new Set(["unit_dimensions", "client_location", "competitor_name", "has_drive_up_access"]);
@@ -1922,7 +2001,7 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
                       <br />
                       Uses the currently displayed pipeline price table in the browser.
                       <br />
-                      Drive-up matching uses CSV &apos;Unit Type&apos; when present.
+                      has_drive_up_access matching uses CSV &apos;Unit Amenities&apos; text (Drive Up) when present.
                       <br />
                       Ensure columns: &apos;Facility Name&apos;, &apos;Size&apos;, &apos;Current Web Rate&apos;, &apos;Current Standard Rate&apos;, &apos;New Web Rate&apos;, &apos;New Standard Rate&apos;.
                     </span>
@@ -2543,7 +2622,7 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
             <strong> client_location</strong> and <strong>unit_dimensions</strong> or <strong>unit_area</strong>.
             <br />
             For <strong>unit_area</strong>, CSV matching uses the <strong>Area</strong> column directly.
-            Optional combinatoric <strong>has_drive_up_access</strong> maps from CSV Unit Type.
+            Optional combinatoric <strong>has_drive_up_access</strong> maps from CSV Unit Amenities (Drive Up).
           </div>
         </TooltipContent>
       </Tooltip>
