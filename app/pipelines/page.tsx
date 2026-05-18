@@ -686,7 +686,7 @@ export default function PipelinesPage() {
               <div className="rounded-lg border bg-muted/30 p-3 space-y-3">
                 <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-2 sm:gap-3">
                   <Button type="button" variant="outline" size="sm">
-                    Rounding (All)
+                    Rounding (Web Rate)
                   </Button>
                   <div className="flex items-center gap-2">
                     <Checkbox

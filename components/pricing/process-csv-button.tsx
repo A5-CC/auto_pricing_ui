@@ -680,7 +680,10 @@ function applyCalculatedPricesToCsv(
         enabled: true,
         offset: Number.isFinite(rounding.standard.offset) ? rounding.standard.offset : 0,
       }
-    : webRounding
+    : {
+        enabled: false,
+        offset: 0,
+      }
 
   const headers = [...original.headers]
   const rows = original.rows.map((row) => [...row])
@@ -937,13 +940,13 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
   const [standardRateOpen, setStandardRateOpen] = useState(false)
   const [standardRateFunction, setStandardRateFunction] = useState(DEFAULT_STANDARD_RATE_FUNCTION)
   const [standardRateRoundingEnabled, setStandardRateRoundingEnabled] = useState(
-    Boolean(rounding?.standard?.enabled ?? rounding?.enabled ?? false)
+    Boolean(rounding?.standard?.enabled ?? false)
   )
   const [standardRateRoundingOffset, setStandardRateRoundingOffset] = useState(
-    Number(rounding?.standard?.offset ?? rounding?.offset ?? 0)
+    Number(rounding?.standard?.offset ?? 0)
   )
   const [standardRateRoundingOffsetInput, setStandardRateRoundingOffsetInput] = useState(
-    String(Number(rounding?.standard?.offset ?? rounding?.offset ?? 0))
+    String(Number(rounding?.standard?.offset ?? 0))
   )
   const [standardRateZoomX, setStandardRateZoomX] = useState(1)
   const [standardRateZoomY, setStandardRateZoomY] = useState(1)
@@ -1019,8 +1022,8 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
   }, [amenityAdjuster]);
 
   useEffect(() => {
-    const nextEnabled = Boolean(rounding?.standard?.enabled ?? rounding?.enabled ?? false)
-    const rawOffset = Number(rounding?.standard?.offset ?? rounding?.offset ?? 0)
+    const nextEnabled = Boolean(rounding?.standard?.enabled ?? false)
+    const rawOffset = Number(rounding?.standard?.offset ?? 0)
     const nextOffset = Number.isFinite(rawOffset) ? rawOffset : 0
     setStandardRateRoundingEnabled(nextEnabled)
     setStandardRateRoundingOffset(nextOffset)
@@ -1749,7 +1752,6 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
                                 className={`h-3 w-3 rounded-full border ${traceSelections[row.id] ? "bg-blue-600 border-blue-600" : "bg-transparent border-muted-foreground/60"}`}
                               />
                             </button>
-                            <span className={`h-0.5 w-10 ${traceSelections[row.id] ? "bg-blue-600" : "bg-muted-foreground/40"}`} />
                             {row.traceTargetId ? (
                               <button
                                 type="button"
@@ -2340,7 +2342,6 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
                                 className={`h-3 w-3 rounded-full border ${traceSelections[row.id] ? "bg-blue-600 border-blue-600" : "bg-transparent border-muted-foreground/60"}`}
                               />
                             </button>
-                            <span className={`h-0.5 w-10 ${traceSelections[row.id] ? "bg-blue-600" : "bg-muted-foreground/40"}`} />
                             {row.traceTargetId ? (
                               <button
                                 type="button"
