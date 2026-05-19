@@ -1,11 +1,11 @@
 import type { Adjuster } from '@/lib/adjusters'
 import {
-    ColumnStatistics,
-    FacilityPricingData,
-    PricingDataResponse,
-    PricingSchemas,
-    PricingSnapshot,
-    SchemaStats
+  ColumnStatistics,
+  FacilityPricingData,
+  PricingDataResponse,
+  PricingSchemas,
+  PricingSnapshot,
+  SchemaStats
 } from '@/lib/api/types'
 import { cachedFetch } from '../cache'
 import { API_BASE_URL, fetchWithError } from './shared'
