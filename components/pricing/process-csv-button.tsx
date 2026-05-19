@@ -49,6 +49,7 @@ import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { Adjuster } from '@/lib/adjusters';
 import { evaluateSafeFunction } from "@/lib/adjusters";
+import { saveProcessCsvConfiguration } from "@/lib/api/client/pricing";
 import type { E1DataRow } from "@/lib/api/types";
 import { FileSpreadsheet, Info, Loader2, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
@@ -1007,7 +1008,7 @@ function applyCalculatedPricesToCsv(
   return { headers, rows, traceByCsvRowIndex }
 }
 
-export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsBundle, rounding, pricingContext, inline = false }: ProcessCsvButtonProps) {
+export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], calculatedRowsBundle, rounding, pricingContext, inline = false }: ProcessCsvButtonProps) {
   const [open, setOpen] = useState(false)
   const [file, setFile] = useState<File | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
@@ -1016,6 +1017,7 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
   const [traceSelections, setTraceSelections] = useState<Record<string, boolean>>({})
   const [popupAdjusters, setPopupAdjusters] = useState<Adjuster[]>([])
   const [showLevels, setShowLevels] = useState(false)
+  const [isSavingProcessConfig, setIsSavingProcessConfig] = useState(false)
   const [standardRateOpen, setStandardRateOpen] = useState(false)
   const [standardRateFunction, setStandardRateFunction] = useState(DEFAULT_STANDARD_RATE_FUNCTION)
   const [standardRateRoundingEnabled, setStandardRateRoundingEnabled] = useState(
@@ -1454,6 +1456,44 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
     standardRateDragRef.current = null
   }
 
+  const handleSaveProcessCsvConfig = async () => {
+    const defaultName = `process-csv-${new Date().toISOString().slice(0, 19).replace(/[T:]/g, "-")}`
+    const inputName = window.prompt("Name this Process CSV configuration", defaultName)
+    const name = inputName?.trim()
+    if (!name) return
+
+    setIsSavingProcessConfig(true)
+    try {
+      const standardOffsetRaw = Number(standardRateRoundingOffset)
+      const standardOffset = Number.isFinite(standardOffsetRaw)
+        ? Math.min(1, Math.max(0, standardOffsetRaw))
+        : 0
+
+      await saveProcessCsvConfiguration({
+        name,
+        snapshot_id: snapshotId,
+        standard_rate_formula: standardRateFunction,
+        standard_rate_rounding: {
+          enabled: standardRateRoundingEnabled,
+          offset: standardOffset,
+        },
+        competitive_adjusters: popupAdjusters,
+        levels_adjuster: {
+          apply_to_web: Boolean(resolvedAmenityAdjuster.applyToWeb),
+          premium: resolvedAmenityAdjuster.premium,
+          standard: resolvedAmenityAdjuster.standard,
+          economy: resolvedAmenityAdjuster.economy,
+        },
+      })
+
+      toast.success("Process CSV configuration saved.")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to save Process CSV configuration")
+    } finally {
+      setIsSavingProcessConfig(false)
+    }
+  }
+
   const handleProcess = async () => {
     if (!file) return
 
@@ -1741,6 +1781,10 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
               <span className="text-sm font-medium">Adjusters</span>
               <Button type="button" size="sm" variant="outline" onClick={functionDialog.handleOpen}>Competitive</Button>
               <Button type="button" size="sm" variant="outline" onClick={() => setShowLevels(true)}>Levels</Button>
+              <Button type="button" size="sm" variant="outline" onClick={handleSaveProcessCsvConfig} disabled={isSavingProcessConfig}>
+                {isSavingProcessConfig ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
+                Save Config
+              </Button>
             </div>
             <div className="rounded-md border p-3 space-y-2">
               {popupAdjusters.length === 0 ? (
@@ -2303,6 +2347,16 @@ export function ProcessCsvButton({ filters, calculatedRows = [], calculatedRowsB
                 onClick={() => setShowLevels(true)}
               >
                 Levels
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={handleSaveProcessCsvConfig}
+                disabled={isSavingProcessConfig}
+              >
+                {isSavingProcessConfig ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
+                Save Config
               </Button>
             </div>
 

@@ -10,6 +10,23 @@ import {
 import { cachedFetch } from '../cache'
 import { API_BASE_URL, fetchWithError } from './shared'
 
+export interface ProcessCsvConfigurationPayload {
+  name: string
+  snapshot_id: string
+  standard_rate_formula: string
+  standard_rate_rounding: {
+    enabled: boolean
+    offset: number
+  }
+  competitive_adjusters: Adjuster[]
+  levels_adjuster: {
+    apply_to_web: boolean
+    premium?: { multiplier: number; offset: number }
+    standard?: { multiplier: number; offset: number }
+    economy?: { multiplier: number; offset: number }
+  }
+}
+
 export async function getPricingSchemas(): Promise<PricingSchemas> {
   return cachedFetch(
     'pricing-schemas',
@@ -162,4 +179,15 @@ export async function processClientCSV(
   }
 
   return response.blob()
+}
+
+export async function saveProcessCsvConfiguration(
+  payload: ProcessCsvConfigurationPayload
+): Promise<{ success: boolean; id?: string; name?: string }> {
+  const response = await fetchWithError(`${API_BASE_URL}/client-data/process-csv-configurations`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  })
+  return response.json()
 }
