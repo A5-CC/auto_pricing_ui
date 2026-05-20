@@ -31,11 +31,11 @@ type ResolvedAmenityAdjuster = {
 }
 
 import { AddFunctionAdjusterDialog } from "@/components/pipelines/adjusters/add-function-adjuster-dialog";
-import { useAdjusterDialog } from "@/components/pipelines/adjusters/use-adjuster-dialog";
 import { AdjusterCardShell } from "@/components/pipelines/adjusters/adjuster-card-shell";
 import { CompetitiveAdjusterCard } from "@/components/pipelines/adjusters/competitive-adjuster-card";
 import { FunctionAdjusterCard } from "@/components/pipelines/adjusters/function-adjuster-card";
 import { TemporalAdjusterCard } from "@/components/pipelines/adjusters/temporal-adjuster-card";
+import { useAdjusterDialog } from "@/components/pipelines/adjusters/use-adjuster-dialog";
 import type { CalculatedPriceRow } from "@/components/pipelines/calculated-price";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -55,7 +55,7 @@ import type { Adjuster, CompetitivePriceAdjuster, FunctionBasedAdjuster, Tempora
 import { evaluateSafeFunction } from "@/lib/adjusters";
 import { listProcessCsvConfigurations, saveProcessCsvConfiguration, type ProcessCsvConfiguration } from "@/lib/api/client/pricing";
 import type { E1DataRow } from "@/lib/api/types";
-import { FileSpreadsheet, Info, Layers3, Loader2, Trash2 } from "lucide-react";
+import { FileSpreadsheet, Info, Layers3, Loader2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { toast } from "sonner";
 
