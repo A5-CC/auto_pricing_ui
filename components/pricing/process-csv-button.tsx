@@ -32,6 +32,10 @@ type ResolvedAmenityAdjuster = {
 
 import { AddFunctionAdjusterDialog } from "@/components/pipelines/adjusters/add-function-adjuster-dialog";
 import { useAdjusterDialog } from "@/components/pipelines/adjusters/use-adjuster-dialog";
+import { AdjusterCardShell } from "@/components/pipelines/adjusters/adjuster-card-shell";
+import { CompetitiveAdjusterCard } from "@/components/pipelines/adjusters/competitive-adjuster-card";
+import { FunctionAdjusterCard } from "@/components/pipelines/adjusters/function-adjuster-card";
+import { TemporalAdjusterCard } from "@/components/pipelines/adjusters/temporal-adjuster-card";
 import type { CalculatedPriceRow } from "@/components/pipelines/calculated-price";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -47,11 +51,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import type { Adjuster } from '@/lib/adjusters';
+import type { Adjuster, CompetitivePriceAdjuster, FunctionBasedAdjuster, TemporalAdjuster } from '@/lib/adjusters';
 import { evaluateSafeFunction } from "@/lib/adjusters";
 import { listProcessCsvConfigurations, saveProcessCsvConfiguration, type ProcessCsvConfiguration } from "@/lib/api/client/pricing";
 import type { E1DataRow } from "@/lib/api/types";
-import { FileSpreadsheet, Info, Loader2, Trash2 } from "lucide-react";
+import { FileSpreadsheet, Info, Layers3, Loader2, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { toast } from "sonner";
 
@@ -396,47 +400,49 @@ function applyAmenityAdjustment(
   return value * m + add - sub + offset;
 }
 
-function describePopupAdjuster(adjuster: Adjuster): { title: string; lines: string[] } {
-  if (adjuster.type === "competitive") {
-    const sourceColumn = Array.isArray(adjuster.price_columns) && adjuster.price_columns.length > 0
-      ? adjuster.price_columns[0]
-      : "—"
-    const aggregation = adjuster.aggregation || "min"
-    const multiplier = Number.isFinite(adjuster.multiplier) ? adjuster.multiplier : 1
-    const offset = Number.isFinite(adjuster.offset)
-      ? adjuster.offset!
-      : (Number.isFinite(adjuster.add) ? adjuster.add! : 0) - (Number.isFinite(adjuster.subtract) ? adjuster.subtract! : 0)
-    const offsetLabel = offset >= 0 ? `+ $${offset}` : `- $${Math.abs(offset)}`
+function LevelsAdjusterPreviewCard({ amenityAdjuster }: { amenityAdjuster: AmenityAdjusterState }) {
+  const tiers = [
+    { key: "premium", label: "Premium", value: amenityAdjuster.premium },
+    { key: "standard", label: "Standard", value: amenityAdjuster.standard },
+    { key: "economy", label: "Economy", value: amenityAdjuster.economy },
+  ] as const
 
-    return {
-      title: "Competitive adjuster",
-      lines: [
-        `Source column: ${sourceColumn}`,
-        `Aggregation: ${aggregation}`,
-        `Multiplier: × ${multiplier}`,
-        `Offset: ${offsetLabel}`,
-      ],
-    }
+  const formatOffset = (value: string) => {
+    const n = Number(value)
+    if (!Number.isFinite(n)) return "$0"
+    return n >= 0 ? `+ $${n}` : `- $${Math.abs(n)}`
   }
 
-  if (adjuster.type === "function") {
-    return {
-      title: "Function adjuster",
-      lines: [
-        `Function: ${adjuster.function_string}`,
-        `Variable: ${adjuster.variable}`,
-        `Domain: [${adjuster.domain_min}, ${adjuster.domain_max}]`,
-      ],
-    }
-  }
-
-  return {
-    title: "Temporal adjuster",
-    lines: [
-      `Granularity: ${adjuster.granularity}`,
-      `Multipliers: ${adjuster.multipliers.length}`,
-    ],
-  }
+  return (
+    <AdjusterCardShell
+      accentColor="#0f766e"
+      className="border-teal-100/80 bg-white"
+      badge={
+        <div className="inline-flex items-center gap-1.5 rounded-full bg-teal-100/80 px-3 py-1 text-xs font-semibold text-teal-800">
+          <Layers3 className="h-4 w-4" />
+          Levels
+        </div>
+      }
+    >
+      <dl className="space-y-3 text-sm">
+        <div className="flex items-center justify-between gap-3">
+          <dt className="text-muted-foreground">Apply to web</dt>
+          <dd className="font-semibold">{amenityAdjuster.applyToWeb ? "Yes" : "No"}</dd>
+        </div>
+      </dl>
+      <div className="rounded-2xl border border-teal-100/70 bg-teal-50/60 px-3 py-2 -ml-2">
+        <div className="grid grid-cols-3 gap-2 text-center text-xs">
+          {tiers.map((tier) => (
+            <div key={tier.key} className="rounded-xl bg-white/90 px-2 py-2 shadow-sm">
+              <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{tier.label}</div>
+              <div className="mt-1 font-mono text-sm text-foreground">× {tier.value.multiplier || "1"}</div>
+              <div className="mt-0.5 font-mono text-xs text-muted-foreground">{formatOffset(tier.value.offset)}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </AdjusterCardShell>
+  )
 }
 
 function resolveStandardRateValue(webRate: number, functionBody?: string): number {
@@ -1905,31 +1911,45 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                 </Button>
               </div>
             </div>
-            <div className="rounded-md border p-3 space-y-2">
+            <div className="rounded-md border p-3 space-y-3">
               {popupAdjusters.length === 0 ? (
                 <p className="text-xs text-muted-foreground">No competitive adjusters configured.</p>
               ) : (
-                popupAdjusters.map((adj: Adjuster, idx: number) => {
-                  const display = describePopupAdjuster(adj)
-                  return (
-                    <div key={`${adj.type}-${idx}`} className="flex items-center justify-between rounded border px-2 py-1.5 gap-3">
-                      <div className="flex flex-col min-w-0">
-                        <span className="text-xs font-medium">{idx + 1}. {display.title}</span>
-                        <div className="text-xs text-muted-foreground">
-                          {display.lines.map((line, lineIdx) => (
-                            <div key={`${adj.type}-${idx}-line-${lineIdx}`} className="font-mono truncate">
-                              {line}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                      <Button type="button" size="sm" variant="ghost" onClick={() => handleRemovePopupAdjuster(idx)} className="h-7 px-2" aria-label="Remove adjuster">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  )
-                })
+                <ol className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  {popupAdjusters.map((adj: Adjuster, idx: number) => (
+                    <li key={`${adj.type}-${idx}`} className="h-full">
+                      {adj.type === "competitive" ? (
+                        <CompetitiveAdjusterCard
+                          adjuster={adj as CompetitivePriceAdjuster}
+                          stepNumber={idx + 1}
+                          totalSteps={popupAdjusters.length}
+                          onRemove={() => handleRemovePopupAdjuster(idx)}
+                        />
+                      ) : adj.type === "function" ? (
+                        <FunctionAdjusterCard
+                          adjuster={adj as FunctionBasedAdjuster}
+                          stepNumber={idx + 1}
+                          totalSteps={popupAdjusters.length}
+                          onRemove={() => handleRemovePopupAdjuster(idx)}
+                        />
+                      ) : (
+                        <TemporalAdjusterCard
+                          adjuster={adj as TemporalAdjuster}
+                          stepNumber={idx + 1}
+                          totalSteps={popupAdjusters.length}
+                          onRemove={() => handleRemovePopupAdjuster(idx)}
+                        />
+                      )}
+                    </li>
+                  ))}
+                </ol>
               )}
+
+              <ol className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                <li className="h-full">
+                  <LevelsAdjusterPreviewCard amenityAdjuster={amenityAdjuster} />
+                </li>
+              </ol>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <Button type="button" variant="outline" size="sm" onClick={() => setAllApprovals(true)}>Approve all</Button>
@@ -2524,38 +2544,45 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
               </div>
             </div>
 
-            <div className="rounded-md border p-3 space-y-2">
+            <div className="rounded-md border p-3 space-y-3">
               {popupAdjusters.length === 0 ? (
                 <p className="text-xs text-muted-foreground">No competitive adjusters configured.</p>
               ) : (
-                popupAdjusters.map((adj: Adjuster, idx: number) => {
-                  const display = describePopupAdjuster(adj)
-                  return (
-                  <div key={`${adj.type}-${idx}`} className="flex items-center justify-between rounded border px-2 py-1.5 gap-3">
-                    <div className="flex flex-col min-w-0">
-                      <span className="text-xs font-medium">{idx + 1}. {display.title}</span>
-                      <div className="text-xs text-muted-foreground">
-                        {display.lines.map((line, lineIdx) => (
-                          <div key={`${adj.type}-${idx}-line-${lineIdx}`} className="font-mono truncate">
-                            {line}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => handleRemovePopupAdjuster(idx)}
-                      className="h-7 px-2"
-                      aria-label="Remove adjuster"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                  )
-                })
+                <ol className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  {popupAdjusters.map((adj: Adjuster, idx: number) => (
+                    <li key={`${adj.type}-${idx}`} className="h-full">
+                      {adj.type === "competitive" ? (
+                        <CompetitiveAdjusterCard
+                          adjuster={adj as CompetitivePriceAdjuster}
+                          stepNumber={idx + 1}
+                          totalSteps={popupAdjusters.length}
+                          onRemove={() => handleRemovePopupAdjuster(idx)}
+                        />
+                      ) : adj.type === "function" ? (
+                        <FunctionAdjusterCard
+                          adjuster={adj as FunctionBasedAdjuster}
+                          stepNumber={idx + 1}
+                          totalSteps={popupAdjusters.length}
+                          onRemove={() => handleRemovePopupAdjuster(idx)}
+                        />
+                      ) : (
+                        <TemporalAdjusterCard
+                          adjuster={adj as TemporalAdjuster}
+                          stepNumber={idx + 1}
+                          totalSteps={popupAdjusters.length}
+                          onRemove={() => handleRemovePopupAdjuster(idx)}
+                        />
+                      )}
+                    </li>
+                  ))}
+                </ol>
               )}
+
+              <ol className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                <li className="h-full">
+                  <LevelsAdjusterPreviewCard amenityAdjuster={amenityAdjuster} />
+                </li>
+              </ol>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
