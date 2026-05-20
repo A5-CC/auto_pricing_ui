@@ -27,6 +27,12 @@ export interface ProcessCsvConfigurationPayload {
   }
 }
 
+export interface ProcessCsvConfiguration extends ProcessCsvConfigurationPayload {
+  id?: string
+  created_at?: string
+  updated_at?: string
+}
+
 export async function getPricingSchemas(): Promise<PricingSchemas> {
   return cachedFetch(
     'pricing-schemas',
@@ -189,5 +195,13 @@ export async function saveProcessCsvConfiguration(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   })
+  return response.json()
+}
+
+export async function listProcessCsvConfigurations(
+  snapshotId?: string
+): Promise<{ configurations: ProcessCsvConfiguration[] }> {
+  const query = snapshotId ? `?snapshot_id=${encodeURIComponent(snapshotId)}` : ""
+  const response = await fetchWithError(`${API_BASE_URL}/client-data/process-csv-configurations${query}`)
   return response.json()
 }

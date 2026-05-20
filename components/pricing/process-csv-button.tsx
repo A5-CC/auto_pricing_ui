@@ -49,7 +49,7 @@ import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { Adjuster } from '@/lib/adjusters';
 import { evaluateSafeFunction } from "@/lib/adjusters";
-import { saveProcessCsvConfiguration } from "@/lib/api/client/pricing";
+import { listProcessCsvConfigurations, saveProcessCsvConfiguration, type ProcessCsvConfiguration } from "@/lib/api/client/pricing";
 import type { E1DataRow } from "@/lib/api/types";
 import { FileSpreadsheet, Info, Loader2, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
@@ -1018,6 +1018,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
   const [popupAdjusters, setPopupAdjusters] = useState<Adjuster[]>([])
   const [showLevels, setShowLevels] = useState(false)
   const [isSavingProcessConfig, setIsSavingProcessConfig] = useState(false)
+  const [isLoadingProcessConfig, setIsLoadingProcessConfig] = useState(false)
   const [standardRateOpen, setStandardRateOpen] = useState(false)
   const [standardRateFunction, setStandardRateFunction] = useState(DEFAULT_STANDARD_RATE_FUNCTION)
   const [standardRateRoundingEnabled, setStandardRateRoundingEnabled] = useState(
@@ -1456,6 +1457,84 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     standardRateDragRef.current = null
   }
 
+  const applyLoadedProcessCsvConfig = (config: ProcessCsvConfiguration) => {
+    const formula = String(config.standard_rate_formula ?? "").trim()
+    const roundingEnabled = Boolean(config.standard_rate_rounding?.enabled)
+    const rawOffset = Number(config.standard_rate_rounding?.offset ?? 0)
+    const roundingOffset = Number.isFinite(rawOffset)
+      ? Math.min(1, Math.max(0, rawOffset))
+      : 0
+
+    setStandardRateFunction(formula || DEFAULT_STANDARD_RATE_FUNCTION)
+    setStandardRateRoundingEnabled(roundingEnabled)
+    setStandardRateRoundingOffset(roundingOffset)
+    setStandardRateRoundingOffsetInput(String(roundingOffset))
+
+    const nextAdjusters = Array.isArray(config.competitive_adjusters)
+      ? config.competitive_adjusters
+      : []
+    setPopupAdjusters(nextAdjusters)
+
+    const levels = config.levels_adjuster
+    const toEntry = (entry?: { multiplier?: number; offset?: number }): AmenityAdjusterEntry => {
+      const multiplier = Number(entry?.multiplier)
+      const offset = Number(entry?.offset)
+      return {
+        multiplier: Number.isFinite(multiplier) ? String(multiplier) : "1",
+        offset: Number.isFinite(offset) ? String(offset) : "0",
+      }
+    }
+
+    setAmenityAdjuster({
+      applyToWeb: Boolean(levels?.apply_to_web ?? true),
+      premium: toEntry(levels?.premium),
+      standard: toEntry(levels?.standard),
+      economy: toEntry(levels?.economy),
+    })
+  }
+
+  const handleLoadProcessCsvConfig = async () => {
+    setIsLoadingProcessConfig(true)
+    try {
+      const response = await listProcessCsvConfigurations(snapshotId)
+      const configurations = Array.isArray(response?.configurations) ? response.configurations : []
+
+      if (configurations.length === 0) {
+        toast.error("No saved Process CSV configurations found.")
+        return
+      }
+
+      const options = configurations
+        .map((config, idx) => `${idx + 1}. ${config.name}${config.id ? ` (${config.id})` : ""}`)
+        .join("\n")
+
+      const picked = window.prompt(
+        `Load which configuration? Enter number, name, or id:\n\n${options}`,
+        "1"
+      )
+
+      if (picked === null) return
+
+      const trimmed = picked.trim()
+      const byIndex = Number.parseInt(trimmed, 10)
+      const selected = Number.isFinite(byIndex) && byIndex >= 1 && byIndex <= configurations.length
+        ? configurations[byIndex - 1]
+        : configurations.find((cfg) => cfg.name === trimmed || cfg.id === trimmed)
+
+      if (!selected) {
+        toast.error("Could not find that configuration.")
+        return
+      }
+
+      applyLoadedProcessCsvConfig(selected)
+      toast.success(`Loaded Process CSV configuration: ${selected.name}`)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to load Process CSV configurations")
+    } finally {
+      setIsLoadingProcessConfig(false)
+    }
+  }
+
   const handleSaveProcessCsvConfig = async () => {
     const defaultName = `process-csv-${new Date().toISOString().slice(0, 19).replace(/[T:]/g, "-")}`
     const inputName = window.prompt("Name this Process CSV configuration", defaultName)
@@ -1773,6 +1852,16 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                   Selected: <span className="font-medium text-foreground">{file.name}</span>
                 </p>
               )}
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={handleLoadProcessCsvConfig}
+                disabled={isLoadingProcessConfig || isSavingProcessConfig}
+              >
+                {isLoadingProcessConfig ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Load Saved Config
+              </Button>
             </div>
           </div>
         ) : (
@@ -1781,6 +1870,10 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
               <span className="text-sm font-medium">Adjusters</span>
               <Button type="button" size="sm" variant="outline" onClick={functionDialog.handleOpen}>Competitive</Button>
               <Button type="button" size="sm" variant="outline" onClick={() => setShowLevels(true)}>Levels</Button>
+              <Button type="button" size="sm" variant="outline" onClick={handleLoadProcessCsvConfig} disabled={isLoadingProcessConfig || isSavingProcessConfig}>
+                {isLoadingProcessConfig ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
+                Load Config
+              </Button>
               <Button type="button" size="sm" variant="outline" onClick={handleSaveProcessCsvConfig} disabled={isSavingProcessConfig}>
                 {isSavingProcessConfig ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
                 Save Config
@@ -2331,6 +2424,15 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                 accept=".csv"
                 onChange={(e: ChangeEvent<HTMLInputElement>) => setFile(e.target.files?.[0] || null)}
               />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleLoadProcessCsvConfig}
+                disabled={isLoadingProcessConfig || isSavingProcessConfig}
+              >
+                {isLoadingProcessConfig ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Load Saved Config
+              </Button>
             </div>
           </div>
         ) : (
@@ -2347,6 +2449,16 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                 onClick={() => setShowLevels(true)}
               >
                 Levels
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={handleLoadProcessCsvConfig}
+                disabled={isLoadingProcessConfig || isSavingProcessConfig}
+              >
+                {isLoadingProcessConfig ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
+                Load Config
               </Button>
               <Button
                 type="button"
