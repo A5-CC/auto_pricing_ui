@@ -7,9 +7,10 @@ interface CompetitiveAdjusterCardProps {
   stepNumber: number
   totalSteps: number
   onRemove?: () => void
+  showVariable?: boolean
 }
 
-export function CompetitiveAdjusterCard({ adjuster, stepNumber, totalSteps, onRemove }: CompetitiveAdjusterCardProps) {
+export function CompetitiveAdjusterCard({ adjuster, stepNumber, totalSteps, onRemove, showVariable = false }: CompetitiveAdjusterCardProps) {
   const multiplier = typeof adjuster.multiplier === 'number' && isFinite(adjuster.multiplier) ? adjuster.multiplier : 1;
   const offset = typeof adjuster.offset === 'number' && isFinite(adjuster.offset)
     ? adjuster.offset
@@ -38,6 +39,12 @@ export function CompetitiveAdjusterCard({ adjuster, stepNumber, totalSteps, onRe
           <dt className="text-muted-foreground">Source column</dt>
           <dd className="font-mono text-xs sm:text-sm break-all text-right">{sourceColumn}</dd>
         </div>
+        {showVariable ? (
+          <div className="flex items-center justify-between gap-3">
+            <dt className="text-muted-foreground">Variable</dt>
+            <dd className="font-mono text-xs sm:text-sm break-all text-right">{sourceColumn}</dd>
+          </div>
+        ) : null}
         <div className="flex items-center justify-between gap-3">
           <dt className="text-muted-foreground">Aggregation</dt>
           <dd className="font-semibold capitalize">{adjuster.aggregation}</dd>

@@ -426,8 +426,8 @@ function LevelsAdjusterPreviewCard({ amenityAdjuster }: { amenityAdjuster: Ameni
     >
       <dl className="space-y-3 text-sm">
         <div className="flex items-center justify-between gap-3">
-          <dt className="text-muted-foreground">Apply to web</dt>
-          <dd className="font-semibold">{amenityAdjuster.applyToWeb ? "Yes" : "No"}</dd>
+          <dt className="text-muted-foreground">Web rate</dt>
+          <dd className="font-semibold">{amenityAdjuster.applyToWeb ? "Applied to Web" : "Not Applied to Web"}</dd>
         </div>
       </dl>
       <div className="rounded-2xl border border-teal-100/70 bg-teal-50/60 px-3 py-2 -ml-2">
@@ -442,6 +442,30 @@ function LevelsAdjusterPreviewCard({ amenityAdjuster }: { amenityAdjuster: Ameni
         </div>
       </div>
     </AdjusterCardShell>
+  )
+}
+
+function hasConfiguredLevelsAdjuster(amenityAdjuster: AmenityAdjusterState): boolean {
+  const parse = (value: string, fallback: number) => {
+    const n = Number((value ?? "").trim())
+    return Number.isFinite(n) ? n : fallback
+  }
+
+  const premiumMultiplier = parse(amenityAdjuster.premium.multiplier, 1)
+  const standardMultiplier = parse(amenityAdjuster.standard.multiplier, 1)
+  const economyMultiplier = parse(amenityAdjuster.economy.multiplier, 1)
+
+  const premiumOffset = parse(amenityAdjuster.premium.offset, 0)
+  const standardOffset = parse(amenityAdjuster.standard.offset, 0)
+  const economyOffset = parse(amenityAdjuster.economy.offset, 0)
+
+  return (
+    premiumMultiplier !== 1 ||
+    standardMultiplier !== 1 ||
+    economyMultiplier !== 1 ||
+    premiumOffset !== 0 ||
+    standardOffset !== 0 ||
+    economyOffset !== 0
   )
 }
 
@@ -1096,6 +1120,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
   const [csvNumericVariables, setCsvNumericVariables] = useState<string[]>([])
 
   const functionDialog = useAdjusterDialog()
+  const showLevelsAdjusterPreview = useMemo(() => hasConfiguredLevelsAdjuster(amenityAdjuster), [amenityAdjuster])
 
   const resolvedCalculatedRows = useMemo<ResolvedCalculatedRows>(() => {
     const bundle = calculatedRowsBundle
@@ -1914,41 +1939,40 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
             <div className="rounded-md border p-3 space-y-3">
               {popupAdjusters.length === 0 ? (
                 <p className="text-xs text-muted-foreground">No competitive adjusters configured.</p>
-              ) : (
-                <ol className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                  {popupAdjusters.map((adj: Adjuster, idx: number) => (
-                    <li key={`${adj.type}-${idx}`} className="h-full">
-                      {adj.type === "competitive" ? (
-                        <CompetitiveAdjusterCard
-                          adjuster={adj as CompetitivePriceAdjuster}
-                          stepNumber={idx + 1}
-                          totalSteps={popupAdjusters.length}
-                          onRemove={() => handleRemovePopupAdjuster(idx)}
-                        />
-                      ) : adj.type === "function" ? (
-                        <FunctionAdjusterCard
-                          adjuster={adj as FunctionBasedAdjuster}
-                          stepNumber={idx + 1}
-                          totalSteps={popupAdjusters.length}
-                          onRemove={() => handleRemovePopupAdjuster(idx)}
-                        />
-                      ) : (
-                        <TemporalAdjusterCard
-                          adjuster={adj as TemporalAdjuster}
-                          stepNumber={idx + 1}
-                          totalSteps={popupAdjusters.length}
-                          onRemove={() => handleRemovePopupAdjuster(idx)}
-                        />
-                      )}
-                    </li>
-                  ))}
-                </ol>
-              )}
-
+              ) : null}
               <ol className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                <li className="h-full">
-                  <LevelsAdjusterPreviewCard amenityAdjuster={amenityAdjuster} />
-                </li>
+                {popupAdjusters.map((adj: Adjuster, idx: number) => (
+                  <li key={`${adj.type}-${idx}`} className="h-full">
+                    {adj.type === "competitive" ? (
+                      <CompetitiveAdjusterCard
+                        adjuster={adj as CompetitivePriceAdjuster}
+                        stepNumber={idx + 1}
+                        totalSteps={popupAdjusters.length}
+                        onRemove={() => handleRemovePopupAdjuster(idx)}
+                          showVariable
+                      />
+                    ) : adj.type === "function" ? (
+                      <FunctionAdjusterCard
+                        adjuster={adj as FunctionBasedAdjuster}
+                        stepNumber={idx + 1}
+                        totalSteps={popupAdjusters.length}
+                        onRemove={() => handleRemovePopupAdjuster(idx)}
+                      />
+                    ) : (
+                      <TemporalAdjusterCard
+                        adjuster={adj as TemporalAdjuster}
+                        stepNumber={idx + 1}
+                        totalSteps={popupAdjusters.length}
+                        onRemove={() => handleRemovePopupAdjuster(idx)}
+                      />
+                    )}
+                  </li>
+                ))}
+                {showLevelsAdjusterPreview ? (
+                  <li className="h-full">
+                    <LevelsAdjusterPreviewCard amenityAdjuster={amenityAdjuster} />
+                  </li>
+                ) : null}
               </ol>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -2547,41 +2571,40 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
             <div className="rounded-md border p-3 space-y-3">
               {popupAdjusters.length === 0 ? (
                 <p className="text-xs text-muted-foreground">No competitive adjusters configured.</p>
-              ) : (
-                <ol className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                  {popupAdjusters.map((adj: Adjuster, idx: number) => (
-                    <li key={`${adj.type}-${idx}`} className="h-full">
-                      {adj.type === "competitive" ? (
-                        <CompetitiveAdjusterCard
-                          adjuster={adj as CompetitivePriceAdjuster}
-                          stepNumber={idx + 1}
-                          totalSteps={popupAdjusters.length}
-                          onRemove={() => handleRemovePopupAdjuster(idx)}
-                        />
-                      ) : adj.type === "function" ? (
-                        <FunctionAdjusterCard
-                          adjuster={adj as FunctionBasedAdjuster}
-                          stepNumber={idx + 1}
-                          totalSteps={popupAdjusters.length}
-                          onRemove={() => handleRemovePopupAdjuster(idx)}
-                        />
-                      ) : (
-                        <TemporalAdjusterCard
-                          adjuster={adj as TemporalAdjuster}
-                          stepNumber={idx + 1}
-                          totalSteps={popupAdjusters.length}
-                          onRemove={() => handleRemovePopupAdjuster(idx)}
-                        />
-                      )}
-                    </li>
-                  ))}
-                </ol>
-              )}
-
+              ) : null}
               <ol className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                <li className="h-full">
-                  <LevelsAdjusterPreviewCard amenityAdjuster={amenityAdjuster} />
-                </li>
+                {popupAdjusters.map((adj: Adjuster, idx: number) => (
+                  <li key={`${adj.type}-${idx}`} className="h-full">
+                    {adj.type === "competitive" ? (
+                      <CompetitiveAdjusterCard
+                        adjuster={adj as CompetitivePriceAdjuster}
+                        stepNumber={idx + 1}
+                        totalSteps={popupAdjusters.length}
+                        onRemove={() => handleRemovePopupAdjuster(idx)}
+                          showVariable
+                      />
+                    ) : adj.type === "function" ? (
+                      <FunctionAdjusterCard
+                        adjuster={adj as FunctionBasedAdjuster}
+                        stepNumber={idx + 1}
+                        totalSteps={popupAdjusters.length}
+                        onRemove={() => handleRemovePopupAdjuster(idx)}
+                      />
+                    ) : (
+                      <TemporalAdjusterCard
+                        adjuster={adj as TemporalAdjuster}
+                        stepNumber={idx + 1}
+                        totalSteps={popupAdjusters.length}
+                        onRemove={() => handleRemovePopupAdjuster(idx)}
+                      />
+                    )}
+                  </li>
+                ))}
+                {showLevelsAdjusterPreview ? (
+                  <li className="h-full">
+                    <LevelsAdjusterPreviewCard amenityAdjuster={amenityAdjuster} />
+                  </li>
+                ) : null}
               </ol>
             </div>
 
