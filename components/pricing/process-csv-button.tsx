@@ -396,6 +396,49 @@ function applyAmenityAdjustment(
   return value * m + add - sub + offset;
 }
 
+function describePopupAdjuster(adjuster: Adjuster): { title: string; lines: string[] } {
+  if (adjuster.type === "competitive") {
+    const sourceColumn = Array.isArray(adjuster.price_columns) && adjuster.price_columns.length > 0
+      ? adjuster.price_columns[0]
+      : "—"
+    const aggregation = adjuster.aggregation || "min"
+    const multiplier = Number.isFinite(adjuster.multiplier) ? adjuster.multiplier : 1
+    const offset = Number.isFinite(adjuster.offset)
+      ? adjuster.offset!
+      : (Number.isFinite(adjuster.add) ? adjuster.add! : 0) - (Number.isFinite(adjuster.subtract) ? adjuster.subtract! : 0)
+    const offsetLabel = offset >= 0 ? `+ $${offset}` : `- $${Math.abs(offset)}`
+
+    return {
+      title: "Competitive adjuster",
+      lines: [
+        `Source column: ${sourceColumn}`,
+        `Aggregation: ${aggregation}`,
+        `Multiplier: × ${multiplier}`,
+        `Offset: ${offsetLabel}`,
+      ],
+    }
+  }
+
+  if (adjuster.type === "function") {
+    return {
+      title: "Function adjuster",
+      lines: [
+        `Function: ${adjuster.function_string}`,
+        `Variable: ${adjuster.variable}`,
+        `Domain: [${adjuster.domain_min}, ${adjuster.domain_max}]`,
+      ],
+    }
+  }
+
+  return {
+    title: "Temporal adjuster",
+    lines: [
+      `Granularity: ${adjuster.granularity}`,
+      `Multipliers: ${adjuster.multipliers.length}`,
+    ],
+  }
+}
+
 function resolveStandardRateValue(webRate: number, functionBody?: string): number {
   if (!Number.isFinite(webRate) || webRate <= 0) return webRate
   const trimmed = functionBody?.trim() || DEFAULT_STANDARD_RATE_FUNCTION
@@ -1867,15 +1910,18 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                 <p className="text-xs text-muted-foreground">No competitive adjusters configured.</p>
               ) : (
                 popupAdjusters.map((adj: Adjuster, idx: number) => {
-                  const fn = adj as { variable?: string; function_string?: string }
-                  const summary = adj.type === 'function' && fn.variable && fn.function_string
-                    ? `f(${fn.variable}) = ${fn.function_string}`
-                    : adj.type
+                  const display = describePopupAdjuster(adj)
                   return (
                     <div key={`${adj.type}-${idx}`} className="flex items-center justify-between rounded border px-2 py-1.5 gap-3">
                       <div className="flex flex-col min-w-0">
-                        <span className="text-xs font-medium capitalize">{idx + 1}. Competitive adjuster</span>
-                        <span className="text-xs text-muted-foreground font-mono truncate">{summary}</span>
+                        <span className="text-xs font-medium">{idx + 1}. {display.title}</span>
+                        <div className="text-xs text-muted-foreground">
+                          {display.lines.map((line, lineIdx) => (
+                            <div key={`${adj.type}-${idx}-line-${lineIdx}`} className="font-mono truncate">
+                              {line}
+                            </div>
+                          ))}
+                        </div>
                       </div>
                       <Button type="button" size="sm" variant="ghost" onClick={() => handleRemovePopupAdjuster(idx)} className="h-7 px-2" aria-label="Remove adjuster">
                         <Trash2 className="h-3.5 w-3.5" />
@@ -2483,15 +2529,18 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                 <p className="text-xs text-muted-foreground">No competitive adjusters configured.</p>
               ) : (
                 popupAdjusters.map((adj: Adjuster, idx: number) => {
-                  const fn = adj as { variable?: string; function_string?: string }
-                  const summary = adj.type === 'function' && fn.variable && fn.function_string
-                    ? `f(${fn.variable}) = ${fn.function_string}`
-                    : adj.type
+                  const display = describePopupAdjuster(adj)
                   return (
                   <div key={`${adj.type}-${idx}`} className="flex items-center justify-between rounded border px-2 py-1.5 gap-3">
                     <div className="flex flex-col min-w-0">
-                      <span className="text-xs font-medium capitalize">{idx + 1}. Competitive adjuster</span>
-                      <span className="text-xs text-muted-foreground font-mono truncate">{summary}</span>
+                      <span className="text-xs font-medium">{idx + 1}. {display.title}</span>
+                      <div className="text-xs text-muted-foreground">
+                        {display.lines.map((line, lineIdx) => (
+                          <div key={`${adj.type}-${idx}-line-${lineIdx}`} className="font-mono truncate">
+                            {line}
+                          </div>
+                        ))}
+                      </div>
                     </div>
                     <Button
                       type="button"
