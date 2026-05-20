@@ -125,7 +125,11 @@ type ReviewRow = {
   available: string
   vacancy: string
   occupancy: string
-  amenities: string
+  hasElevatorAccessAmenity: boolean
+  hasDriveUpAmenity: boolean
+  hasFirstFloorAmenity: boolean
+  hasClimateControlledAmenity: boolean
+  amenityLevel: "Premium" | "Standard" | "Economy" | ""
   currentWebRate: string
   proposedWebRate: string
   currentStandardRate: string
@@ -764,6 +768,7 @@ function buildReviewRows(
     const originalRow = original.rows[change.rowIndex] ?? []
     const processedRow = processed.rows[change.rowIndex] ?? []
     const existing = byRow.get(change.rowIndex)
+    const amenitiesValue = getCellValue(originalRow, amenitiesIndex) || getCellValue(processedRow, amenitiesIndex)
 
     const baseRow: ReviewRow = existing ?? {
       id: `row-${change.rowIndex}`,
@@ -781,7 +786,17 @@ function buildReviewRows(
       available: getCellValue(originalRow, availableIndex) || getCellValue(processedRow, availableIndex),
       vacancy: getCellValue(originalRow, vacancyIndex) || getCellValue(processedRow, vacancyIndex),
       occupancy: getCellValue(originalRow, occupancyIndex) || getCellValue(processedRow, occupancyIndex),
-      amenities: getCellValue(originalRow, amenitiesIndex) || getCellValue(processedRow, amenitiesIndex),
+      hasElevatorAccessAmenity: hasElevatorAccessAmenity(amenitiesValue),
+      hasDriveUpAmenity: normalizeDriveUpAccessValue(amenitiesValue) === "true",
+      hasFirstFloorAmenity: hasFirstFloorAmenity(amenitiesValue),
+      hasClimateControlledAmenity: hasClimateControlledAmenity(amenitiesValue),
+      amenityLevel: (() => {
+        const tier = resolveAmenityTier(amenitiesValue)
+        if (tier === "premium") return "Premium"
+        if (tier === "standard") return "Standard"
+        if (tier === "economy") return "Economy"
+        return ""
+      })(),
       currentWebRate: getCellValue(originalRow, currentWebRateIndex) || getCellValue(originalRow, currentRentRateIndex),
       proposedWebRate: getCellValue(processedRow, newWebRateIndex),
       currentStandardRate: getCellValue(originalRow, currentStandardRateIndex),
@@ -2020,7 +2035,11 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                       <th className="px-3 py-2 text-left font-medium">Available</th>
                       <th className="px-3 py-2 text-left font-medium">Vacancy</th>
                       <th className="px-3 py-2 text-left font-medium">Occupancy</th>
-                      <th className="px-3 py-2 text-left font-medium">Amenities</th>
+                      <th className="px-3 py-2 text-left font-medium">Elevator Access</th>
+                      <th className="px-3 py-2 text-left font-medium">Drive Up</th>
+                      <th className="px-3 py-2 text-left font-medium">1st Floor</th>
+                      <th className="px-3 py-2 text-left font-medium">Climate Controlled</th>
+                      <th className="px-3 py-2 text-left font-medium">Level</th>
                       <th className="px-3 py-2 text-left font-medium">Current Web</th>
                       <th className="px-3 py-2 text-left font-medium">New Web</th>
                       <th className="px-3 py-2 text-left font-medium">Web Decision</th>
@@ -2065,7 +2084,11 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                         <td className="px-3 py-2 align-top">{row.available || "—"}</td>
                         <td className="px-3 py-2 align-top">{row.vacancy || "—"}</td>
                         <td className="px-3 py-2 align-top">{row.occupancy || "—"}</td>
-                        <td className="px-3 py-2 align-top">{row.amenities || "—"}</td>
+                        <td className="px-3 py-2 align-top">{row.hasElevatorAccessAmenity ? "✓" : ""}</td>
+                        <td className="px-3 py-2 align-top">{row.hasDriveUpAmenity ? "✓" : ""}</td>
+                        <td className="px-3 py-2 align-top">{row.hasFirstFloorAmenity ? "✓" : ""}</td>
+                        <td className="px-3 py-2 align-top">{row.hasClimateControlledAmenity ? "✓" : ""}</td>
+                        <td className="px-3 py-2 align-top">{row.amenityLevel || ""}</td>
                         <td className="px-3 py-2 align-top text-muted-foreground">{row.currentWebRate || "—"}</td>
                         <td className="px-3 py-2 align-top">{row.proposedWebRate || "—"}</td>
                         <td className="px-3 py-2 align-top">
@@ -2671,7 +2694,11 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                       <th className="px-3 py-2 text-left font-medium">Available</th>
                       <th className="px-3 py-2 text-left font-medium">Vacancy</th>
                       <th className="px-3 py-2 text-left font-medium">Occupancy</th>
-                      <th className="px-3 py-2 text-left font-medium">Amenities</th>
+                      <th className="px-3 py-2 text-left font-medium">Elevator Access</th>
+                      <th className="px-3 py-2 text-left font-medium">Drive Up</th>
+                      <th className="px-3 py-2 text-left font-medium">1st Floor</th>
+                      <th className="px-3 py-2 text-left font-medium">Climate Controlled</th>
+                      <th className="px-3 py-2 text-left font-medium">Level</th>
                       <th className="px-3 py-2 text-left font-medium">Current Web</th>
                       <th className="px-3 py-2 text-left font-medium">New Web</th>
                       <th className="px-3 py-2 text-left font-medium">Web Decision</th>
@@ -2716,7 +2743,11 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                         <td className="px-3 py-2 align-top">{row.available || "—"}</td>
                         <td className="px-3 py-2 align-top">{row.vacancy || "—"}</td>
                         <td className="px-3 py-2 align-top">{row.occupancy || "—"}</td>
-                        <td className="px-3 py-2 align-top">{row.amenities || "—"}</td>
+                        <td className="px-3 py-2 align-top">{row.hasElevatorAccessAmenity ? "✓" : ""}</td>
+                        <td className="px-3 py-2 align-top">{row.hasDriveUpAmenity ? "✓" : ""}</td>
+                        <td className="px-3 py-2 align-top">{row.hasFirstFloorAmenity ? "✓" : ""}</td>
+                        <td className="px-3 py-2 align-top">{row.hasClimateControlledAmenity ? "✓" : ""}</td>
+                        <td className="px-3 py-2 align-top">{row.amenityLevel || ""}</td>
                         <td className="px-3 py-2 align-top text-muted-foreground">{row.currentWebRate || "—"}</td>
                         <td className="px-3 py-2 align-top">{row.proposedWebRate || "—"}</td>
                         <td className="px-3 py-2 align-top">
