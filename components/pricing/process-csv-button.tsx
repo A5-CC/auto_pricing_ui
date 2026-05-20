@@ -1496,8 +1496,13 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
   const handleLoadProcessCsvConfig = async () => {
     setIsLoadingProcessConfig(true)
     try {
-      const response = await listProcessCsvConfigurations(snapshotId)
-      const configurations = Array.isArray(response?.configurations) ? response.configurations : []
+      const scopedResponse = await listProcessCsvConfigurations(snapshotId)
+      let configurations = Array.isArray(scopedResponse?.configurations) ? scopedResponse.configurations : []
+
+      if (configurations.length === 0) {
+        const allResponse = await listProcessCsvConfigurations()
+        configurations = Array.isArray(allResponse?.configurations) ? allResponse.configurations : []
+      }
 
       if (configurations.length === 0) {
         toast.error("No saved Process CSV configurations found.")
@@ -1870,14 +1875,16 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
               <span className="text-sm font-medium">Adjusters</span>
               <Button type="button" size="sm" variant="outline" onClick={functionDialog.handleOpen}>Competitive</Button>
               <Button type="button" size="sm" variant="outline" onClick={() => setShowLevels(true)}>Levels</Button>
-              <Button type="button" size="sm" variant="outline" onClick={handleLoadProcessCsvConfig} disabled={isLoadingProcessConfig || isSavingProcessConfig}>
-                {isLoadingProcessConfig ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
-                Load Config
-              </Button>
-              <Button type="button" size="sm" variant="outline" onClick={handleSaveProcessCsvConfig} disabled={isSavingProcessConfig}>
-                {isSavingProcessConfig ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
-                Save Config
-              </Button>
+              <div className="ml-auto flex items-center gap-2">
+                <Button type="button" size="sm" variant="outline" onClick={handleLoadProcessCsvConfig} disabled={isLoadingProcessConfig || isSavingProcessConfig}>
+                  {isLoadingProcessConfig ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
+                  Load Config
+                </Button>
+                <Button type="button" size="sm" variant="outline" onClick={handleSaveProcessCsvConfig} disabled={isSavingProcessConfig}>
+                  {isSavingProcessConfig ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
+                  Save Config
+                </Button>
+              </div>
             </div>
             <div className="rounded-md border p-3 space-y-2">
               {popupAdjusters.length === 0 ? (
@@ -2450,26 +2457,28 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
               >
                 Levels
               </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={handleLoadProcessCsvConfig}
-                disabled={isLoadingProcessConfig || isSavingProcessConfig}
-              >
-                {isLoadingProcessConfig ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
-                Load Config
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={handleSaveProcessCsvConfig}
-                disabled={isSavingProcessConfig}
-              >
-                {isSavingProcessConfig ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
-                Save Config
-              </Button>
+              <div className="ml-auto flex items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={handleLoadProcessCsvConfig}
+                  disabled={isLoadingProcessConfig || isSavingProcessConfig}
+                >
+                  {isLoadingProcessConfig ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
+                  Load Config
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={handleSaveProcessCsvConfig}
+                  disabled={isSavingProcessConfig}
+                >
+                  {isSavingProcessConfig ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
+                  Save Config
+                </Button>
+              </div>
             </div>
 
             <div className="rounded-md border p-3 space-y-2">

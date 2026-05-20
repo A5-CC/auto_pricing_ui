@@ -33,6 +33,10 @@ export interface ProcessCsvConfiguration extends ProcessCsvConfigurationPayload 
   updated_at?: string
 }
 
+type ProcessCsvConfigurationResponseItem = Partial<ProcessCsvConfiguration> & {
+  payload?: Partial<ProcessCsvConfigurationPayload>
+}
+
 export async function getPricingSchemas(): Promise<PricingSchemas> {
   return cachedFetch(
     'pricing-schemas',
@@ -203,5 +207,37 @@ export async function listProcessCsvConfigurations(
 ): Promise<{ configurations: ProcessCsvConfiguration[] }> {
   const query = snapshotId ? `?snapshot_id=${encodeURIComponent(snapshotId)}` : ""
   const response = await fetchWithError(`${API_BASE_URL}/client-data/process-csv-configurations${query}`)
-  return response.json()
+  const raw = await response.json() as unknown
+
+  const normalize = (item: ProcessCsvConfigurationResponseItem): ProcessCsvConfiguration => {
+    const payload = item?.payload ?? {}
+    return {
+      ...(payload as ProcessCsvConfigurationPayload),
+      ...(item as Partial<ProcessCsvConfiguration>),
+      id: item?.id,
+      created_at: item?.created_at,
+      updated_at: item?.updated_at,
+      name: String((payload as ProcessCsvConfigurationPayload).name ?? item?.name ?? ""),
+      snapshot_id: String((payload as ProcessCsvConfigurationPayload).snapshot_id ?? item?.snapshot_id ?? ""),
+      standard_rate_formula: String((payload as ProcessCsvConfigurationPayload).standard_rate_formula ?? item?.standard_rate_formula ?? ""),
+      standard_rate_rounding: ((payload as ProcessCsvConfigurationPayload).standard_rate_rounding ?? item?.standard_rate_rounding ?? { enabled: false, offset: 0 }) as ProcessCsvConfigurationPayload["standard_rate_rounding"],
+      competitive_adjusters: (((payload as ProcessCsvConfigurationPayload).competitive_adjusters ?? item?.competitive_adjusters ?? []) as Adjuster[]),
+      levels_adjuster: (((payload as ProcessCsvConfigurationPayload).levels_adjuster ?? item?.levels_adjuster ?? { apply_to_web: true }) as ProcessCsvConfigurationPayload["levels_adjuster"]),
+    }
+  }
+
+  if (Array.isArray(raw)) {
+    return {
+      configurations: raw.map((item) => normalize(item as ProcessCsvConfigurationResponseItem))
+    }
+  }
+
+  const container = raw as { configurations?: ProcessCsvConfigurationResponseItem[] }
+  if (Array.isArray(container?.configurations)) {
+    return {
+      configurations: container.configurations.map((item) => normalize(item))
+    }
+  }
+
+  return { configurations: [] }
 }
