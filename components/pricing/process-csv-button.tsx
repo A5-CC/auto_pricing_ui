@@ -1019,6 +1019,8 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
   const [showLevels, setShowLevels] = useState(false)
   const [isSavingProcessConfig, setIsSavingProcessConfig] = useState(false)
   const [isLoadingProcessConfig, setIsLoadingProcessConfig] = useState(false)
+  const [loadConfigOpen, setLoadConfigOpen] = useState(false)
+  const [availableProcessConfigs, setAvailableProcessConfigs] = useState<ProcessCsvConfiguration[]>([])
   const [standardRateOpen, setStandardRateOpen] = useState(false)
   const [standardRateFunction, setStandardRateFunction] = useState(DEFAULT_STANDARD_RATE_FUNCTION)
   const [standardRateRoundingEnabled, setStandardRateRoundingEnabled] = useState(
@@ -1509,35 +1511,19 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
         return
       }
 
-      const options = configurations
-        .map((config, idx) => `${idx + 1}. ${config.name}${config.id ? ` (${config.id})` : ""}`)
-        .join("\n")
-
-      const picked = window.prompt(
-        `Load which configuration? Enter number, name, or id:\n\n${options}`,
-        "1"
-      )
-
-      if (picked === null) return
-
-      const trimmed = picked.trim()
-      const byIndex = Number.parseInt(trimmed, 10)
-      const selected = Number.isFinite(byIndex) && byIndex >= 1 && byIndex <= configurations.length
-        ? configurations[byIndex - 1]
-        : configurations.find((cfg) => cfg.name === trimmed || cfg.id === trimmed)
-
-      if (!selected) {
-        toast.error("Could not find that configuration.")
-        return
-      }
-
-      applyLoadedProcessCsvConfig(selected)
-      toast.success(`Loaded Process CSV configuration: ${selected.name}`)
+      setAvailableProcessConfigs(configurations)
+      setLoadConfigOpen(true)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to load Process CSV configurations")
     } finally {
       setIsLoadingProcessConfig(false)
     }
+  }
+
+  const handleSelectProcessCsvConfig = (selected: ProcessCsvConfiguration) => {
+    applyLoadedProcessCsvConfig(selected)
+    setLoadConfigOpen(false)
+    toast.success(`Loaded Process CSV configuration: ${selected.name}`)
   }
 
   const handleSaveProcessCsvConfig = async () => {
@@ -1857,16 +1843,6 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                   Selected: <span className="font-medium text-foreground">{file.name}</span>
                 </p>
               )}
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full"
-                onClick={handleLoadProcessCsvConfig}
-                disabled={isLoadingProcessConfig || isSavingProcessConfig}
-              >
-                {isLoadingProcessConfig ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                Load Saved Config
-              </Button>
             </div>
           </div>
         ) : (
@@ -2049,6 +2025,36 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
         </div>
 
         {/* Supporting dialogs */}
+        <Dialog open={loadConfigOpen} onOpenChange={setLoadConfigOpen}>
+          <DialogContent className="sm:max-w-[560px]">
+            <DialogHeader>
+              <DialogTitle>Load Process CSV configuration</DialogTitle>
+              <DialogDescription>Select a saved configuration.</DialogDescription>
+            </DialogHeader>
+            <div className="max-h-[360px] overflow-auto space-y-2">
+              {availableProcessConfigs.map((config) => (
+                <Button
+                  key={config.id ?? config.name}
+                  type="button"
+                  variant="outline"
+                  className="w-full justify-start"
+                  onClick={() => handleSelectProcessCsvConfig(config)}
+                >
+                  {config.name || "Unnamed configuration"}
+                </Button>
+              ))}
+              {availableProcessConfigs.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No configurations available.</p>
+              ) : null}
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setLoadConfigOpen(false)}>
+                Close
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         <AddFunctionAdjusterDialog
           open={functionDialog.open}
           onOpenChange={functionDialog.setOpen}
@@ -2431,15 +2437,6 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                 accept=".csv"
                 onChange={(e: ChangeEvent<HTMLInputElement>) => setFile(e.target.files?.[0] || null)}
               />
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleLoadProcessCsvConfig}
-                disabled={isLoadingProcessConfig || isSavingProcessConfig}
-              >
-                {isLoadingProcessConfig ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                Load Saved Config
-              </Button>
             </div>
           </div>
         ) : (
@@ -2707,6 +2704,36 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
         clientAvailableUnits={pricingContext?.clientAvailableUnits ?? 0}
         includeAvailableUnits={false}
       />
+
+      <Dialog open={loadConfigOpen} onOpenChange={setLoadConfigOpen}>
+        <DialogContent className="sm:max-w-[560px]">
+          <DialogHeader>
+            <DialogTitle>Load Process CSV configuration</DialogTitle>
+            <DialogDescription>Select a saved configuration.</DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[360px] overflow-auto space-y-2">
+            {availableProcessConfigs.map((config) => (
+              <Button
+                key={config.id ?? config.name}
+                type="button"
+                variant="outline"
+                className="w-full justify-start"
+                onClick={() => handleSelectProcessCsvConfig(config)}
+              >
+                {config.name || "Unnamed configuration"}
+              </Button>
+            ))}
+            {availableProcessConfigs.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No configurations available.</p>
+            ) : null}
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setLoadConfigOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={showLevels} onOpenChange={setShowLevels}>
         <DialogContent className="sm:max-w-[520px]">
