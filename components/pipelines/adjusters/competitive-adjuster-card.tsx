@@ -19,6 +19,9 @@ export function CompetitiveAdjusterCard({ adjuster, stepNumber, totalSteps, onRe
   const sourceColumn = Array.isArray(adjuster.price_columns) && adjuster.price_columns.length > 0
     ? adjuster.price_columns[0]
     : '—';
+  const variableSelection = Array.isArray(adjuster.price_columns) && adjuster.price_columns.length > 0
+    ? adjuster.price_columns.join(', ')
+    : '—';
 
   return (
     <AdjusterCardShell
@@ -42,7 +45,7 @@ export function CompetitiveAdjusterCard({ adjuster, stepNumber, totalSteps, onRe
         {showVariable ? (
           <div className="flex items-center justify-between gap-3">
             <dt className="text-muted-foreground">Variable</dt>
-            <dd className="font-mono text-xs sm:text-sm break-all text-right">{sourceColumn}</dd>
+            <dd className="font-mono text-xs sm:text-sm break-all text-right">{variableSelection}</dd>
           </div>
         ) : null}
         <div className="flex items-center justify-between gap-3">

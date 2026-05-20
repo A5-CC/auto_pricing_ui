@@ -400,7 +400,7 @@ function applyAmenityAdjustment(
   return value * m + add - sub + offset;
 }
 
-function LevelsAdjusterPreviewCard({ amenityAdjuster }: { amenityAdjuster: AmenityAdjusterState }) {
+function LevelsAdjusterPreviewCard({ amenityAdjuster, onRemove }: { amenityAdjuster: AmenityAdjusterState; onRemove?: () => void }) {
   const tiers = [
     { key: "premium", label: "Premium", value: amenityAdjuster.premium },
     { key: "standard", label: "Standard", value: amenityAdjuster.standard },
@@ -417,6 +417,7 @@ function LevelsAdjusterPreviewCard({ amenityAdjuster }: { amenityAdjuster: Ameni
     <AdjusterCardShell
       accentColor="#0f766e"
       className="border-teal-100/80 bg-white"
+      onRemove={onRemove}
       badge={
         <div className="inline-flex items-center gap-1.5 rounded-full bg-teal-100/80 px-3 py-1 text-xs font-semibold text-teal-800">
           <Layers3 className="h-4 w-4" />
@@ -424,12 +425,6 @@ function LevelsAdjusterPreviewCard({ amenityAdjuster }: { amenityAdjuster: Ameni
         </div>
       }
     >
-      <dl className="space-y-3 text-sm">
-        <div className="flex items-center justify-between gap-3">
-          <dt className="text-muted-foreground">Web rate</dt>
-          <dd className="font-semibold">{amenityAdjuster.applyToWeb ? "Applied to Web" : "Not Applied to Web"}</dd>
-        </div>
-      </dl>
       <div className="rounded-2xl border border-teal-100/70 bg-teal-50/60 px-3 py-2 -ml-2">
         <div className="grid grid-cols-3 gap-2 text-center text-xs">
           {tiers.map((tier) => (
@@ -1502,6 +1497,15 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     })
   }
 
+  const handleRemoveLevelsAdjuster = () => {
+    setAmenityAdjuster({
+      applyToWeb: true,
+      premium: { multiplier: "1", offset: "0" },
+      standard: { multiplier: "1", offset: "0" },
+      economy: { multiplier: "1", offset: "0" },
+    })
+  }
+
   useEffect(() => {
     if (!originalParsed) return
     try {
@@ -1970,7 +1974,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                 ))}
                 {showLevelsAdjusterPreview ? (
                   <li className="h-full">
-                    <LevelsAdjusterPreviewCard amenityAdjuster={amenityAdjuster} />
+                    <LevelsAdjusterPreviewCard amenityAdjuster={amenityAdjuster} onRemove={handleRemoveLevelsAdjuster} />
                   </li>
                 ) : null}
               </ol>
@@ -2602,7 +2606,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                 ))}
                 {showLevelsAdjusterPreview ? (
                   <li className="h-full">
-                    <LevelsAdjusterPreviewCard amenityAdjuster={amenityAdjuster} />
+                    <LevelsAdjusterPreviewCard amenityAdjuster={amenityAdjuster} onRemove={handleRemoveLevelsAdjuster} />
                   </li>
                 ) : null}
               </ol>
