@@ -404,7 +404,7 @@ function applyAmenityAdjustment(
   return value * m + add - sub + offset;
 }
 
-function LevelsAdjusterPreviewCard({ amenityAdjuster, onRemove }: { amenityAdjuster: AmenityAdjusterState; onRemove?: () => void }) {
+function LevelsAdjusterPreviewCard({ amenityAdjuster, onRemove, stepNumber, totalSteps }: { amenityAdjuster: AmenityAdjusterState; onRemove?: () => void; stepNumber?: number; totalSteps?: number }) {
   const tiers = [
     { key: "premium", label: "Premium", value: amenityAdjuster.premium },
     { key: "standard", label: "Standard", value: amenityAdjuster.standard },
@@ -419,6 +419,8 @@ function LevelsAdjusterPreviewCard({ amenityAdjuster, onRemove }: { amenityAdjus
 
   return (
     <AdjusterCardShell
+      stepNumber={stepNumber}
+      totalSteps={totalSteps}
       accentColor="#0f766e"
       className="border-teal-100/80 bg-white"
       onRemove={onRemove}
@@ -1131,6 +1133,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
 
   const functionDialog = useAdjusterDialog()
   const showLevelsAdjusterPreview = useMemo(() => hasConfiguredLevelsAdjuster(amenityAdjuster), [amenityAdjuster])
+  const totalProcessAdjusterSteps = popupAdjusters.length + (showLevelsAdjusterPreview ? 1 : 0)
 
   const resolvedCalculatedRows = useMemo<ResolvedCalculatedRows>(() => {
     const bundle = calculatedRowsBundle
@@ -1966,7 +1969,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                       <CompetitiveAdjusterCard
                         adjuster={adj as CompetitivePriceAdjuster}
                         stepNumber={idx + 1}
-                        totalSteps={popupAdjusters.length}
+                        totalSteps={totalProcessAdjusterSteps}
                         onRemove={() => handleRemovePopupAdjuster(idx)}
                           showVariable
                       />
@@ -1974,14 +1977,14 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                       <FunctionAdjusterCard
                         adjuster={adj as FunctionBasedAdjuster}
                         stepNumber={idx + 1}
-                        totalSteps={popupAdjusters.length}
+                        totalSteps={totalProcessAdjusterSteps}
                         onRemove={() => handleRemovePopupAdjuster(idx)}
                       />
                     ) : (
                       <TemporalAdjusterCard
                         adjuster={adj as TemporalAdjuster}
                         stepNumber={idx + 1}
-                        totalSteps={popupAdjusters.length}
+                        totalSteps={totalProcessAdjusterSteps}
                         onRemove={() => handleRemovePopupAdjuster(idx)}
                       />
                     )}
@@ -1989,7 +1992,12 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                 ))}
                 {showLevelsAdjusterPreview ? (
                   <li className="h-full">
-                    <LevelsAdjusterPreviewCard amenityAdjuster={amenityAdjuster} onRemove={handleRemoveLevelsAdjuster} />
+                    <LevelsAdjusterPreviewCard
+                      amenityAdjuster={amenityAdjuster}
+                      onRemove={handleRemoveLevelsAdjuster}
+                      stepNumber={popupAdjusters.length + 1}
+                      totalSteps={totalProcessAdjusterSteps}
+                    />
                   </li>
                 ) : null}
               </ol>
@@ -2606,7 +2614,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                       <CompetitiveAdjusterCard
                         adjuster={adj as CompetitivePriceAdjuster}
                         stepNumber={idx + 1}
-                        totalSteps={popupAdjusters.length}
+                        totalSteps={totalProcessAdjusterSteps}
                         onRemove={() => handleRemovePopupAdjuster(idx)}
                           showVariable
                       />
@@ -2614,14 +2622,14 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                       <FunctionAdjusterCard
                         adjuster={adj as FunctionBasedAdjuster}
                         stepNumber={idx + 1}
-                        totalSteps={popupAdjusters.length}
+                        totalSteps={totalProcessAdjusterSteps}
                         onRemove={() => handleRemovePopupAdjuster(idx)}
                       />
                     ) : (
                       <TemporalAdjusterCard
                         adjuster={adj as TemporalAdjuster}
                         stepNumber={idx + 1}
-                        totalSteps={popupAdjusters.length}
+                        totalSteps={totalProcessAdjusterSteps}
                         onRemove={() => handleRemovePopupAdjuster(idx)}
                       />
                     )}
@@ -2629,7 +2637,12 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                 ))}
                 {showLevelsAdjusterPreview ? (
                   <li className="h-full">
-                    <LevelsAdjusterPreviewCard amenityAdjuster={amenityAdjuster} onRemove={handleRemoveLevelsAdjuster} />
+                    <LevelsAdjusterPreviewCard
+                      amenityAdjuster={amenityAdjuster}
+                      onRemove={handleRemoveLevelsAdjuster}
+                      stepNumber={popupAdjusters.length + 1}
+                      totalSteps={totalProcessAdjusterSteps}
+                    />
                   </li>
                 ) : null}
               </ol>
