@@ -102,6 +102,15 @@ type ResolvedCalculatedRows = {
   error: string | null
 }
 
+function createDefaultAmenityAdjusterState(): AmenityAdjusterState {
+  return {
+    applyToWeb: true,
+    premium: { multiplier: "1", offset: "0" },
+    standard: { multiplier: "1", offset: "0" },
+    economy: { multiplier: "1", offset: "0" },
+  }
+}
+
 // ...existing code...
 
 type CsvRateChange = {
@@ -1146,12 +1155,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
   const [standardRatePanX, setStandardRatePanX] = useState(0)
   const [standardRatePanY, setStandardRatePanY] = useState(0)
   const standardRateDragRef = useRef<{ x: number; y: number } | null>(null)
-  const [amenityAdjuster, setAmenityAdjuster] = useState<AmenityAdjusterState>({
-    applyToWeb: true,
-    premium: { multiplier: "1", offset: "0" },
-    standard: { multiplier: "1", offset: "0" },
-    economy: { multiplier: "1", offset: "0" },
-  })
+  const [amenityAdjuster, setAmenityAdjuster] = useState<AmenityAdjusterState>(createDefaultAmenityAdjusterState)
   const [originalParsed, setOriginalParsed] = useState<ParsedCsv | null>(null)
   const [csvNumericVariables, setCsvNumericVariables] = useState<string[]>([])
 
@@ -1374,12 +1378,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     setApprovedChanges({})
     setTraceSelections({})
     setPopupAdjusters([])
-    setAmenityAdjuster({
-      applyToWeb: true,
-      premium: { multiplier: "1", offset: "0" },
-      standard: { multiplier: "1", offset: "0" },
-      economy: { multiplier: "1", offset: "0" },
-    })
+    setAmenityAdjuster(createDefaultAmenityAdjusterState())
     setOriginalParsed(null)
     setCsvNumericVariables([])
   }
@@ -1540,12 +1539,17 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
   }
 
   const handleRemoveLevelsAdjuster = () => {
-    setAmenityAdjuster({
-      applyToWeb: true,
-      premium: { multiplier: "1", offset: "0" },
-      standard: { multiplier: "1", offset: "0" },
-      economy: { multiplier: "1", offset: "0" },
-    })
+    setAmenityAdjuster(createDefaultAmenityAdjusterState())
+  }
+
+  const handleClearProcessCsvConfig = () => {
+    setPopupAdjusters([])
+    setAmenityAdjuster(createDefaultAmenityAdjusterState())
+    setStandardRateFunction(DEFAULT_STANDARD_RATE_FUNCTION)
+    setStandardRateRoundingEnabled(false)
+    setStandardRateRoundingOffset(0)
+    setStandardRateRoundingOffsetInput("0")
+    toast.success("Process CSV configuration reset.")
   }
 
   useEffect(() => {
@@ -1836,24 +1840,43 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     return next
   }, [reviewData?.reviewRows, reviewSortBy, reviewSortDir, approvedChanges])
 
-  const renderReviewSortableHeader = (label: string, column: ReviewSortColumn) => (
+  const renderReviewSortableHeader = (label: string, column: ReviewSortColumn, infoText?: string) => (
     <th className="px-3 py-2 text-left font-medium">
-      <button
-        type="button"
-        className="inline-flex items-center gap-1 hover:underline"
-        onClick={() => handleReviewSortClick(column)}
-      >
-        <span>{label}</span>
-        {reviewSortBy === column ? (
-          reviewSortDir === "asc" ? (
-            <ArrowUp className="h-3.5 w-3.5 shrink-0" />
+      <div className="inline-flex items-center gap-1.5">
+        <button
+          type="button"
+          className="inline-flex items-center gap-1 hover:underline"
+          onClick={() => handleReviewSortClick(column)}
+        >
+          <span>{label}</span>
+          {reviewSortBy === column ? (
+            reviewSortDir === "asc" ? (
+              <ArrowUp className="h-3.5 w-3.5 shrink-0" />
+            ) : (
+              <ArrowDown className="h-3.5 w-3.5 shrink-0" />
+            )
           ) : (
-            <ArrowDown className="h-3.5 w-3.5 shrink-0" />
-          )
-        ) : (
-          <ArrowUpDown className="h-3.5 w-3.5 shrink-0 opacity-50" />
-        )}
-      </button>
+            <ArrowUpDown className="h-3.5 w-3.5 shrink-0 opacity-50" />
+          )}
+        </button>
+        {infoText ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                className="inline-flex items-center justify-center text-muted-foreground hover:text-foreground"
+                aria-label={`${label} mapping info`}
+                onClick={(event) => event.stopPropagation()}
+              >
+                <Info className="h-3.5 w-3.5" aria-hidden />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-[260px] text-xs leading-relaxed">
+              {infoText}
+            </TooltipContent>
+          </Tooltip>
+        ) : null}
+      </div>
     </th>
   )
 
@@ -1866,12 +1889,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
       setApprovedChanges({})
       setTraceSelections({})
       setPopupAdjusters([])
-      setAmenityAdjuster({
-        applyToWeb: true,
-        premium: { multiplier: "1", offset: "0" },
-        standard: { multiplier: "1", offset: "0" },
-        economy: { multiplier: "1", offset: "0" },
-      })
+      setAmenityAdjuster(createDefaultAmenityAdjusterState())
       setOriginalParsed(null)
       setCsvNumericVariables([])
     }
@@ -2061,6 +2079,9 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                   {isSavingProcessConfig ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
                   Save Config
                 </Button>
+                <Button type="button" size="sm" variant="outline" onClick={handleClearProcessCsvConfig}>
+                  Clear Config
+                </Button>
               </div>
             </div>
             <div className="rounded-md border p-3 space-y-3">
@@ -2141,23 +2162,23 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                         </div>
                       </th>
                       {renderReviewSortableHeader("Row", "rowIndex")}
-                      {renderReviewSortableHeader("Facility", "facilityName")}
-                      {renderReviewSortableHeader("Unit", "unitSize")}
+                      {renderReviewSortableHeader("Facility", "facilityName", "Maps from CSV Facility Name and matches calculated client_location (with city/location fallbacks).")}
+                      {renderReviewSortableHeader("Unit", "unitSize", "Maps from CSV Size/Unit Size and matches calculated unit_dimensions. If unit_area is used, matching uses CSV Area instead.")}
                       {renderReviewSortableHeader("Total Units", "totalUnits")}
                       {renderReviewSortableHeader("Occupied", "occupied")}
                       {renderReviewSortableHeader("Available", "available")}
                       {renderReviewSortableHeader("Vacancy", "vacancy")}
                       {renderReviewSortableHeader("Occupancy", "occupancy")}
-                      {renderReviewSortableHeader("Elevator Access", "hasElevatorAccessAmenity")}
-                      {renderReviewSortableHeader("Drive Up", "hasDriveUpAmenity")}
-                      {renderReviewSortableHeader("1st Floor", "hasFirstFloorAmenity")}
-                      {renderReviewSortableHeader("Climate Controlled", "hasClimateControlledAmenity")}
-                      {renderReviewSortableHeader("Level", "amenityLevel")}
-                      {renderReviewSortableHeader("Current Web", "currentWebRate")}
-                      {renderReviewSortableHeader("New Web", "proposedWebRate")}
+                      {renderReviewSortableHeader("Elevator Access", "hasElevatorAccessAmenity", "Derived from CSV Unit Amenities text containing elevator access terms.")}
+                      {renderReviewSortableHeader("Drive Up", "hasDriveUpAmenity", "Derived from CSV Unit Amenities drive-up text, also used for has_drive_up_access matching when enabled.")}
+                      {renderReviewSortableHeader("1st Floor", "hasFirstFloorAmenity", "Derived from CSV Unit Amenities text containing 1st floor / first floor.")}
+                      {renderReviewSortableHeader("Climate Controlled", "hasClimateControlledAmenity", "Derived from CSV Unit Amenities climate-controlled text.")}
+                      {renderReviewSortableHeader("Level", "amenityLevel", "Derived from CSV Unit Amenities tier keywords: Premium, Standard, Economy.")}
+                      {renderReviewSortableHeader("Current Web", "currentWebRate", "Read from CSV Current Web Rate (or Current Rent Rate fallback).")}
+                      {renderReviewSortableHeader("New Web", "proposedWebRate", "Calculated from matched pipeline web price, then popup/levels adjusters and rounding are applied.")}
                       {renderReviewSortableHeader("Web Decision", "webDecision")}
-                      {renderReviewSortableHeader("Current Standard", "currentStandardRate")}
-                      {renderReviewSortableHeader("New Standard", "proposedStandardRate")}
+                      {renderReviewSortableHeader("Current Standard", "currentStandardRate", "Read from CSV Current Standard Rate.")}
+                      {renderReviewSortableHeader("New Standard", "proposedStandardRate", "Calculated from the standard-rate function using New Web as input, then standard rounding is applied.")}
                       {renderReviewSortableHeader("Standard Decision", "standardDecision")}
                     </tr>
                   </thead>
@@ -2705,6 +2726,9 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                   {isSavingProcessConfig ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
                   Save Config
                 </Button>
+                <Button type="button" size="sm" variant="outline" onClick={handleClearProcessCsvConfig}>
+                  Clear Config
+                </Button>
               </div>
             </div>
 
@@ -2805,23 +2829,23 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                         </div>
                       </th>
                       {renderReviewSortableHeader("Row", "rowIndex")}
-                      {renderReviewSortableHeader("Facility", "facilityName")}
-                      {renderReviewSortableHeader("Unit", "unitSize")}
+                      {renderReviewSortableHeader("Facility", "facilityName", "Maps from CSV Facility Name and matches calculated client_location (with city/location fallbacks).")}
+                      {renderReviewSortableHeader("Unit", "unitSize", "Maps from CSV Size/Unit Size and matches calculated unit_dimensions. If unit_area is used, matching uses CSV Area instead.")}
                       {renderReviewSortableHeader("Total Units", "totalUnits")}
                       {renderReviewSortableHeader("Occupied", "occupied")}
                       {renderReviewSortableHeader("Available", "available")}
                       {renderReviewSortableHeader("Vacancy", "vacancy")}
                       {renderReviewSortableHeader("Occupancy", "occupancy")}
-                      {renderReviewSortableHeader("Elevator Access", "hasElevatorAccessAmenity")}
-                      {renderReviewSortableHeader("Drive Up", "hasDriveUpAmenity")}
-                      {renderReviewSortableHeader("1st Floor", "hasFirstFloorAmenity")}
-                      {renderReviewSortableHeader("Climate Controlled", "hasClimateControlledAmenity")}
-                      {renderReviewSortableHeader("Level", "amenityLevel")}
-                      {renderReviewSortableHeader("Current Web", "currentWebRate")}
-                      {renderReviewSortableHeader("New Web", "proposedWebRate")}
+                      {renderReviewSortableHeader("Elevator Access", "hasElevatorAccessAmenity", "Derived from CSV Unit Amenities text containing elevator access terms.")}
+                      {renderReviewSortableHeader("Drive Up", "hasDriveUpAmenity", "Derived from CSV Unit Amenities drive-up text, also used for has_drive_up_access matching when enabled.")}
+                      {renderReviewSortableHeader("1st Floor", "hasFirstFloorAmenity", "Derived from CSV Unit Amenities text containing 1st floor / first floor.")}
+                      {renderReviewSortableHeader("Climate Controlled", "hasClimateControlledAmenity", "Derived from CSV Unit Amenities climate-controlled text.")}
+                      {renderReviewSortableHeader("Level", "amenityLevel", "Derived from CSV Unit Amenities tier keywords: Premium, Standard, Economy.")}
+                      {renderReviewSortableHeader("Current Web", "currentWebRate", "Read from CSV Current Web Rate (or Current Rent Rate fallback).")}
+                      {renderReviewSortableHeader("New Web", "proposedWebRate", "Calculated from matched pipeline web price, then popup/levels adjusters and rounding are applied.")}
                       {renderReviewSortableHeader("Web Decision", "webDecision")}
-                      {renderReviewSortableHeader("Current Standard", "currentStandardRate")}
-                      {renderReviewSortableHeader("New Standard", "proposedStandardRate")}
+                      {renderReviewSortableHeader("Current Standard", "currentStandardRate", "Read from CSV Current Standard Rate.")}
+                      {renderReviewSortableHeader("New Standard", "proposedStandardRate", "Calculated from the standard-rate function using New Web as input, then standard rounding is applied.")}
                       {renderReviewSortableHeader("Standard Decision", "standardDecision")}
                     </tr>
                   </thead>
