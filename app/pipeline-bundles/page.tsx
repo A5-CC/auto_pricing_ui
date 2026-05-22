@@ -372,7 +372,7 @@ export default function PipelineBundlesPage() {
   ]);
 
   return (
-    <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 space-y-4 sm:space-y-5">
+    <main className="px-4 py-6 sm:px-6 space-y-4 sm:space-y-5">
       <h1 className="text-2xl font-bold mb-6">Pipeline Bundles</h1>
       <div className="mb-8 text-muted-foreground"></div>
       {/* Overview and snapshot selector */}
@@ -386,8 +386,8 @@ export default function PipelineBundlesPage() {
         />
       </div>
       <div className="mb-6 overflow-x-auto snap-x snap-mandatory">
-        <div className="flex gap-6 min-w-max">
-          <section className="w-[calc(100vw-3rem)] max-w-[calc(100vw-3rem)] md:w-[calc(100vw-4rem)] md:max-w-[calc(100vw-4rem)] xl:w-[min(1280px,calc(100vw-4rem))] xl:max-w-[min(1280px,calc(100vw-4rem))] shrink-0 snap-start space-y-6">
+        <div className="flex gap-6">
+          <section className="w-full min-w-full max-w-full shrink-0 snap-start space-y-6">
             <div>
               <label className="block mb-2 font-medium">Selected pipelines:</label>
               <div className="flex flex-wrap gap-2 mb-2">
@@ -451,7 +451,7 @@ export default function PipelineBundlesPage() {
             )}
           </section>
 
-          <section className="w-[calc(100vw-3rem)] max-w-[calc(100vw-3rem)] md:w-[calc(100vw-4rem)] md:max-w-[calc(100vw-4rem)] xl:w-[min(1280px,calc(100vw-4rem))] xl:max-w-[min(1280px,calc(100vw-4rem))] shrink-0 snap-start space-y-3">
+          <section className="w-full min-w-full max-w-full shrink-0 snap-start space-y-3">
             <SectionLabel text="Effect Pricing" />
             <ProcessCsvButton
               inline
