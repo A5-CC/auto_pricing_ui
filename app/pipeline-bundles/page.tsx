@@ -2,6 +2,7 @@
 import type { FilterSelection } from "@/components/pipelines/calculated-price";
 import { CalculatedPrice, calculatePriceTable } from "@/components/pipelines/calculated-price";
 import { ProcessCsvButton } from "@/components/pricing/process-csv-button";
+import { SectionLabel } from "@/components/ui/section-label";
 import { getE1Client, listPipelines } from "@/lib/api/client/pipelines";
 import { getColumnStatistics, getPricingData, getPricingSnapshots } from "@/lib/api/client/pricing";
 import type { ColumnStatistics, E1DataResponse, Pipeline, PricingDataResponse, PricingSnapshot } from "@/lib/api/types";
@@ -384,31 +385,59 @@ export default function PipelineBundlesPage() {
           onSnapshotChange={setSelectedSnapshot}
         />
       </div>
-      <div className="mb-6">
-        <label className="block mb-2 font-medium">Selected pipelines:</label>
-        <div className="flex flex-wrap gap-2 mb-2">
-          {selectedPipelines.length === 0 && <span className="text-muted-foreground">None selected</span>}
-          {selectedPipelines.map((p) => (
-            <span key={p.id} className="inline-flex items-center bg-primary/10 text-primary px-3 py-1 rounded-full">
-              {p.name}
-              <button
-                className="ml-2 text-red-500 hover:text-red-700"
-                onClick={() => setSelectedPipelineIds(ids => ids.filter(id => id !== p.id))}
-                title="Remove pipeline"
-              >
-                ×
-              </button>
-            </span>
-          ))}
+      <div className="mb-6 lg:flex lg:items-start lg:gap-6">
+        <div className="min-w-0 flex-1 space-y-6">
+          <div>
+            <label className="block mb-2 font-medium">Selected pipelines:</label>
+            <div className="flex flex-wrap gap-2 mb-2">
+              {selectedPipelines.length === 0 && <span className="text-muted-foreground">None selected</span>}
+              {selectedPipelines.map((p) => (
+                <span key={p.id} className="inline-flex items-center bg-primary/10 text-primary px-3 py-1 rounded-full">
+                  {p.name}
+                  <button
+                    className="ml-2 text-red-500 hover:text-red-700"
+                    onClick={() => setSelectedPipelineIds(ids => ids.filter(id => id !== p.id))}
+                    title="Remove pipeline"
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="block mb-2 font-medium">Available pipelines:</label>
+            <div className="max-h-64 overflow-y-auto border rounded-lg bg-background/50 p-4">
+              {eligiblePipelines.length > 0 ? (
+                <ul className="space-y-2">
+                  {eligiblePipelines.map((p) => (
+                    <li
+                      key={p.id}
+                      className="py-1 px-2 rounded hover:bg-accent cursor-pointer"
+                      onClick={() => setSelectedPipelineIds(ids => [...ids, p.id])}
+                    >
+                      {p.name}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="text-muted-foreground">No pipelines available.</div>
+              )}
+            </div>
+          </div>
         </div>
-        <div className="mt-3">
+
+        <aside className="mt-6 lg:mt-0 lg:w-[460px] lg:shrink-0 space-y-3">
+          <SectionLabel text="Effect Pricing" />
           <ProcessCsvButton
+            inline
             snapshotId={selectedSnapshot}
             filters={{ competitors: [], locations: [], unit_dimensions: [], unitCategories: [] }}
             rounding={{ enabled: false, offset: 0 }}
             calculatedRowsBundle={selectedPipelineContexts.map((ctx) => ({
               pipelineName: ctx.pipeline.name,
-              rows: ctx.calculatedRows,
+              rows: ctx.calculatedRowsForCsv,
             }))}
             pricingContext={{
               competitorData: dataResponse?.data ?? [],
@@ -419,27 +448,7 @@ export default function PipelineBundlesPage() {
               availableVariables,
             }}
           />
-        </div>
-      </div>
-      <div className="mb-6">
-        <label className="block mb-2 font-medium">Available pipelines:</label>
-        <div className="max-h-64 overflow-y-auto border rounded-lg bg-background/50 p-4">
-          {eligiblePipelines.length > 0 ? (
-            <ul className="space-y-2">
-              {eligiblePipelines.map((p) => (
-                <li
-                  key={p.id}
-                  className="py-1 px-2 rounded hover:bg-accent cursor-pointer"
-                  onClick={() => setSelectedPipelineIds(ids => [...ids, p.id])}
-                >
-                  {p.name}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <div className="text-muted-foreground">No pipelines available.</div>
-          )}
-        </div>
+        </aside>
       </div>
 
       {/* Stacked pipeline tables */}
