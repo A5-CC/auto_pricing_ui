@@ -387,7 +387,7 @@ export default function PipelineBundlesPage() {
       </div>
       <div className="mb-6 overflow-x-auto snap-x snap-mandatory">
         <div className="flex gap-6 min-w-max">
-          <section className="w-[calc(100vw-3rem)] max-w-[calc(100vw-3rem)] md:w-[calc(100vw-4rem)] md:max-w-[calc(100vw-4rem)] xl:w-[min(1120px,calc(100vw-4rem))] xl:max-w-[min(1120px,calc(100vw-4rem))] shrink-0 snap-start space-y-6">
+          <section className="w-[calc(100vw-3rem)] max-w-[calc(100vw-3rem)] md:w-[calc(100vw-4rem)] md:max-w-[calc(100vw-4rem)] xl:w-[min(1280px,calc(100vw-4rem))] xl:max-w-[min(1280px,calc(100vw-4rem))] shrink-0 snap-start space-y-6">
             <div>
               <label className="block mb-2 font-medium">Selected pipelines:</label>
               <div className="flex flex-wrap gap-2 mb-2">
@@ -409,7 +409,7 @@ export default function PipelineBundlesPage() {
 
             <div>
               <label className="block mb-2 font-medium">Available pipelines:</label>
-              <div className="max-h-64 overflow-y-auto border rounded-lg bg-background/50 p-4">
+              <div className="w-full max-h-64 overflow-y-auto border rounded-lg bg-background/50 p-4">
                 {eligiblePipelines.length > 0 ? (
                   <ul className="space-y-2">
                     {eligiblePipelines.map((p) => (
@@ -451,7 +451,7 @@ export default function PipelineBundlesPage() {
             )}
           </section>
 
-          <section className="w-[calc(100vw-3rem)] max-w-[calc(100vw-3rem)] md:w-[calc(100vw-4rem)] md:max-w-[calc(100vw-4rem)] xl:w-[min(1120px,calc(100vw-4rem))] xl:max-w-[min(1120px,calc(100vw-4rem))] shrink-0 snap-start space-y-3">
+          <section className="w-[calc(100vw-3rem)] max-w-[calc(100vw-3rem)] md:w-[calc(100vw-4rem)] md:max-w-[calc(100vw-4rem)] xl:w-[min(1280px,calc(100vw-4rem))] xl:max-w-[min(1280px,calc(100vw-4rem))] shrink-0 snap-start space-y-3">
             <SectionLabel text="Effect Pricing" />
             <ProcessCsvButton
               inline
