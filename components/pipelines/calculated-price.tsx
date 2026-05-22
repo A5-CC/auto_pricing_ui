@@ -2,6 +2,7 @@ import type { Adjuster } from '@/lib/adjusters'
 import { calculatePrice } from '@/lib/adjusters'
 import type { E1DataRow } from '@/lib/api/types'
 import { getColumnLabel } from '@/lib/pricing/column-labels'
+import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 type FilterValue = string | number | boolean
@@ -41,6 +42,8 @@ function cartesianProduct<T>(arrays: T[][]): T[][] {
 export type FilterSelection<T = FilterValue> =
   | { mode: 'all' }
   | { mode: 'subset'; values: T[] }
+
+type SortDirection = 'asc' | 'desc'
 
 interface CalculatedPriceProps {
   competitorData: E1DataRow[]
@@ -235,6 +238,8 @@ export function CalculatedPrice({
 
   const [columnOrder, setColumnOrder] = useState<string[]>(headers)
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>({})
+  const [sortBy, setSortBy] = useState<string>('Price')
+  const [sortDir, setSortDir] = useState<SortDirection>('asc')
   const dragColumnRef = useRef<string | null>(null)
   const resizeRef = useRef<{ column: string; startX: number; startWidth: number } | null>(null)
 
@@ -305,6 +310,46 @@ export function CalculatedPrice({
     })
   }, [])
 
+  const handleSortClick = useCallback((columnId: string) => {
+    setSortBy((prev) => {
+      if (prev === columnId) {
+        setSortDir((dir) => (dir === 'asc' ? 'desc' : 'asc'))
+        return prev
+      }
+      setSortDir('asc')
+      return columnId
+    })
+  }, [])
+
+  const toComparable = useCallback((value: unknown) => {
+    if (typeof value === 'number' && Number.isFinite(value)) return { kind: 'num' as const, num: value }
+    if (typeof value === 'boolean') return { kind: 'num' as const, num: value ? 1 : 0 }
+    const raw = String(value ?? '').trim()
+    const numeric = Number(raw.replace(/[$,%\s,]/g, ''))
+    if (raw !== '' && Number.isFinite(numeric)) return { kind: 'num' as const, num: numeric }
+    return { kind: 'str' as const, str: raw.toLowerCase() }
+  }, [])
+
+  const sortedRows = useMemo(() => {
+    const next = rows.map((row, index) => ({ row, index }))
+    const dir = sortDir === 'asc' ? 1 : -1
+    next.sort((a, b) => {
+      const aVal = sortBy === 'Price' ? a.row.price : a.row.comboMap[sortBy]
+      const bVal = sortBy === 'Price' ? b.row.price : b.row.comboMap[sortBy]
+      const aCmp = toComparable(aVal)
+      const bCmp = toComparable(bVal)
+
+      if (aCmp.kind === 'num' && bCmp.kind === 'num') {
+        return (aCmp.num - bCmp.num) * dir
+      }
+
+      const aStr = aCmp.kind === 'str' ? aCmp.str : String(aCmp.num)
+      const bStr = bCmp.kind === 'str' ? bCmp.str : String(bCmp.num)
+      return aStr.localeCompare(bStr) * dir
+    })
+    return next
+  }, [rows, sortBy, sortDir, toComparable])
+
   if (!adjusters || adjusters.length === 0) {
     return <p className="text-muted-foreground">Add adjusters to calculate prices</p>
   }
@@ -341,7 +386,25 @@ export function CalculatedPrice({
               >
                 <div className="flex items-center gap-2">
                   <span className="cursor-move select-none">⋮⋮</span>
-                  <span>{h === 'Price' ? 'Price' : getColumnLabel(h, null)}</span>
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1 text-left hover:underline"
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      handleSortClick(h)
+                    }}
+                  >
+                    <span>{h === 'Price' ? 'Price' : getColumnLabel(h, null)}</span>
+                    {sortBy === h ? (
+                      sortDir === 'asc' ? (
+                        <ArrowUp className="h-3.5 w-3.5 shrink-0" />
+                      ) : (
+                        <ArrowDown className="h-3.5 w-3.5 shrink-0" />
+                      )
+                    ) : (
+                      <ArrowUpDown className="h-3.5 w-3.5 shrink-0 opacity-50" />
+                    )}
+                  </button>
                 </div>
                 <div
                   className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize"
@@ -352,8 +415,8 @@ export function CalculatedPrice({
           </tr>
         </thead>
         <tbody>
-          {rows.map((r, i) => (
-            <tr id={`calculated-price-row-${i}`} data-calculated-row-index={i} key={i} className="even:bg-gray-50">
+          {sortedRows.map(({ row: r, index: originalIndex }) => (
+            <tr id={`calculated-price-row-${originalIndex}`} data-calculated-row-index={originalIndex} key={originalIndex} className="even:bg-gray-50">
               {columnOrder.map((h) =>
                 h === 'Price' ? (
                   <td key={h} className="border px-3 py-2 font-bold" style={getColumnCellStyle(h)}>

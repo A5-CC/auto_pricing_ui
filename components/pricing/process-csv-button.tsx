@@ -55,7 +55,7 @@ import type { Adjuster, CompetitivePriceAdjuster, FunctionBasedAdjuster, Tempora
 import { evaluateSafeFunction } from "@/lib/adjusters";
 import { listProcessCsvConfigurations, saveProcessCsvConfiguration, type ProcessCsvConfiguration } from "@/lib/api/client/pricing";
 import type { E1DataRow } from "@/lib/api/types";
-import { FileSpreadsheet, Info, Layers3, Loader2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, FileSpreadsheet, Info, Layers3, Loader2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { toast } from "sonner";
 
@@ -146,6 +146,28 @@ type ReviewData = {
   changes: CsvRateChange[]
   reviewRows: ReviewRow[]
 }
+
+type SortDirection = "asc" | "desc"
+type ReviewSortColumn =
+  | "rowIndex"
+  | "facilityName"
+  | "unitSize"
+  | "totalUnits"
+  | "occupied"
+  | "available"
+  | "vacancy"
+  | "occupancy"
+  | "hasElevatorAccessAmenity"
+  | "hasDriveUpAmenity"
+  | "hasFirstFloorAmenity"
+  | "hasClimateControlledAmenity"
+  | "amenityLevel"
+  | "currentWebRate"
+  | "proposedWebRate"
+  | "webDecision"
+  | "currentStandardRate"
+  | "proposedStandardRate"
+  | "standardDecision"
 
 type ProcessedCsvResult = ParsedCsv & {
   traceByCsvRowIndex: Record<number, number>
@@ -1098,6 +1120,8 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
   const [file, setFile] = useState<File | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
   const [reviewData, setReviewData] = useState<ReviewData | null>(null)
+  const [reviewSortBy, setReviewSortBy] = useState<ReviewSortColumn>("rowIndex")
+  const [reviewSortDir, setReviewSortDir] = useState<SortDirection>("asc")
   const [approvedChanges, setApprovedChanges] = useState<Record<string, boolean>>({})
   const [traceSelections, setTraceSelections] = useState<Record<string, boolean>>({})
   const [popupAdjusters, setPopupAdjusters] = useState<Adjuster[]>([])
@@ -1752,6 +1776,87 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     ? reviewData.changes.filter((c: CsvRateChange) => approvedChanges[c.id] === true).length
     : 0
 
+  const handleReviewSortClick = (column: ReviewSortColumn) => {
+    setReviewSortBy((prev) => {
+      if (prev === column) {
+        setReviewSortDir((dir) => (dir === "asc" ? "desc" : "asc"))
+        return prev
+      }
+      setReviewSortDir("asc")
+      return column
+    })
+  }
+
+  const sortedReviewRows = useMemo(() => {
+    const rows = reviewData?.reviewRows ?? []
+    const next = [...rows]
+    const dir = reviewSortDir === "asc" ? 1 : -1
+
+    const decisionState = (change: CsvRateChange | null): string => {
+      if (!change) return "none"
+      const approved = approvedChanges[change.id]
+      if (approved === true) return "approved"
+      if (approved === false) return "denied"
+      return "pending"
+    }
+
+    const toComparable = (value: unknown) => {
+      if (typeof value === "number" && Number.isFinite(value)) return { kind: "num" as const, num: value }
+      if (typeof value === "boolean") return { kind: "num" as const, num: value ? 1 : 0 }
+      const raw = String(value ?? "").trim()
+      const numeric = Number(raw.replace(/[$,%\s,]/g, ""))
+      if (raw !== "" && Number.isFinite(numeric)) return { kind: "num" as const, num: numeric }
+      return { kind: "str" as const, str: raw.toLowerCase() }
+    }
+
+    const valueForColumn = (row: ReviewRow): unknown => {
+      switch (reviewSortBy) {
+        case "webDecision":
+          return decisionState(row.webRateChange)
+        case "standardDecision":
+          return decisionState(row.standardRateChange)
+        default:
+          return row[reviewSortBy]
+      }
+    }
+
+    next.sort((a, b) => {
+      const aCmp = toComparable(valueForColumn(a))
+      const bCmp = toComparable(valueForColumn(b))
+
+      if (aCmp.kind === "num" && bCmp.kind === "num") {
+        return (aCmp.num - bCmp.num) * dir
+      }
+
+      const aStr = aCmp.kind === "str" ? aCmp.str : String(aCmp.num)
+      const bStr = bCmp.kind === "str" ? bCmp.str : String(bCmp.num)
+      return aStr.localeCompare(bStr) * dir
+    })
+
+    return next
+  }, [reviewData?.reviewRows, reviewSortBy, reviewSortDir, approvedChanges])
+
+  const renderReviewSortableHeader = (label: string, column: ReviewSortColumn) => (
+    <th className="px-3 py-2 text-left font-medium">
+      <button
+        type="button"
+        className="inline-flex items-center gap-1 hover:underline"
+        onClick={() => handleReviewSortClick(column)}
+      >
+        <span>{label}</span>
+        {reviewSortBy === column ? (
+          reviewSortDir === "asc" ? (
+            <ArrowUp className="h-3.5 w-3.5 shrink-0" />
+          ) : (
+            <ArrowDown className="h-3.5 w-3.5 shrink-0" />
+          )
+        ) : (
+          <ArrowUpDown className="h-3.5 w-3.5 shrink-0 opacity-50" />
+        )}
+      </button>
+    </th>
+  )
+
   // ── Inline panel render ──────────────────────────────────────────────────
   if (inline) {
     const inlineResetState = () => {
@@ -2035,29 +2140,29 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                           </div>
                         </div>
                       </th>
-                      <th className="px-3 py-2 text-left font-medium">Row</th>
-                      <th className="px-3 py-2 text-left font-medium">Facility</th>
-                      <th className="px-3 py-2 text-left font-medium">Unit</th>
-                      <th className="px-3 py-2 text-left font-medium">Total Units</th>
-                      <th className="px-3 py-2 text-left font-medium">Occupied</th>
-                      <th className="px-3 py-2 text-left font-medium">Available</th>
-                      <th className="px-3 py-2 text-left font-medium">Vacancy</th>
-                      <th className="px-3 py-2 text-left font-medium">Occupancy</th>
-                      <th className="px-3 py-2 text-left font-medium">Elevator Access</th>
-                      <th className="px-3 py-2 text-left font-medium">Drive Up</th>
-                      <th className="px-3 py-2 text-left font-medium">1st Floor</th>
-                      <th className="px-3 py-2 text-left font-medium">Climate Controlled</th>
-                      <th className="px-3 py-2 text-left font-medium">Level</th>
-                      <th className="px-3 py-2 text-left font-medium">Current Web</th>
-                      <th className="px-3 py-2 text-left font-medium">New Web</th>
-                      <th className="px-3 py-2 text-left font-medium">Web Decision</th>
-                      <th className="px-3 py-2 text-left font-medium">Current Standard</th>
-                      <th className="px-3 py-2 text-left font-medium">New Standard</th>
-                      <th className="px-3 py-2 text-left font-medium">Standard Decision</th>
+                      {renderReviewSortableHeader("Row", "rowIndex")}
+                      {renderReviewSortableHeader("Facility", "facilityName")}
+                      {renderReviewSortableHeader("Unit", "unitSize")}
+                      {renderReviewSortableHeader("Total Units", "totalUnits")}
+                      {renderReviewSortableHeader("Occupied", "occupied")}
+                      {renderReviewSortableHeader("Available", "available")}
+                      {renderReviewSortableHeader("Vacancy", "vacancy")}
+                      {renderReviewSortableHeader("Occupancy", "occupancy")}
+                      {renderReviewSortableHeader("Elevator Access", "hasElevatorAccessAmenity")}
+                      {renderReviewSortableHeader("Drive Up", "hasDriveUpAmenity")}
+                      {renderReviewSortableHeader("1st Floor", "hasFirstFloorAmenity")}
+                      {renderReviewSortableHeader("Climate Controlled", "hasClimateControlledAmenity")}
+                      {renderReviewSortableHeader("Level", "amenityLevel")}
+                      {renderReviewSortableHeader("Current Web", "currentWebRate")}
+                      {renderReviewSortableHeader("New Web", "proposedWebRate")}
+                      {renderReviewSortableHeader("Web Decision", "webDecision")}
+                      {renderReviewSortableHeader("Current Standard", "currentStandardRate")}
+                      {renderReviewSortableHeader("New Standard", "proposedStandardRate")}
+                      {renderReviewSortableHeader("Standard Decision", "standardDecision")}
                     </tr>
                   </thead>
                   <tbody>
-                    {reviewData.reviewRows.map((row: ReviewRow) => (
+                    {sortedReviewRows.map((row: ReviewRow) => (
                       <tr key={row.id} className="border-b last:border-b-0">
                         <td className={`px-3 py-2 align-top ${traceSelections[row.id] ? "bg-blue-50/60" : ""}`}>
                           <div className="flex items-center gap-1.5">
@@ -2699,29 +2804,29 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                           </div>
                         </div>
                       </th>
-                      <th className="px-3 py-2 text-left font-medium">Row</th>
-                      <th className="px-3 py-2 text-left font-medium">Facility</th>
-                      <th className="px-3 py-2 text-left font-medium">Unit</th>
-                      <th className="px-3 py-2 text-left font-medium">Total Units</th>
-                      <th className="px-3 py-2 text-left font-medium">Occupied</th>
-                      <th className="px-3 py-2 text-left font-medium">Available</th>
-                      <th className="px-3 py-2 text-left font-medium">Vacancy</th>
-                      <th className="px-3 py-2 text-left font-medium">Occupancy</th>
-                      <th className="px-3 py-2 text-left font-medium">Elevator Access</th>
-                      <th className="px-3 py-2 text-left font-medium">Drive Up</th>
-                      <th className="px-3 py-2 text-left font-medium">1st Floor</th>
-                      <th className="px-3 py-2 text-left font-medium">Climate Controlled</th>
-                      <th className="px-3 py-2 text-left font-medium">Level</th>
-                      <th className="px-3 py-2 text-left font-medium">Current Web</th>
-                      <th className="px-3 py-2 text-left font-medium">New Web</th>
-                      <th className="px-3 py-2 text-left font-medium">Web Decision</th>
-                      <th className="px-3 py-2 text-left font-medium">Current Standard</th>
-                      <th className="px-3 py-2 text-left font-medium">New Standard</th>
-                      <th className="px-3 py-2 text-left font-medium">Standard Decision</th>
+                      {renderReviewSortableHeader("Row", "rowIndex")}
+                      {renderReviewSortableHeader("Facility", "facilityName")}
+                      {renderReviewSortableHeader("Unit", "unitSize")}
+                      {renderReviewSortableHeader("Total Units", "totalUnits")}
+                      {renderReviewSortableHeader("Occupied", "occupied")}
+                      {renderReviewSortableHeader("Available", "available")}
+                      {renderReviewSortableHeader("Vacancy", "vacancy")}
+                      {renderReviewSortableHeader("Occupancy", "occupancy")}
+                      {renderReviewSortableHeader("Elevator Access", "hasElevatorAccessAmenity")}
+                      {renderReviewSortableHeader("Drive Up", "hasDriveUpAmenity")}
+                      {renderReviewSortableHeader("1st Floor", "hasFirstFloorAmenity")}
+                      {renderReviewSortableHeader("Climate Controlled", "hasClimateControlledAmenity")}
+                      {renderReviewSortableHeader("Level", "amenityLevel")}
+                      {renderReviewSortableHeader("Current Web", "currentWebRate")}
+                      {renderReviewSortableHeader("New Web", "proposedWebRate")}
+                      {renderReviewSortableHeader("Web Decision", "webDecision")}
+                      {renderReviewSortableHeader("Current Standard", "currentStandardRate")}
+                      {renderReviewSortableHeader("New Standard", "proposedStandardRate")}
+                      {renderReviewSortableHeader("Standard Decision", "standardDecision")}
                     </tr>
                   </thead>
                   <tbody>
-                    {reviewData.reviewRows.map((row: ReviewRow) => (
+                    {sortedReviewRows.map((row: ReviewRow) => (
                       <tr key={row.id} className="border-b last:border-b-0">
                         <td className={`px-3 py-2 align-top ${traceSelections[row.id] ? "bg-blue-50/60" : ""}`}>
                           <div className="flex items-center gap-1.5">
