@@ -385,69 +385,73 @@ export default function PipelineBundlesPage() {
           onSnapshotChange={setSelectedSnapshot}
         />
       </div>
-      <section className="mb-6 space-y-6">
-        <div>
-          <label className="block mb-2 font-medium">Selected pipelines:</label>
-          <div className="flex flex-wrap gap-2 mb-2">
-            {selectedPipelines.length === 0 && <span className="text-muted-foreground">None selected</span>}
-            {selectedPipelines.map((p) => (
-              <span key={p.id} className="inline-flex items-center bg-primary/10 text-primary px-3 py-1 rounded-full">
-                {p.name}
-                <button
-                  className="ml-2 text-red-500 hover:text-red-700"
-                  onClick={() => setSelectedPipelineIds(ids => ids.filter(id => id !== p.id))}
-                  title="Remove pipeline"
-                >
-                  ×
-                </button>
-              </span>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <label className="block mb-2 font-medium">Available pipelines:</label>
-          <div className="max-h-64 overflow-y-auto border rounded-lg bg-background/50 p-4">
-            {eligiblePipelines.length > 0 ? (
-              <ul className="space-y-2">
-                {eligiblePipelines.map((p) => (
-                  <li
-                    key={p.id}
-                    className="py-1 px-2 rounded hover:bg-accent cursor-pointer"
-                    onClick={() => setSelectedPipelineIds(ids => [...ids, p.id])}
-                  >
+      <div className="mb-6 overflow-x-auto snap-x snap-mandatory">
+        <div className="flex gap-6 min-w-max">
+          <section className="w-[calc(100vw-3rem)] max-w-[calc(100vw-3rem)] md:w-[calc(100vw-4rem)] md:max-w-[calc(100vw-4rem)] xl:w-[min(1120px,calc(100vw-4rem))] xl:max-w-[min(1120px,calc(100vw-4rem))] shrink-0 snap-start space-y-6">
+            <div>
+              <label className="block mb-2 font-medium">Selected pipelines:</label>
+              <div className="flex flex-wrap gap-2 mb-2">
+                {selectedPipelines.length === 0 && <span className="text-muted-foreground">None selected</span>}
+                {selectedPipelines.map((p) => (
+                  <span key={p.id} className="inline-flex items-center bg-primary/10 text-primary px-3 py-1 rounded-full">
                     {p.name}
-                  </li>
+                    <button
+                      className="ml-2 text-red-500 hover:text-red-700"
+                      onClick={() => setSelectedPipelineIds(ids => ids.filter(id => id !== p.id))}
+                      title="Remove pipeline"
+                    >
+                      ×
+                    </button>
+                  </span>
                 ))}
-              </ul>
-            ) : (
-              <div className="text-muted-foreground">No pipelines available.</div>
-            )}
-          </div>
-        </div>
-      </section>
+              </div>
+            </div>
 
-      <section className="mb-6 space-y-3">
-        <SectionLabel text="Effect Pricing" />
-        <ProcessCsvButton
-          inline
-          snapshotId={selectedSnapshot}
-          filters={{ competitors: [], locations: [], unit_dimensions: [], unitCategories: [] }}
-          rounding={{ enabled: false, offset: 0 }}
-          calculatedRowsBundle={selectedPipelineContexts.map((ctx) => ({
-            pipelineName: ctx.pipeline.name,
-            rows: ctx.calculatedRowsForCsv,
-          }))}
-          pricingContext={{
-            competitorData: dataResponse?.data ?? [],
-            clientAvailableUnits: clientDataResponse?.data.length || 0,
-            currentDate,
-            filters: {},
-            combinatoricFlags: selectedPipelineContexts[0]?.mergedCombinatoricFlags ?? {},
-            availableVariables,
-          }}
-        />
-      </section>
+            <div>
+              <label className="block mb-2 font-medium">Available pipelines:</label>
+              <div className="max-h-64 overflow-y-auto border rounded-lg bg-background/50 p-4">
+                {eligiblePipelines.length > 0 ? (
+                  <ul className="space-y-2">
+                    {eligiblePipelines.map((p) => (
+                      <li
+                        key={p.id}
+                        className="py-1 px-2 rounded hover:bg-accent cursor-pointer"
+                        onClick={() => setSelectedPipelineIds(ids => [...ids, p.id])}
+                      >
+                        {p.name}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="text-muted-foreground">No pipelines available.</div>
+                )}
+              </div>
+            </div>
+          </section>
+
+          <section className="w-[calc(100vw-3rem)] max-w-[calc(100vw-3rem)] md:w-[calc(100vw-4rem)] md:max-w-[calc(100vw-4rem)] xl:w-[min(1120px,calc(100vw-4rem))] xl:max-w-[min(1120px,calc(100vw-4rem))] shrink-0 snap-start space-y-3">
+            <SectionLabel text="Effect Pricing" />
+            <ProcessCsvButton
+              inline
+              snapshotId={selectedSnapshot}
+              filters={{ competitors: [], locations: [], unit_dimensions: [], unitCategories: [] }}
+              rounding={{ enabled: false, offset: 0 }}
+              calculatedRowsBundle={selectedPipelineContexts.map((ctx) => ({
+                pipelineName: ctx.pipeline.name,
+                rows: ctx.calculatedRowsForCsv,
+              }))}
+              pricingContext={{
+                competitorData: dataResponse?.data ?? [],
+                clientAvailableUnits: clientDataResponse?.data.length || 0,
+                currentDate,
+                filters: {},
+                combinatoricFlags: selectedPipelineContexts[0]?.mergedCombinatoricFlags ?? {},
+                availableVariables,
+              }}
+            />
+          </section>
+        </div>
+      </div>
 
       {/* Stacked pipeline tables */}
       {selectedPipelines.length > 0 && (
