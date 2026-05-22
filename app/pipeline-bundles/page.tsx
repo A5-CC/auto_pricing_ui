@@ -427,6 +427,28 @@ export default function PipelineBundlesPage() {
                 )}
               </div>
             </div>
+
+            {selectedPipelines.length > 0 && (
+              <section className="space-y-12 pt-2">
+                {selectedPipelineContexts.map((ctx) => {
+                  return (
+                    <div key={ctx.pipeline.id} className="border rounded-lg bg-background/50 p-6">
+                      <h2 className="text-xl font-semibold mb-2">{ctx.pipeline.name}</h2>
+                      <CalculatedPrice
+                        competitorData={ctx.subsetFilteredRows}
+                        clientAvailableUnits={clientDataResponse?.data.length || 0}
+                        adjusters={ctx.adjusters}
+                        currentDate={currentDate}
+                        filters={ctx.filters}
+                        combinatoricFlags={ctx.mergedCombinatoricFlags}
+                        roundingEnabled={ctx.roundingEnabled}
+                        roundingOffset={ctx.roundingOffset}
+                      />
+                    </div>
+                  );
+                })}
+              </section>
+            )}
           </section>
 
           <section className="w-[calc(100vw-3rem)] max-w-[calc(100vw-3rem)] md:w-[calc(100vw-4rem)] md:max-w-[calc(100vw-4rem)] xl:w-[min(1120px,calc(100vw-4rem))] xl:max-w-[min(1120px,calc(100vw-4rem))] shrink-0 snap-start space-y-3">
@@ -452,30 +474,6 @@ export default function PipelineBundlesPage() {
           </section>
         </div>
       </div>
-
-      {/* Stacked pipeline tables */}
-      {selectedPipelines.length > 0 && (
-        <section className="space-y-12 mt-12">
-          {selectedPipelineContexts.map((ctx) => {
-            return (
-              <div key={ctx.pipeline.id} className="border rounded-lg bg-background/50 p-6">
-                <h2 className="text-xl font-semibold mb-2">{ctx.pipeline.name}</h2>
-                {/* Optionally, add summary numbers here if needed */}
-                <CalculatedPrice
-                  competitorData={ctx.subsetFilteredRows}
-                  clientAvailableUnits={clientDataResponse?.data.length || 0}
-                  adjusters={ctx.adjusters}
-                  currentDate={currentDate}
-                  filters={ctx.filters}
-                  combinatoricFlags={ctx.mergedCombinatoricFlags}
-                  roundingEnabled={ctx.roundingEnabled}
-                  roundingOffset={ctx.roundingOffset}
-                />
-              </div>
-            );
-          })}
-        </section>
-      )}
     </main>
   );
 }
