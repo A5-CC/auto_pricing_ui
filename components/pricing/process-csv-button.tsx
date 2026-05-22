@@ -53,7 +53,7 @@ import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { Adjuster, CompetitivePriceAdjuster, FunctionBasedAdjuster, TemporalAdjuster } from '@/lib/adjusters';
 import { evaluateSafeFunction } from "@/lib/adjusters";
-import { listProcessCsvConfigurations, saveProcessCsvConfiguration, type ProcessCsvConfiguration } from "@/lib/api/client/pricing";
+import { deleteProcessCsvConfiguration, listProcessCsvConfigurations, saveProcessCsvConfiguration, type ProcessCsvConfiguration } from "@/lib/api/client/pricing";
 import type { E1DataRow } from "@/lib/api/types";
 import { ArrowDown, ArrowUp, ArrowUpDown, FileSpreadsheet, Info, Layers3, Loader2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
@@ -1137,6 +1137,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
   const [showLevels, setShowLevels] = useState(false)
   const [isSavingProcessConfig, setIsSavingProcessConfig] = useState(false)
   const [isLoadingProcessConfig, setIsLoadingProcessConfig] = useState(false)
+  const [deletingProcessConfigId, setDeletingProcessConfigId] = useState<string | null>(null)
   const [loadConfigOpen, setLoadConfigOpen] = useState(false)
   const [availableProcessConfigs, setAvailableProcessConfigs] = useState<ProcessCsvConfiguration[]>([])
   const [standardRateOpen, setStandardRateOpen] = useState(false)
@@ -1648,6 +1649,27 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     applyLoadedProcessCsvConfig(selected)
     setLoadConfigOpen(false)
     toast.success(`Loaded Process CSV configuration: ${selected.name}`)
+  }
+
+  const handleDeleteProcessCsvConfig = async (config: ProcessCsvConfiguration) => {
+    if (!config?.id) {
+      toast.error("This configuration cannot be deleted because it has no id.")
+      return
+    }
+
+    const confirmed = window.confirm(`Delete Process CSV configuration \"${config.name || "Unnamed configuration"}\"?`)
+    if (!confirmed) return
+
+    setDeletingProcessConfigId(config.id)
+    try {
+      await deleteProcessCsvConfiguration(config.id)
+      setAvailableProcessConfigs((prev) => prev.filter((item) => item.id !== config.id))
+      toast.success("Process CSV configuration deleted.")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to delete Process CSV configuration")
+    } finally {
+      setDeletingProcessConfigId(null)
+    }
   }
 
   const handleSaveProcessCsvConfig = async () => {
@@ -2284,15 +2306,29 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
             </DialogHeader>
             <div className="max-h-[360px] overflow-auto space-y-2">
               {availableProcessConfigs.map((config) => (
-                <Button
-                  key={config.id ?? config.name}
-                  type="button"
-                  variant="outline"
-                  className="w-full justify-start"
-                  onClick={() => handleSelectProcessCsvConfig(config)}
-                >
-                  {config.name || "Unnamed configuration"}
-                </Button>
+                <div key={config.id ?? config.name} className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1 justify-start"
+                    onClick={() => handleSelectProcessCsvConfig(config)}
+                  >
+                    {config.name || "Unnamed configuration"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    disabled={!config.id || deletingProcessConfigId === config.id}
+                    onClick={() => handleDeleteProcessCsvConfig(config)}
+                  >
+                    {deletingProcessConfigId === config.id ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      "Delete"
+                    )}
+                  </Button>
+                </div>
               ))}
               {availableProcessConfigs.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No configurations available.</p>

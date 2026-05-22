@@ -241,3 +241,13 @@ export async function listProcessCsvConfigurations(
 
   return { configurations: [] }
 }
+
+export async function deleteProcessCsvConfiguration(
+  configId: string
+): Promise<{ success: boolean; id?: string }> {
+  const response = await fetchWithError(
+    `${API_BASE_URL}/client-data/process-csv-configurations/${encodeURIComponent(configId)}`,
+    { method: "DELETE" }
+  )
+  return response.json()
+}
