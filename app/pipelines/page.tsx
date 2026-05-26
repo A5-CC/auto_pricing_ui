@@ -5,10 +5,9 @@ import { AddCompetitiveAdjusterDialog } from "@/components/pipelines/adjusters/a
 import { AddFunctionAdjusterDialog } from "@/components/pipelines/adjusters/add-function-adjuster-dialog";
 import { AddTemporalAdjusterDialog } from "@/components/pipelines/adjusters/add-temporal-adjuster-dialog";
 import { useAdjusterDialog } from "@/components/pipelines/adjusters/use-adjuster-dialog";
-import { CalculatedPrice, calculatePriceTable } from "@/components/pipelines/calculated-price";
+import { CalculatedPrice } from "@/components/pipelines/calculated-price";
 import { PipelineSelector } from "@/components/pipelines/pipeline-selector";
 import { PriceDataWarning } from "@/components/pipelines/price-data-warning";
-import { ProcessCsvButton } from "@/components/pricing/process-csv-button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -94,20 +93,6 @@ export default function PipelinesPage() {
   const functionDialog = useAdjusterDialog();
   const temporalDialog = useAdjusterDialog();
   
-  // filters (explicit values)
-  const [selectedCompetitors, setSelectedCompetitors] = useState<string[]>(
-    []
-  );
-  const [selectedLocations, setSelectedLocations] = useState<string[]>(
-    []
-  );
-  const [selectedDimensions, setSelectedDimensions] = useState<string[]>(
-    []
-  );
-  const [selectedUnitCategories, setSelectedUnitCategories] = useState<
-    string[]
-  >([]);
-
   // Universal pipeline filters (column -> values)
   const [universalFilters, setUniversalFilters] = useState<Record<string, string[]>>({});
   const [universalCombinatoric, setUniversalCombinatoric] = useState<Record<string, boolean>>({});
@@ -243,12 +228,6 @@ export default function PipelinesPage() {
   /* ---------------- Pipeline load/save handlers ---------------- */
   const handleLoadPipeline = (filters: Record<string, string[]>) => {
     setUniversalFilters(normalizeFilterKeys(filters))
-
-    // Clear legacy filter state so it cannot create accidental combinatoric combinations.
-    setSelectedCompetitors([])
-    setSelectedLocations([])
-    setSelectedDimensions([])
-    setSelectedUnitCategories([])
   };
 
   const handlePipelineChange = (pipeline: Pipeline | null) => {
@@ -524,18 +503,6 @@ export default function PipelinesPage() {
     [subsetFilteredRows]
   );
 
-  const calculatedPriceTable = useMemo(
-    () => calculatePriceTable({
-      competitorData: subsetFilteredRows,
-      clientAvailableUnits: clientDataResponse?.data.length || 0,
-      adjusters: localAdjusters,
-      currentDate,
-      filters: mergedFilters,
-      combinatoricFlags: mergedCombinatoricFlags,
-    }),
-    [subsetFilteredRows, clientDataResponse?.data.length, localAdjusters, currentDate, mergedFilters, mergedCombinatoricFlags]
-  )
-
   const hasActiveFilterSelections = useMemo(() => {
     // Only consider filters “active” when they have selected values.
     return Object.values(universalFilters).some((vals) => Array.isArray(vals) && vals.length > 0)
@@ -575,33 +542,6 @@ export default function PipelinesPage() {
     if (Number.isNaN(next)) return
     const clamped = Math.min(1, Math.max(0, next))
     setRoundingOffset(clamped)
-  }
-
-  /* ---------------- Render ---------------- */
-  const processCsvProps = {
-    snapshotId: selectedSnapshot,
-    filters: {
-      competitors: selectedCompetitors,
-      locations: selectedLocations,
-      unit_dimensions: selectedDimensions,
-      unitCategories: selectedUnitCategories,
-      ...universalFilters,
-    },
-    adjusters: localAdjusters,
-    combinatoric: universalCombinatoric,
-    rounding: {
-      enabled: roundingEnabled,
-      offset: roundingOffset,
-    },
-    calculatedRows: calculatedPriceTable.rows,
-    pricingContext: {
-      competitorData: subsetFilteredRows,
-      clientAvailableUnits: clientDataResponse?.data.length || 0,
-      currentDate,
-      filters: mergedFilters,
-      combinatoricFlags: mergedCombinatoricFlags,
-      availableVariables,
-    },
   }
 
   return (
@@ -657,9 +597,8 @@ export default function PipelinesPage() {
       />
 
       {/* Universal Filters Section - marked for chatbot navigation */}
-      <div className="mt-4 overflow-x-auto">
-        <div className="flex items-start">
-          <section className="w-full shrink-0 pr-6 space-y-4">
+      <div className="mt-4">
+          <section className="space-y-4">
             <div data-section="universal-filters">
               <UniversalPipelineFilters
                 rows={dataResponse?.data ?? []}
@@ -812,14 +751,6 @@ export default function PipelinesPage() {
               </div>
             </div>
           </section>
-
-          <aside className="w-full shrink-0 pl-6 space-y-4 self-start">
-              <SectionLabel
-                text="Effect Pricing"
-              />
-              <ProcessCsvButton {...processCsvProps} inline />
-          </aside>
-        </div>
       </div>
 
         <AddCompetitiveAdjusterDialog
