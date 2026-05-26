@@ -1573,7 +1573,16 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to apply adjustments")
     }
-  }, [amenityAdjuster, originalParsed, popupAdjusters, rebuildReviewFromOriginal])
+  }, [
+    amenityAdjuster,
+    originalParsed,
+    popupAdjusters,
+    standardRateFunction,
+    standardRateRoundingEnabled,
+    standardRateRoundingOffset,
+    resolvedCalculatedRows.error,
+    resolvedCalculatedRows.rows.length,
+  ])
 
   const handleStandardRateDragStart = (x: number, y: number) => {
     standardRateDragRef.current = { x, y }
