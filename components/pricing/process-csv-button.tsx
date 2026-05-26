@@ -318,7 +318,14 @@ function hasElevatorAccessAmenity(value: unknown): boolean {
 function hasFirstFloorAmenity(value: unknown): boolean {
   const normalized = normalizeMatchValue(value)
   if (!normalized) return false
-  return normalized.includes("1st floor") || normalized.includes("first floor")
+  return (
+    normalized.includes("1st floor") ||
+    normalized.includes("first floor") ||
+    normalized.includes("1st-floor") ||
+    normalized.includes("first-floor") ||
+    normalized.includes("1stfloor") ||
+    normalized.includes("firstfloor")
+  )
 }
 
 function normalizeDriveUpAccessValue(value: unknown): "true" | "false" | "" {
@@ -344,10 +351,16 @@ function buildAmenityToken(parts: string[]): string {
 
 function buildCalculatedAmenityRequirementToken(comboMap: Record<string, unknown>): string {
   const requiredParts: string[] = []
+  const firstFloorSource =
+    comboMap.storage_level_description ??
+    comboMap.storage_level ??
+    comboMap.unit_amenities ??
+    comboMap.amenities
+
   if (normalizeDriveUpAccessValue(comboMap.has_drive_up_access) === "true") requiredParts.push("drive-up")
   if (isTruthyFlag(comboMap.is_climate_controlled)) requiredParts.push("climate-controlled")
   if (isTruthyFlag(comboMap.has_elevator_access)) requiredParts.push("elevator-access")
-  if (hasFirstFloorAmenity(comboMap.storage_level_description)) requiredParts.push("1st-floor")
+  if (hasFirstFloorAmenity(firstFloorSource)) requiredParts.push("1st-floor")
   return buildAmenityToken(requiredParts)
 }
 
