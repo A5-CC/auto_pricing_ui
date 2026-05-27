@@ -1653,11 +1653,6 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
         configurations = Array.isArray(allResponse?.configurations) ? allResponse.configurations : []
       }
 
-      if (configurations.length === 0) {
-        toast.error("No saved Process CSV configurations found.")
-        return
-      }
-
       setAvailableProcessConfigs(configurations)
       setLoadConfigOpen(true)
     } catch (error) {
@@ -2115,16 +2110,9 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
               <Button type="button" size="sm" variant="outline" onClick={functionDialog.handleOpen}>Competitive</Button>
               <Button type="button" size="sm" variant="outline" onClick={() => setShowLevels(true)}>Levels</Button>
               <div className="ml-auto flex items-center gap-2">
-                <Button type="button" size="sm" variant="outline" onClick={handleLoadProcessCsvConfig} disabled={isLoadingProcessConfig || isSavingProcessConfig}>
+                <Button type="button" size="sm" variant="outline" onClick={handleLoadProcessCsvConfig} disabled={isLoadingProcessConfig || isSavingProcessConfig || deletingProcessConfigId !== null}>
                   {isLoadingProcessConfig ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
-                  Load Config
-                </Button>
-                <Button type="button" size="sm" variant="outline" onClick={handleSaveProcessCsvConfig} disabled={isSavingProcessConfig}>
-                  {isSavingProcessConfig ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
-                  Save Config
-                </Button>
-                <Button type="button" size="sm" variant="outline" onClick={handleClearProcessCsvConfig}>
-                  Clear Config
+                  Config Settings
                 </Button>
               </div>
             </div>
@@ -2323,9 +2311,18 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
         <Dialog open={loadConfigOpen} onOpenChange={setLoadConfigOpen}>
           <DialogContent className="sm:max-w-[560px]">
             <DialogHeader>
-              <DialogTitle>Load Process CSV configuration</DialogTitle>
-              <DialogDescription>Select a saved configuration.</DialogDescription>
+              <DialogTitle>Config Settings</DialogTitle>
+              <DialogDescription>Load, save, or clear your Process CSV configuration.</DialogDescription>
             </DialogHeader>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="outline" onClick={handleSaveProcessCsvConfig} disabled={isSavingProcessConfig}>
+                {isSavingProcessConfig ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
+                Save Current Config
+              </Button>
+              <Button type="button" variant="outline" onClick={handleClearProcessCsvConfig}>
+                Clear Current Config
+              </Button>
+            </div>
             <div className="max-h-[360px] overflow-auto space-y-2">
               {availableProcessConfigs.map((config) => (
                 <div key={config.id ?? config.name} className="flex items-center gap-2">
@@ -2769,23 +2766,10 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                   size="sm"
                   variant="outline"
                   onClick={handleLoadProcessCsvConfig}
-                  disabled={isLoadingProcessConfig || isSavingProcessConfig}
+                  disabled={isLoadingProcessConfig || isSavingProcessConfig || deletingProcessConfigId !== null}
                 >
                   {isLoadingProcessConfig ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
-                  Load Config
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={handleSaveProcessCsvConfig}
-                  disabled={isSavingProcessConfig}
-                >
-                  {isSavingProcessConfig ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
-                  Save Config
-                </Button>
-                <Button type="button" size="sm" variant="outline" onClick={handleClearProcessCsvConfig}>
-                  Clear Config
+                  Config Settings
                 </Button>
               </div>
             </div>
@@ -3042,20 +3026,43 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
       <Dialog open={loadConfigOpen} onOpenChange={setLoadConfigOpen}>
         <DialogContent className="sm:max-w-[560px]">
           <DialogHeader>
-            <DialogTitle>Load Process CSV configuration</DialogTitle>
-            <DialogDescription>Select a saved configuration.</DialogDescription>
+            <DialogTitle>Config Settings</DialogTitle>
+            <DialogDescription>Load, save, or clear your Process CSV configuration.</DialogDescription>
           </DialogHeader>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="outline" onClick={handleSaveProcessCsvConfig} disabled={isSavingProcessConfig}>
+              {isSavingProcessConfig ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
+              Save Current Config
+            </Button>
+            <Button type="button" variant="outline" onClick={handleClearProcessCsvConfig}>
+              Clear Current Config
+            </Button>
+          </div>
           <div className="max-h-[360px] overflow-auto space-y-2">
             {availableProcessConfigs.map((config) => (
-              <Button
-                key={config.id ?? config.name}
-                type="button"
-                variant="outline"
-                className="w-full justify-start"
-                onClick={() => handleSelectProcessCsvConfig(config)}
-              >
-                {config.name || "Unnamed configuration"}
-              </Button>
+              <div key={config.id ?? config.name} className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1 justify-start"
+                  onClick={() => handleSelectProcessCsvConfig(config)}
+                >
+                  {config.name || "Unnamed configuration"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  disabled={!config.id || deletingProcessConfigId === config.id}
+                  onClick={() => handleDeleteProcessCsvConfig(config)}
+                >
+                  {deletingProcessConfigId === config.id ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    "Delete"
+                  )}
+                </Button>
+              </div>
             ))}
             {availableProcessConfigs.length === 0 ? (
               <p className="text-sm text-muted-foreground">No configurations available.</p>
