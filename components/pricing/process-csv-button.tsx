@@ -102,6 +102,16 @@ type ResolvedCalculatedRows = {
   error: string | null
 }
 
+type MappingOperator = "contains" | "equals" | "not_contains" | "empty" | "not_empty"
+
+type PipelineMappingRule = {
+  id: string
+  pipelineName: string
+  column: string
+  operator: MappingOperator
+  value: string
+}
+
 function createDefaultAmenityAdjusterState(): AmenityAdjusterState {
   return {
     applyToWeb: true,
@@ -391,15 +401,21 @@ function buildCsvAmenityTokenSubsets(value: unknown): string[] {
 }
 
 function findLookupByAmenitySubsets(
-  map: Map<string, { price: number; calculatedRowIndex: number }>,
+  map: Map<string, Array<{ price: number; calculatedRowIndex: number; pipelineName?: string }>>,
   place: string,
   dimensionOrAreaToken: string,
-  amenitySubsets: string[]
+  amenitySubsets: string[],
+  selectedPipelineName?: string
 ): { price: number; calculatedRowIndex: number } | undefined {
   for (const subset of amenitySubsets) {
     const key = buildPriceLookupKey(place, dimensionOrAreaToken, subset || undefined)
-    const match = map.get(key)
-    if (match) return match
+    const matches = map.get(key)
+    if (!matches || matches.length === 0) continue
+    if (selectedPipelineName) {
+      const scoped = matches.find((candidate) => candidate.pipelineName === selectedPipelineName)
+      if (scoped) return scoped
+    }
+    return matches[0]
   }
   return undefined
 }
@@ -530,6 +546,40 @@ function rowToRecord(headers: string[], row: string[]): Record<string, string> {
     out[headers[i]] = row[i] ?? ""
   }
   return out
+}
+
+function getCsvValueByColumn(record: Record<string, string>, column: string): string {
+  const direct = record[column]
+  if (typeof direct === "string") return direct
+
+  const normalizedTarget = normalizeColumnKey(column)
+  if (!normalizedTarget) return ""
+
+  for (const [key, value] of Object.entries(record)) {
+    if (normalizeColumnKey(key) === normalizedTarget) return value ?? ""
+  }
+  return ""
+}
+
+function doesMappingRuleMatch(record: Record<string, string>, rule: PipelineMappingRule): boolean {
+  const leftRaw = String(getCsvValueByColumn(record, rule.column) ?? "")
+  const left = leftRaw.trim().toLowerCase()
+  const right = String(rule.value ?? "").trim().toLowerCase()
+
+  switch (rule.operator) {
+    case "contains":
+      return right.length > 0 && left.includes(right)
+    case "equals":
+      return left === right
+    case "not_contains":
+      return right.length > 0 && !left.includes(right)
+    case "empty":
+      return left.length === 0
+    case "not_empty":
+      return left.length > 0
+    default:
+      return false
+  }
 }
 
 function applyPopupAdjustersToWebRate(
@@ -884,7 +934,8 @@ function applyCalculatedPricesToCsv(
   },
   popupAdjusters: Adjuster[] = [],
   amenityAdjuster?: ResolvedAmenityAdjuster,
-  standardRateFunction?: string
+  standardRateFunction?: string,
+  mappingRules: PipelineMappingRule[] = []
 ): ProcessedCsvResult {
   const webRounding = rounding?.enabled === true
     ? {
@@ -960,24 +1011,26 @@ function applyCalculatedPricesToCsv(
     for (const row of rows) row.push("")
   }
 
-  const priceLookup = new Map<string, { price: number; calculatedRowIndex: number }>()
-  const cityPriceLookup = new Map<string, { price: number; calculatedRowIndex: number }>()
-  const areaLookup = new Map<string, Array<{ area: number; price: number; calculatedRowIndex: number }>>()
+  const priceLookup = new Map<string, Array<{ price: number; calculatedRowIndex: number; pipelineName?: string }>>()
+  const cityPriceLookup = new Map<string, Array<{ price: number; calculatedRowIndex: number; pipelineName?: string }>>()
+  const areaLookup = new Map<string, Array<{ area: number; price: number; calculatedRowIndex: number; pipelineName?: string; amenityRequirementToken: string }>>()
   const traceByCsvRowIndex: Record<number, number> = {}
   let hasUnitAreaRows = false
 
   const areaBucketKey = (place: string) => place
-  const setLookupIfMissing = (
-    map: Map<string, { price: number; calculatedRowIndex: number }>,
+  const appendLookup = (
+    map: Map<string, Array<{ price: number; calculatedRowIndex: number; pipelineName?: string }>>,
     key: string,
-    value: { price: number; calculatedRowIndex: number }
+    value: { price: number; calculatedRowIndex: number; pipelineName?: string }
   ) => {
-    if (!map.has(key)) map.set(key, value)
+    const next = map.get(key) ?? []
+    next.push(value)
+    map.set(key, next)
   }
 
-  const addAreaCandidate = (bucket: string, area: number, price: number, calculatedRowIndex: number, amenityRequirementToken: string) => {
+  const addAreaCandidate = (bucket: string, area: number, price: number, calculatedRowIndex: number, amenityRequirementToken: string, pipelineName?: string) => {
     const next = areaLookup.get(bucket) ?? []
-    next.push({ area, price, calculatedRowIndex, amenityRequirementToken } as { area: number; price: number; calculatedRowIndex: number; amenityRequirementToken: string })
+    next.push({ area, price, calculatedRowIndex, amenityRequirementToken, pipelineName })
     areaLookup.set(bucket, next)
   }
 
@@ -1001,30 +1054,31 @@ function applyCalculatedPricesToCsv(
     if (!location || (!dimensionToken && !areaToken)) continue
     const webPrice = applyConfiguredRounding(calculatedRow.price, webRounding)
     const price = webPrice
-    const pricedRow = { price, calculatedRowIndex }
+    const pipelineName = String((calculatedRow as Record<string, unknown>).__pipelineName ?? "")
+    const pricedRow = { price, calculatedRowIndex, pipelineName }
     if (dimensionToken) {
-      setLookupIfMissing(priceLookup, buildPriceLookupKey(location, dimensionToken, amenityRequirementToken || undefined), pricedRow)
-      if (locationKey) setLookupIfMissing(priceLookup, buildPriceLookupKey(locationKey, dimensionToken, amenityRequirementToken || undefined), pricedRow)
-      if (city) setLookupIfMissing(cityPriceLookup, buildPriceLookupKey(city, dimensionToken, amenityRequirementToken || undefined), pricedRow)
-      if (cityKey) setLookupIfMissing(cityPriceLookup, buildPriceLookupKey(cityKey, dimensionToken, amenityRequirementToken || undefined), pricedRow)
+      appendLookup(priceLookup, buildPriceLookupKey(location, dimensionToken, amenityRequirementToken || undefined), pricedRow)
+      if (locationKey) appendLookup(priceLookup, buildPriceLookupKey(locationKey, dimensionToken, amenityRequirementToken || undefined), pricedRow)
+      if (city) appendLookup(cityPriceLookup, buildPriceLookupKey(city, dimensionToken, amenityRequirementToken || undefined), pricedRow)
+      if (cityKey) appendLookup(cityPriceLookup, buildPriceLookupKey(cityKey, dimensionToken, amenityRequirementToken || undefined), pricedRow)
     }
     if (areaToken) {
-      setLookupIfMissing(priceLookup, buildPriceLookupKey(location, areaToken, amenityRequirementToken || undefined), pricedRow)
-      if (locationKey) setLookupIfMissing(priceLookup, buildPriceLookupKey(locationKey, areaToken, amenityRequirementToken || undefined), pricedRow)
-      if (city) setLookupIfMissing(cityPriceLookup, buildPriceLookupKey(city, areaToken, amenityRequirementToken || undefined), pricedRow)
-      if (cityKey) setLookupIfMissing(cityPriceLookup, buildPriceLookupKey(cityKey, areaToken, amenityRequirementToken || undefined), pricedRow)
+      appendLookup(priceLookup, buildPriceLookupKey(location, areaToken, amenityRequirementToken || undefined), pricedRow)
+      if (locationKey) appendLookup(priceLookup, buildPriceLookupKey(locationKey, areaToken, amenityRequirementToken || undefined), pricedRow)
+      if (city) appendLookup(cityPriceLookup, buildPriceLookupKey(city, areaToken, amenityRequirementToken || undefined), pricedRow)
+      if (cityKey) appendLookup(cityPriceLookup, buildPriceLookupKey(cityKey, areaToken, amenityRequirementToken || undefined), pricedRow)
 
       const parsedArea = parseAreaTokenValue(areaToken)
       if (parsedArea !== null) {
-        addAreaCandidate(areaBucketKey(location), parsedArea, price, calculatedRowIndex, amenityRequirementToken)
+        addAreaCandidate(areaBucketKey(location), parsedArea, price, calculatedRowIndex, amenityRequirementToken, pipelineName)
         if (locationKey) {
-          addAreaCandidate(areaBucketKey(locationKey), parsedArea, price, calculatedRowIndex, amenityRequirementToken)
+          addAreaCandidate(areaBucketKey(locationKey), parsedArea, price, calculatedRowIndex, amenityRequirementToken, pipelineName)
         }
         if (city) {
-          addAreaCandidate(areaBucketKey(city), parsedArea, price, calculatedRowIndex, amenityRequirementToken)
+          addAreaCandidate(areaBucketKey(city), parsedArea, price, calculatedRowIndex, amenityRequirementToken, pipelineName)
         }
         if (cityKey) {
-          addAreaCandidate(areaBucketKey(cityKey), parsedArea, price, calculatedRowIndex, amenityRequirementToken)
+          addAreaCandidate(areaBucketKey(cityKey), parsedArea, price, calculatedRowIndex, amenityRequirementToken, pipelineName)
         }
       }
     }
@@ -1038,6 +1092,12 @@ function applyCalculatedPricesToCsv(
   for (let csvRowIndex = 0; csvRowIndex < rows.length; csvRowIndex++) {
     const row = rows[csvRowIndex]
     const csvRow = rowToRecord(headers, row)
+    const selectedPipelineName = (() => {
+      for (const rule of mappingRules) {
+        if (doesMappingRuleMatch(csvRow, rule)) return rule.pipelineName
+      }
+      return undefined
+    })()
     const location = normalizeLocationKey(getCellValue(row, locationIndex))
     const locationKey = location
     const city = normalizeCityValue(getCellValue(row, locationIndex))
@@ -1051,14 +1111,14 @@ function applyCalculatedPricesToCsv(
     const allowDimensionMatching = !hasUnitAreaRows
 
     let mappedMatch =
-      (areaToken ? findLookupByAmenitySubsets(priceLookup, location, areaToken, amenitySubsets) : undefined) ??
-      (areaToken && locationKey ? findLookupByAmenitySubsets(priceLookup, locationKey, areaToken, amenitySubsets) : undefined) ??
-      (areaToken && city ? findLookupByAmenitySubsets(cityPriceLookup, city, areaToken, amenitySubsets) : undefined) ??
-      (areaToken && cityKey ? findLookupByAmenitySubsets(cityPriceLookup, cityKey, areaToken, amenitySubsets) : undefined) ??
-      (allowDimensionMatching && dimensionToken ? findLookupByAmenitySubsets(priceLookup, location, dimensionToken, amenitySubsets) : undefined) ??
-      (allowDimensionMatching && dimensionToken && locationKey ? findLookupByAmenitySubsets(priceLookup, locationKey, dimensionToken, amenitySubsets) : undefined) ??
-      (allowDimensionMatching && dimensionToken && city ? findLookupByAmenitySubsets(cityPriceLookup, city, dimensionToken, amenitySubsets) : undefined)
-      ?? (allowDimensionMatching && dimensionToken && cityKey ? findLookupByAmenitySubsets(cityPriceLookup, cityKey, dimensionToken, amenitySubsets) : undefined)
+      (areaToken ? findLookupByAmenitySubsets(priceLookup, location, areaToken, amenitySubsets, selectedPipelineName) : undefined) ??
+      (areaToken && locationKey ? findLookupByAmenitySubsets(priceLookup, locationKey, areaToken, amenitySubsets, selectedPipelineName) : undefined) ??
+      (areaToken && city ? findLookupByAmenitySubsets(cityPriceLookup, city, areaToken, amenitySubsets, selectedPipelineName) : undefined) ??
+      (areaToken && cityKey ? findLookupByAmenitySubsets(cityPriceLookup, cityKey, areaToken, amenitySubsets, selectedPipelineName) : undefined) ??
+      (allowDimensionMatching && dimensionToken ? findLookupByAmenitySubsets(priceLookup, location, dimensionToken, amenitySubsets, selectedPipelineName) : undefined) ??
+      (allowDimensionMatching && dimensionToken && locationKey ? findLookupByAmenitySubsets(priceLookup, locationKey, dimensionToken, amenitySubsets, selectedPipelineName) : undefined) ??
+      (allowDimensionMatching && dimensionToken && city ? findLookupByAmenitySubsets(cityPriceLookup, city, dimensionToken, amenitySubsets, selectedPipelineName) : undefined)
+      ?? (allowDimensionMatching && dimensionToken && cityKey ? findLookupByAmenitySubsets(cityPriceLookup, cityKey, dimensionToken, amenitySubsets, selectedPipelineName) : undefined)
 
     if (mappedMatch !== undefined && areaToken) {
       matchedAreaValue = areaToken.replace(/^area:/, "")
@@ -1072,16 +1132,17 @@ function applyCalculatedPricesToCsv(
           areaBucketKey(city),
         ]
 
-        let best: { area: number; price: number; delta: number; calculatedRowIndex: number } | null = null
+        let best: { area: number; price: number; delta: number; calculatedRowIndex: number; pipelineName?: string } | null = null
         for (const bucket of candidateBuckets) {
           if (!bucket.startsWith("__")) {
-            const candidates = (areaLookup.get(bucket) ?? []) as Array<{ area: number; price: number; delta?: number; calculatedRowIndex: number; amenityRequirementToken?: string }>
+            const candidates = (areaLookup.get(bucket) ?? []) as Array<{ area: number; price: number; delta?: number; calculatedRowIndex: number; amenityRequirementToken?: string; pipelineName?: string }>
             for (const c of candidates) {
+              if (selectedPipelineName && c.pipelineName !== selectedPipelineName) continue
               if (!amenitySubsets.includes(c.amenityRequirementToken ?? "")) continue
               const delta = Math.abs(c.area - targetArea)
               if (delta > 3) continue
               if (!best || delta < best.delta) {
-                best = { area: c.area, price: c.price, delta, calculatedRowIndex: c.calculatedRowIndex }
+                best = { area: c.area, price: c.price, delta, calculatedRowIndex: c.calculatedRowIndex, pipelineName: c.pipelineName }
               }
             }
             if (best && best.delta === 0) break
@@ -1172,10 +1233,39 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
   const [amenityAdjuster, setAmenityAdjuster] = useState<AmenityAdjusterState>(createDefaultAmenityAdjusterState)
   const [originalParsed, setOriginalParsed] = useState<ParsedCsv | null>(null)
   const [csvNumericVariables, setCsvNumericVariables] = useState<string[]>([])
+  const [showMapping, setShowMapping] = useState(false)
+  const [mappingRules, setMappingRules] = useState<PipelineMappingRule[]>([])
 
   const functionDialog = useAdjusterDialog()
   const showLevelsAdjusterPreview = useMemo(() => hasConfiguredLevelsAdjuster(amenityAdjuster), [amenityAdjuster])
   const totalProcessAdjusterSteps = popupAdjusters.length + (showLevelsAdjusterPreview ? 1 : 0)
+  const mappingPipelineNames = useMemo(
+    () => Array.from(new Set((calculatedRowsBundle ?? []).map((entry) => entry.pipelineName).filter(Boolean))),
+    [calculatedRowsBundle]
+  )
+
+  const createMappingRule = useCallback((): PipelineMappingRule => {
+    const firstPipeline = mappingPipelineNames[0] ?? ""
+    return {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      pipelineName: firstPipeline,
+      column: "",
+      operator: "contains",
+      value: "",
+    }
+  }, [mappingPipelineNames])
+
+  const addMappingRule = useCallback(() => {
+    setMappingRules((prev) => [...prev, createMappingRule()])
+  }, [createMappingRule])
+
+  const updateMappingRule = useCallback((id: string, patch: Partial<PipelineMappingRule>) => {
+    setMappingRules((prev) => prev.map((rule) => (rule.id === id ? { ...rule, ...patch } : rule)))
+  }, [])
+
+  const removeMappingRule = useCallback((id: string) => {
+    setMappingRules((prev) => prev.filter((rule) => rule.id !== id))
+  }, [])
 
   const resolvedCalculatedRows = useMemo<ResolvedCalculatedRows>(() => {
     const bundle = calculatedRowsBundle
@@ -1184,7 +1274,6 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     }
 
     const merged: CalculatedPriceRow[] = []
-    const ownerByKey = new Map<string, string>()
 
     for (const entry of bundle) {
       const pipelineName = entry.pipelineName || "Unnamed pipeline"
@@ -1198,18 +1287,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
 
         const keyToken = areaToken || dimensionToken
         if (!location || !keyToken) continue
-
-        const key = buildPriceLookupKey(location, keyToken, amenityRequirementToken || undefined)
-        const existingOwner = ownerByKey.get(key)
-        if (existingOwner && existingOwner !== pipelineName) {
-          return {
-            rows: [],
-            error: `Pipeline overlap detected between "${existingOwner}" and "${pipelineName}" for the same location + size combination. Please ensure selected pipelines do not intersect.`,
-          }
-        }
-
-        ownerByKey.set(key, pipelineName)
-        merged.push(row)
+        merged.push({ ...row, __pipelineName: pipelineName } as CalculatedPriceRow)
       }
     }
 
@@ -1393,6 +1471,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     setTraceSelections({})
     setPopupAdjusters([])
     setAmenityAdjuster(createDefaultAmenityAdjusterState())
+    setMappingRules([])
     setOriginalParsed(null)
     setCsvNumericVariables([])
   }
@@ -1500,6 +1579,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
       nextAdjusters,
       resolvedAmenityAdjuster,
       standardRateFunction,
+      mappingRules,
     )
     const headers = processed.headers.length ? processed.headers : original.headers
     const changes = buildChanges(original, processed)
@@ -1522,6 +1602,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     effectiveRounding,
     resolvedAmenityAdjuster,
     standardRateFunction,
+    mappingRules,
   ])
 
   const handleAddPopupAdjuster = (adjuster: Adjuster) => {
@@ -1559,6 +1640,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
   const handleClearProcessCsvConfig = () => {
     setPopupAdjusters([])
     setAmenityAdjuster(createDefaultAmenityAdjusterState())
+    setMappingRules([])
     setStandardRateFunction(DEFAULT_STANDARD_RATE_FUNCTION)
     setStandardRateRoundingEnabled(false)
     setStandardRateRoundingOffset(0)
@@ -1582,6 +1664,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     standardRateRoundingOffset,
     resolvedCalculatedRows.error,
     resolvedCalculatedRows.rows.length,
+    mappingRules,
   ])
 
   const handleStandardRateDragStart = (x: number, y: number) => {
@@ -1748,6 +1831,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
         popupAdjusters,
         resolvedAmenityAdjuster,
         standardRateFunction,
+        mappingRules,
       )
 
       if (original.headers.length === 0 || processed.headers.length === 0) {
@@ -1929,6 +2013,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
       setTraceSelections({})
       setPopupAdjusters([])
       setAmenityAdjuster(createDefaultAmenityAdjusterState())
+      setMappingRules([])
       setOriginalParsed(null)
       setCsvNumericVariables([])
     }
@@ -2109,6 +2194,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
               <span className="text-sm font-medium">Adjusters</span>
               <Button type="button" size="sm" variant="outline" onClick={functionDialog.handleOpen}>Competitive</Button>
               <Button type="button" size="sm" variant="outline" onClick={() => setShowLevels(true)}>Levels</Button>
+              <Button type="button" size="sm" variant="outline" onClick={() => setShowMapping(true)} disabled={mappingPipelineNames.length === 0}>Mapping</Button>
               <div className="ml-auto flex items-center gap-2">
                 <Button type="button" size="sm" variant="outline" onClick={handleLoadProcessCsvConfig} disabled={isLoadingProcessConfig || isSavingProcessConfig || deletingProcessConfigId !== null}>
                   {isLoadingProcessConfig ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
@@ -2356,6 +2442,89 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setLoadConfigOpen(false)}>
                 Close
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={showMapping} onOpenChange={setShowMapping}>
+          <DialogContent className="sm:max-w-[760px]">
+            <DialogHeader>
+              <DialogTitle>Mapping</DialogTitle>
+              <DialogDescription>
+                Choose which pipeline to use when CSV rows match specific conditions.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3">
+              {mappingRules.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No mapping rules yet. Add a rule below. Rules are evaluated top-to-bottom.</p>
+              ) : null}
+              <div className="space-y-2 max-h-[320px] overflow-auto pr-1">
+                {mappingRules.map((rule, idx) => (
+                  <div key={rule.id} className="rounded-md border p-3 space-y-2">
+                    <div className="text-xs text-muted-foreground">Rule {idx + 1}</div>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Pipeline</Label>
+                        <select
+                          className="mt-1 w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+                          value={rule.pipelineName}
+                          onChange={(e) => updateMappingRule(rule.id, { pipelineName: e.target.value })}
+                        >
+                          {mappingPipelineNames.map((name) => (
+                            <option key={name} value={name}>{name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">CSV column</Label>
+                        <Input
+                          className="mt-1 h-9"
+                          placeholder="Unit Amenities"
+                          value={rule.column}
+                          onChange={(e) => updateMappingRule(rule.id, { column: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Condition</Label>
+                        <select
+                          className="mt-1 w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+                          value={rule.operator}
+                          onChange={(e) => updateMappingRule(rule.id, { operator: e.target.value as MappingOperator })}
+                        >
+                          <option value="contains">contains</option>
+                          <option value="equals">equals</option>
+                          <option value="not_contains">does not contain</option>
+                          <option value="empty">is empty</option>
+                          <option value="not_empty">is not empty</option>
+                        </select>
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Value</Label>
+                        <Input
+                          className="mt-1 h-9"
+                          placeholder="Drive Up"
+                          value={rule.value}
+                          disabled={rule.operator === "empty" || rule.operator === "not_empty"}
+                          onChange={(e) => updateMappingRule(rule.id, { value: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex justify-end">
+                      <Button type="button" size="sm" variant="outline" onClick={() => removeMappingRule(rule.id)}>
+                        Remove Rule
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <Button type="button" variant="outline" onClick={addMappingRule} disabled={mappingPipelineNames.length === 0}>
+                Add Rule
+              </Button>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setShowMapping(false)}>
+                Done
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -2760,6 +2929,9 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
               >
                 Levels
               </Button>
+              <Button type="button" size="sm" variant="outline" onClick={() => setShowMapping(true)} disabled={mappingPipelineNames.length === 0}>
+                Mapping
+              </Button>
               <div className="ml-auto flex items-center gap-2">
                 <Button
                   type="button"
@@ -3071,6 +3243,89 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setLoadConfigOpen(false)}>
               Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showMapping} onOpenChange={setShowMapping}>
+        <DialogContent className="sm:max-w-[760px]">
+          <DialogHeader>
+            <DialogTitle>Mapping</DialogTitle>
+            <DialogDescription>
+              Choose which pipeline to use when CSV rows match specific conditions.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            {mappingRules.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No mapping rules yet. Add a rule below. Rules are evaluated top-to-bottom.</p>
+            ) : null}
+            <div className="space-y-2 max-h-[320px] overflow-auto pr-1">
+              {mappingRules.map((rule, idx) => (
+                <div key={rule.id} className="rounded-md border p-3 space-y-2">
+                  <div className="text-xs text-muted-foreground">Rule {idx + 1}</div>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Pipeline</Label>
+                      <select
+                        className="mt-1 w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+                        value={rule.pipelineName}
+                        onChange={(e) => updateMappingRule(rule.id, { pipelineName: e.target.value })}
+                      >
+                        {mappingPipelineNames.map((name) => (
+                          <option key={name} value={name}>{name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">CSV column</Label>
+                      <Input
+                        className="mt-1 h-9"
+                        placeholder="Unit Amenities"
+                        value={rule.column}
+                        onChange={(e) => updateMappingRule(rule.id, { column: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Condition</Label>
+                      <select
+                        className="mt-1 w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+                        value={rule.operator}
+                        onChange={(e) => updateMappingRule(rule.id, { operator: e.target.value as MappingOperator })}
+                      >
+                        <option value="contains">contains</option>
+                        <option value="equals">equals</option>
+                        <option value="not_contains">does not contain</option>
+                        <option value="empty">is empty</option>
+                        <option value="not_empty">is not empty</option>
+                      </select>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Value</Label>
+                      <Input
+                        className="mt-1 h-9"
+                        placeholder="Drive Up"
+                        value={rule.value}
+                        disabled={rule.operator === "empty" || rule.operator === "not_empty"}
+                        onChange={(e) => updateMappingRule(rule.id, { value: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end">
+                    <Button type="button" size="sm" variant="outline" onClick={() => removeMappingRule(rule.id)}>
+                      Remove Rule
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <Button type="button" variant="outline" onClick={addMappingRule} disabled={mappingPipelineNames.length === 0}>
+              Add Rule
+            </Button>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setShowMapping(false)}>
+              Done
             </Button>
           </DialogFooter>
         </DialogContent>
