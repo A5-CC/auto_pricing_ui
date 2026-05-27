@@ -1283,7 +1283,6 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
         const location = normalizeMatchValue(row.comboMap.client_location)
         const dimensionToken = getDimensionLookupToken(row.comboMap.unit_dimensions)
         const areaToken = getAreaLookupToken(row.comboMap.unit_area)
-        const amenityRequirementToken = buildCalculatedAmenityRequirementToken(row.comboMap as Record<string, unknown>)
 
         const keyToken = areaToken || dimensionToken
         if (!location || !keyToken) continue
@@ -1494,7 +1493,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     target?.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" })
   }
 
-  const clearCalculatedTraceHighlights = () => {
+  const clearCalculatedTraceHighlights = useCallback(() => {
     const rows = document.querySelectorAll('tr[data-calculated-row-index]')
     rows.forEach((row) => {
       const rowEl = row as HTMLElement
@@ -1508,9 +1507,9 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
         cellEl.style.backgroundColor = ""
       })
     })
-  }
+  }, [])
 
-  const applyCalculatedTraceHighlights = (targetIds: string[]) => {
+  const applyCalculatedTraceHighlights = useCallback((targetIds: string[]) => {
     clearCalculatedTraceHighlights()
     for (const id of targetIds) {
       const row = document.getElementById(id)
@@ -1532,7 +1531,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
         priceCell.style.backgroundColor = "rgba(59, 130, 246, 0.14)"
       }
     }
-  }
+  }, [clearCalculatedTraceHighlights])
 
   const toggleTraceSelection = (row: ReviewRow) => {
     setTraceSelections((prev) => {
@@ -1566,7 +1565,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     return () => {
       clearCalculatedTraceHighlights()
     }
-  }, [traceSelections, reviewData])
+  }, [traceSelections, reviewData, applyCalculatedTraceHighlights, clearCalculatedTraceHighlights])
 
   const rebuildReviewFromOriginal = useCallback((original: ParsedCsv, nextAdjusters: Adjuster[]) => {
     if (resolvedCalculatedRows.error) {
@@ -1655,17 +1654,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to apply adjustments")
     }
-  }, [
-    amenityAdjuster,
-    originalParsed,
-    popupAdjusters,
-    standardRateFunction,
-    standardRateRoundingEnabled,
-    standardRateRoundingOffset,
-    resolvedCalculatedRows.error,
-    resolvedCalculatedRows.rows.length,
-    mappingRules,
-  ])
+  }, [originalParsed, popupAdjusters, rebuildReviewFromOriginal])
 
   const handleStandardRateDragStart = (x: number, y: number) => {
     standardRateDragRef.current = { x, y }
