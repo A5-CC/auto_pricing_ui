@@ -1233,6 +1233,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
   const [amenityAdjuster, setAmenityAdjuster] = useState<AmenityAdjusterState>(createDefaultAmenityAdjusterState)
   const [originalParsed, setOriginalParsed] = useState<ParsedCsv | null>(null)
   const [csvNumericVariables, setCsvNumericVariables] = useState<string[]>([])
+  const lastAutoRebuildKeyRef = useRef<string>("")
   const [showMapping, setShowMapping] = useState(false)
   const [mappingRules, setMappingRules] = useState<PipelineMappingRule[]>([])
 
@@ -1473,6 +1474,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     setMappingRules([])
     setOriginalParsed(null)
     setCsvNumericVariables([])
+    lastAutoRebuildKeyRef.current = ""
   }
 
   const buildDefaultApprovals = (changes: CsvRateChange[]) => {
@@ -1644,17 +1646,57 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     setStandardRateRoundingEnabled(false)
     setStandardRateRoundingOffset(0)
     setStandardRateRoundingOffsetInput("0")
+    lastAutoRebuildKeyRef.current = ""
     toast.success("Process CSV configuration reset.")
   }
 
+  const autoRebuildKey = useMemo(() => {
+    const mappingKey = mappingRules
+      .map((r) => `${r.pipelineName}|${r.column}|${r.operator}|${r.value}`)
+      .join("||")
+    const amenityKey = [
+      amenityAdjuster.applyToWeb ? "1" : "0",
+      amenityAdjuster.premium.multiplier,
+      amenityAdjuster.premium.offset,
+      amenityAdjuster.standard.multiplier,
+      amenityAdjuster.standard.offset,
+      amenityAdjuster.economy.multiplier,
+      amenityAdjuster.economy.offset,
+    ].join("|")
+
+    return [
+      originalParsed ? "1" : "0",
+      popupAdjusters.length,
+      amenityKey,
+      standardRateFunction,
+      standardRateRoundingEnabled ? "1" : "0",
+      standardRateRoundingOffset,
+      resolvedCalculatedRows.error ?? "",
+      resolvedCalculatedRows.rows.length,
+      mappingKey,
+    ].join("::")
+  }, [
+    amenityAdjuster,
+    mappingRules,
+    originalParsed,
+    popupAdjusters.length,
+    resolvedCalculatedRows.error,
+    resolvedCalculatedRows.rows.length,
+    standardRateFunction,
+    standardRateRoundingEnabled,
+    standardRateRoundingOffset,
+  ])
+
   useEffect(() => {
     if (!originalParsed) return
+    if (lastAutoRebuildKeyRef.current === autoRebuildKey) return
+    lastAutoRebuildKeyRef.current = autoRebuildKey
     try {
       rebuildReviewFromOriginal(originalParsed, popupAdjusters)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to apply adjustments")
     }
-  }, [originalParsed, popupAdjusters, rebuildReviewFromOriginal])
+  }, [autoRebuildKey, originalParsed, popupAdjusters, rebuildReviewFromOriginal])
 
   const handleStandardRateDragStart = (x: number, y: number) => {
     standardRateDragRef.current = { x, y }
@@ -2005,6 +2047,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
       setMappingRules([])
       setOriginalParsed(null)
       setCsvNumericVariables([])
+      lastAutoRebuildKeyRef.current = ""
     }
 
     return (
