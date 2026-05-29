@@ -2804,17 +2804,55 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
 
         {/* Panel body */}
         {!reviewData ? (
-          <div className="flex flex-col items-center justify-center gap-5 rounded-lg border-2 border-dashed border-muted-foreground/25 p-10 text-center">
-            <div className="flex flex-col items-center gap-2">
-              <FileSpreadsheet className="h-10 w-10 text-muted-foreground/50" />
-              <p className="text-sm font-medium">Upload your client CSV from the top-right</p>
-              <p className="text-xs text-muted-foreground">
-                Requires columns: Facility Name, Size, Current Web Rate,<br />
-                Current Standard Rate, New Web Rate, New Standard Rate.
-              </p>
-              <p className="text-xs text-muted-foreground">
-                If no mappings are configured, no rows will be matched.
-              </p>
+          <div className="space-y-3 flex-1 min-h-0 overflow-hidden">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm font-medium">Adjusters</span>
+              <Button type="button" size="sm" variant="outline" onClick={functionDialog.handleOpen}>Competitive</Button>
+              <Button type="button" size="sm" variant="outline" onClick={() => setShowLevels(true)}>Levels</Button>
+            </div>
+            <div className="rounded-md border p-3 space-y-3">
+              {popupAdjusters.length === 0 ? (
+                <p className="text-xs text-muted-foreground">No competitive adjusters configured.</p>
+              ) : null}
+              <ol className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {popupAdjusters.map((adj: Adjuster, idx: number) => (
+                  <li key={`${adj.type}-${idx}`} className="h-full">
+                    {adj.type === "competitive" ? (
+                      <CompetitiveAdjusterCard
+                        adjuster={adj as CompetitivePriceAdjuster}
+                        stepNumber={idx + 1}
+                        totalSteps={totalProcessAdjusterSteps}
+                        onRemove={() => handleRemovePopupAdjuster(idx)}
+                          showVariable
+                      />
+                    ) : adj.type === "function" ? (
+                      <FunctionAdjusterCard
+                        adjuster={adj as FunctionBasedAdjuster}
+                        stepNumber={idx + 1}
+                        totalSteps={totalProcessAdjusterSteps}
+                        onRemove={() => handleRemovePopupAdjuster(idx)}
+                      />
+                    ) : (
+                      <TemporalAdjusterCard
+                        adjuster={adj as TemporalAdjuster}
+                        stepNumber={idx + 1}
+                        totalSteps={totalProcessAdjusterSteps}
+                        onRemove={() => handleRemovePopupAdjuster(idx)}
+                      />
+                    )}
+                  </li>
+                ))}
+                {showLevelsAdjusterPreview ? (
+                  <li className="h-full">
+                    <LevelsAdjusterPreviewCard
+                      amenityAdjuster={amenityAdjuster}
+                      onRemove={handleRemoveLevelsAdjuster}
+                      stepNumber={popupAdjusters.length + 1}
+                      totalSteps={totalProcessAdjusterSteps}
+                    />
+                  </li>
+                ) : null}
+              </ol>
             </div>
           </div>
         ) : (
@@ -3693,10 +3731,65 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
         </DialogHeader>
 
         {!reviewData ? (
-          <div className="grid gap-4 py-4">
-            <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
-              Upload a CSV from the top-right, then click <strong>Apply Pricing Algorithms</strong>.
-              If no mappings are configured, no rows will be matched.
+          <div className="space-y-3 overflow-hidden">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm font-medium">Adjusters</span>
+              <Button type="button" size="sm" variant="outline" onClick={functionDialog.handleOpen}>
+                Competitive
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => setShowLevels(true)}
+              >
+                Levels
+              </Button>
+            </div>
+
+            <div className="rounded-md border p-3 space-y-3">
+              {popupAdjusters.length === 0 ? (
+                <p className="text-xs text-muted-foreground">No competitive adjusters configured.</p>
+              ) : null}
+              <ol className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {popupAdjusters.map((adj: Adjuster, idx: number) => (
+                  <li key={`${adj.type}-${idx}`} className="h-full">
+                    {adj.type === "competitive" ? (
+                      <CompetitiveAdjusterCard
+                        adjuster={adj as CompetitivePriceAdjuster}
+                        stepNumber={idx + 1}
+                        totalSteps={totalProcessAdjusterSteps}
+                        onRemove={() => handleRemovePopupAdjuster(idx)}
+                          showVariable
+                      />
+                    ) : adj.type === "function" ? (
+                      <FunctionAdjusterCard
+                        adjuster={adj as FunctionBasedAdjuster}
+                        stepNumber={idx + 1}
+                        totalSteps={totalProcessAdjusterSteps}
+                        onRemove={() => handleRemovePopupAdjuster(idx)}
+                      />
+                    ) : (
+                      <TemporalAdjusterCard
+                        adjuster={adj as TemporalAdjuster}
+                        stepNumber={idx + 1}
+                        totalSteps={totalProcessAdjusterSteps}
+                        onRemove={() => handleRemovePopupAdjuster(idx)}
+                      />
+                    )}
+                  </li>
+                ))}
+                {showLevelsAdjusterPreview ? (
+                  <li className="h-full">
+                    <LevelsAdjusterPreviewCard
+                      amenityAdjuster={amenityAdjuster}
+                      onRemove={handleRemoveLevelsAdjuster}
+                      stepNumber={popupAdjusters.length + 1}
+                      totalSteps={totalProcessAdjusterSteps}
+                    />
+                  </li>
+                ) : null}
+              </ol>
             </div>
           </div>
         ) : (
