@@ -46,6 +46,26 @@ export interface ProcessCsvConfigurationPayload {
       pipelineValue: string
     }>
   }>
+  mapping_groups?: Array<{
+    id: string
+    name: string
+    pipelineName: string
+    fallbackGroupId: string
+    dimensionMode: "full" | "first_two"
+    rules: Array<{
+      id: string
+      column: string
+      operator: "contains" | "equals" | "not_contains" | "empty" | "not_empty"
+      value: string
+    }>
+    columnMappings: Array<{
+      id: string
+      csvColumn: string
+      competitorColumn: "client_location" | "unit_dimensions" | "unit_area" | "unit_amenities"
+      matchMode: "exact" | "contains"
+      concatCsvColumn: string
+    }>
+  }>
 }
 
 export interface ProcessCsvConfiguration extends ProcessCsvConfigurationPayload {
