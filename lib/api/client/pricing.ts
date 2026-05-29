@@ -61,8 +61,8 @@ export interface ProcessCsvConfigurationPayload {
     columnMappings: Array<{
       id: string
       csvColumn: string
-      competitorColumn: "client_location" | "unit_dimensions" | "unit_area" | "unit_amenities"
-      matchMode: "exact" | "contains"
+      competitorColumn: string
+      matchMode: "exact" | "contains" | "concat"
       concatCsvColumn: string
     }>
   }>

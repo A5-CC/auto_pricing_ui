@@ -129,8 +129,8 @@ type PipelineMappingConfig = {
   fallbackPipelineName: string
 }
 
-type MappingGroupCompetitorColumn = "client_location" | "unit_dimensions" | "unit_area" | "unit_amenities"
-type MappingGroupMatchMode = "exact" | "contains"
+type MappingGroupCompetitorColumn = string
+type MappingGroupMatchMode = "exact" | "contains" | "concat"
 
 type MappingGroupRule = {
   id: string
@@ -679,9 +679,10 @@ function doesBasicMappingRuleMatch(
 
 function findGroupColumnMapping(
   group: MappingGroup,
-  competitorColumn: MappingGroupCompetitorColumn
+  competitorColumn: string
 ): MappingGroupColumnMapping | undefined {
-  return group.columnMappings.find((mapping) => mapping.competitorColumn === competitorColumn)
+  const normalizedTarget = normalizeColumnKey(competitorColumn)
+  return group.columnMappings.find((mapping) => normalizeColumnKey(mapping.competitorColumn) === normalizedTarget)
 }
 
 function applyPopupAdjustersToWebRate(
@@ -1249,6 +1250,7 @@ function applyCalculatedPricesToCsv(
       pipelineName: string
       locationIndex: number
       locationConcatIndex: number
+      locationMatchMode: MappingGroupMatchMode
       unitSizeIndex: number
       areaIndex: number
       unitAmenitiesIndex: number
@@ -1259,7 +1261,7 @@ function applyCalculatedPricesToCsv(
     const candidates: CandidateMapping[] = []
 
     if (usingGroups) {
-      const primaryGroup = mappingGroups.find((group) => group.rules.length > 0 && group.rules.every((rule) => doesBasicMappingRuleMatch(csvRow, rule)))
+      const primaryGroup = mappingGroups.find((group) => group.rules.every((rule) => doesBasicMappingRuleMatch(csvRow, rule)))
       if (!primaryGroup) continue
 
       const visitedGroupIds = new Set<string>()
@@ -1274,6 +1276,7 @@ function applyCalculatedPricesToCsv(
           pipelineName: activeGroup.pipelineName,
           locationIndex: locationMapping?.csvColumn ? findColumnIndexByHeaderName(headers, locationMapping.csvColumn) : -1,
           locationConcatIndex: locationMapping?.concatCsvColumn ? findColumnIndexByHeaderName(headers, locationMapping.concatCsvColumn) : -1,
+          locationMatchMode: locationMapping?.matchMode ?? "exact",
           unitSizeIndex: dimensionMapping?.csvColumn ? findColumnIndexByHeaderName(headers, dimensionMapping.csvColumn) : -1,
           areaIndex: areaMapping?.csvColumn ? findColumnIndexByHeaderName(headers, areaMapping.csvColumn) : -1,
           unitAmenitiesIndex: amenityMapping?.csvColumn ? findColumnIndexByHeaderName(headers, amenityMapping.csvColumn) : -1,
@@ -1298,6 +1301,7 @@ function applyCalculatedPricesToCsv(
           ? findColumnIndexByHeaderName(headers, activeConfig.csvLocationColumn)
           : defaultLocationIndex,
         locationConcatIndex: -1,
+        locationMatchMode: "exact",
         unitSizeIndex: activeConfig.csvDimensionColumn
           ? findColumnIndexByHeaderName(headers, activeConfig.csvDimensionColumn)
           : defaultUnitSizeIndex,
@@ -1320,7 +1324,9 @@ function applyCalculatedPricesToCsv(
       if (candidate.locationIndex < 0) continue
 
       const baseLocation = getCellValue(row, candidate.locationIndex)
-      const concatLocation = candidate.locationConcatIndex >= 0 ? getCellValue(row, candidate.locationConcatIndex) : ""
+      const concatLocation = candidate.locationMatchMode === "concat" && candidate.locationConcatIndex >= 0
+        ? getCellValue(row, candidate.locationConcatIndex)
+        : ""
       const rawLocationValue = [baseLocation, concatLocation].filter(Boolean).join(" ")
       const translatedLocationValue = translateCsvLocationValue(rawLocationValue, candidate.locationMappings)
       const location = normalizeLocationKey(translatedLocationValue)
@@ -1463,7 +1469,6 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
   const [showMapping, setShowMapping] = useState(false)
   const [mappingRules, setMappingRules] = useState<PipelineMappingRule[]>([])
   const [pipelineMappingConfigs, setPipelineMappingConfigs] = useState<PipelineMappingConfig[]>([])
-  const [selectedMappingPipeline, setSelectedMappingPipeline] = useState("")
   const [mappingGroups, setMappingGroups] = useState<MappingGroup[]>([])
   const [selectedMappingGroupId, setSelectedMappingGroupId] = useState("")
 
@@ -1489,7 +1494,6 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
   useEffect(() => {
     if (mappingPipelineNames.length === 0) {
       setPipelineMappingConfigs([])
-      setSelectedMappingPipeline("")
       return
     }
 
@@ -1497,14 +1501,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
       const byName = new Map(prev.map((cfg) => [cfg.pipelineName, cfg]))
       return mappingPipelineNames.map((name) => byName.get(name) ?? createDefaultPipelineMappingConfig(name))
     })
-
-    setSelectedMappingPipeline((prev) => (prev && mappingPipelineNames.includes(prev) ? prev : mappingPipelineNames[0]))
   }, [createDefaultPipelineMappingConfig, mappingPipelineNames])
-
-  const selectedPipelineMappingConfig = useMemo(
-    () => pipelineMappingConfigs.find((cfg) => cfg.pipelineName === selectedMappingPipeline) ?? null,
-    [pipelineMappingConfigs, selectedMappingPipeline]
-  )
 
   const selectedMappingGroup = useMemo(
     () => mappingGroups.find((group) => group.id === selectedMappingGroupId) ?? null,
@@ -1512,47 +1509,17 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
   )
 
   const createDefaultMappingGroup = useCallback((index: number): MappingGroup => {
-    const firstPipeline = mappingPipelineNames[0] ?? ""
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
     return {
       id,
       name: `Group ${index + 1}`,
-      pipelineName: firstPipeline,
+      pipelineName: "",
       fallbackGroupId: "",
       dimensionMode: "first_two",
       rules: [],
-      columnMappings: [
-        {
-          id: `${id}-location`,
-          csvColumn: "",
-          competitorColumn: "client_location",
-          matchMode: "exact",
-          concatCsvColumn: "",
-        },
-        {
-          id: `${id}-dimension`,
-          csvColumn: "",
-          competitorColumn: "unit_dimensions",
-          matchMode: "exact",
-          concatCsvColumn: "",
-        },
-        {
-          id: `${id}-area`,
-          csvColumn: "",
-          competitorColumn: "unit_area",
-          matchMode: "exact",
-          concatCsvColumn: "",
-        },
-        {
-          id: `${id}-amenities`,
-          csvColumn: "",
-          competitorColumn: "unit_amenities",
-          matchMode: "exact",
-          concatCsvColumn: "",
-        },
-      ],
+      columnMappings: [],
     }
-  }, [mappingPipelineNames])
+  }, [])
 
   useEffect(() => {
     if (mappingGroups.length === 0) {
@@ -1562,69 +1529,6 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     setSelectedMappingGroupId((prev) => (prev && mappingGroups.some((group) => group.id === prev) ? prev : mappingGroups[0].id))
   }, [mappingGroups])
 
-  const createMappingRule = useCallback((): PipelineMappingRule => {
-    const firstPipeline = mappingPipelineNames[0] ?? ""
-    return {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      pipelineName: firstPipeline,
-      column: "",
-      operator: "contains",
-      value: "",
-    }
-  }, [mappingPipelineNames])
-
-  const addMappingRule = useCallback(() => {
-    setMappingRules((prev) => [...prev, createMappingRule()])
-  }, [createMappingRule])
-
-  const updateMappingRule = useCallback((id: string, patch: Partial<PipelineMappingRule>) => {
-    setMappingRules((prev) => prev.map((rule) => (rule.id === id ? { ...rule, ...patch } : rule)))
-  }, [])
-
-  const removeMappingRule = useCallback((id: string) => {
-    setMappingRules((prev) => prev.filter((rule) => rule.id !== id))
-  }, [])
-
-  const updatePipelineMappingConfig = useCallback((pipelineName: string, patch: Partial<PipelineMappingConfig>) => {
-    setPipelineMappingConfigs((prev) => prev.map((cfg) => (cfg.pipelineName === pipelineName ? { ...cfg, ...patch } : cfg)))
-  }, [])
-
-  const addLocationStringMapping = useCallback((pipelineName: string) => {
-    setPipelineMappingConfigs((prev) => prev.map((cfg) => {
-      if (cfg.pipelineName !== pipelineName) return cfg
-      return {
-        ...cfg,
-        locationMappings: [
-          ...cfg.locationMappings,
-          {
-            id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-            csvValue: "",
-            pipelineValue: "",
-          },
-        ],
-      }
-    }))
-  }, [])
-
-  const updateLocationStringMapping = useCallback((pipelineName: string, mappingId: string, patch: Partial<LocationStringMapping>) => {
-    setPipelineMappingConfigs((prev) => prev.map((cfg) => {
-      if (cfg.pipelineName !== pipelineName) return cfg
-      return {
-        ...cfg,
-        locationMappings: cfg.locationMappings.map((item) => (item.id === mappingId ? { ...item, ...patch } : item)),
-      }
-    }))
-  }, [])
-
-  const removeLocationStringMapping = useCallback((pipelineName: string, mappingId: string) => {
-    setPipelineMappingConfigs((prev) => prev.map((cfg) => {
-      if (cfg.pipelineName !== pipelineName) return cfg
-      return {
-        ...cfg,
-        locationMappings: cfg.locationMappings.filter((item) => item.id !== mappingId),
-      }
-    }))
-  }, [])
 
   const addMappingGroup = useCallback(() => {
     setMappingGroups((prev) => {
@@ -1692,7 +1596,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
           {
             id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
             csvColumn: "",
-            competitorColumn: "client_location",
+            competitorColumn: "",
             matchMode: "exact",
             concatCsvColumn: "",
           },
@@ -2313,10 +2217,8 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                   .map((mapping) => ({
                     id: String(mapping.id ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`),
                     csvColumn: String(mapping.csvColumn ?? ""),
-                    competitorColumn: (["client_location", "unit_dimensions", "unit_area", "unit_amenities"].includes(String(mapping.competitorColumn))
-                      ? String(mapping.competitorColumn)
-                      : "client_location") as MappingGroupCompetitorColumn,
-                    matchMode: (mapping.matchMode === "contains" ? "contains" : "exact") as MappingGroupMatchMode,
+                    competitorColumn: String(mapping.competitorColumn ?? "") as MappingGroupCompetitorColumn,
+                    matchMode: (mapping.matchMode === "contains" || mapping.matchMode === "concat" ? mapping.matchMode : "exact") as MappingGroupMatchMode,
                     concatCsvColumn: String(mapping.concatCsvColumn ?? ""),
                   }))
               : [],
@@ -3148,16 +3050,12 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                             value={mapping.csvColumn}
                             onChange={(e) => selectedMappingGroup && updateGroupColumnMapping(selectedMappingGroup.id, mapping.id, { csvColumn: e.target.value })}
                           />
-                          <select
-                            className="h-9 rounded-md border bg-background px-2 py-1.5 text-sm"
+                          <Input
+                            className="h-9"
+                            placeholder="Competitor column (e.g. unit_area)"
                             value={mapping.competitorColumn}
                             onChange={(e) => selectedMappingGroup && updateGroupColumnMapping(selectedMappingGroup.id, mapping.id, { competitorColumn: e.target.value as MappingGroupCompetitorColumn })}
-                          >
-                            <option value="client_location">competitor: client_location</option>
-                            <option value="unit_dimensions">competitor: unit_dimensions</option>
-                            <option value="unit_area">competitor: unit_area</option>
-                            <option value="unit_amenities">competitor: unit_amenities</option>
-                          </select>
+                          />
                           <select
                             className="h-9 rounded-md border bg-background px-2 py-1.5 text-sm"
                             value={mapping.matchMode}
@@ -3165,11 +3063,11 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                           >
                             <option value="exact">match: exact</option>
                             <option value="contains">match: contains</option>
+                            <option value="concat">match: concat</option>
                           </select>
                           <Input
                             className="h-9"
-                            placeholder={mapping.competitorColumn === "client_location" ? "CSV concat column (optional)" : "Only for client_location"}
-                            disabled={mapping.competitorColumn !== "client_location"}
+                            placeholder="CSV concat column (optional)"
                             value={mapping.concatCsvColumn}
                             onChange={(e) => selectedMappingGroup && updateGroupColumnMapping(selectedMappingGroup.id, mapping.id, { concatCsvColumn: e.target.value })}
                           />
@@ -3229,179 +3127,6 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                   <p className="text-sm text-muted-foreground">No mapping groups yet. Add a group to configure grouped mapping behavior.</p>
                 )}
               </div>
-
-              <div className="rounded-md border p-3 space-y-3">
-                <div className="text-sm font-medium">Pipeline mapping settings</div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Pipeline</Label>
-                    <select
-                      className="mt-1 w-full rounded-md border bg-background px-2 py-1.5 text-sm"
-                      value={selectedMappingPipeline}
-                      onChange={(e) => setSelectedMappingPipeline(e.target.value)}
-                    >
-                      {mappingPipelineNames.map((name) => (
-                        <option key={name} value={name}>{name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Location column</Label>
-                    <Input
-                      className="mt-1 h-9"
-                      value={selectedPipelineMappingConfig?.csvLocationColumn ?? ""}
-                      placeholder="Facility Name"
-                      onChange={(e) => selectedMappingPipeline && updatePipelineMappingConfig(selectedMappingPipeline, { csvLocationColumn: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Fallback pipeline (cascade)</Label>
-                    <select
-                      className="mt-1 w-full rounded-md border bg-background px-2 py-1.5 text-sm"
-                      value={selectedPipelineMappingConfig?.fallbackPipelineName ?? ""}
-                      onChange={(e) => selectedMappingPipeline && updatePipelineMappingConfig(selectedMappingPipeline, { fallbackPipelineName: e.target.value })}
-                    >
-                      <option value="">None</option>
-                      {mappingPipelineNames.filter((name) => name !== selectedMappingPipeline).map((name) => (
-                        <option key={name} value={name}>{name}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Dimension column</Label>
-                    <Input
-                      className="mt-1 h-9"
-                      value={selectedPipelineMappingConfig?.csvDimensionColumn ?? ""}
-                      placeholder="Size"
-                      onChange={(e) => selectedMappingPipeline && updatePipelineMappingConfig(selectedMappingPipeline, { csvDimensionColumn: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Dimension mode</Label>
-                    <select
-                      className="mt-1 w-full rounded-md border bg-background px-2 py-1.5 text-sm"
-                      value={selectedPipelineMappingConfig?.dimensionMode ?? "first_two"}
-                      onChange={(e) => selectedMappingPipeline && updatePipelineMappingConfig(selectedMappingPipeline, { dimensionMode: e.target.value as "full" | "first_two" })}
-                    >
-                      <option value="first_two">first two dimensions (8x7x10 → 8x7)</option>
-                      <option value="full">full string match</option>
-                    </select>
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Area column</Label>
-                    <Input
-                      className="mt-1 h-9"
-                      value={selectedPipelineMappingConfig?.csvAreaColumn ?? ""}
-                      placeholder="Area"
-                      onChange={(e) => selectedMappingPipeline && updatePipelineMappingConfig(selectedMappingPipeline, { csvAreaColumn: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Amenities column</Label>
-                    <Input
-                      className="mt-1 h-9"
-                      value={selectedPipelineMappingConfig?.csvAmenitiesColumn ?? ""}
-                      placeholder="Unit Amenities"
-                      onChange={(e) => selectedMappingPipeline && updatePipelineMappingConfig(selectedMappingPipeline, { csvAmenitiesColumn: e.target.value })}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="text-xs text-muted-foreground">Location string translations (CSV → Pipeline value)</div>
-                  {(selectedPipelineMappingConfig?.locationMappings ?? []).map((mapping) => (
-                    <div key={mapping.id} className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-2">
-                      <Input
-                        className="h-9"
-                        placeholder="CSV value"
-                        value={mapping.csvValue}
-                        onChange={(e) => selectedMappingPipeline && updateLocationStringMapping(selectedMappingPipeline, mapping.id, { csvValue: e.target.value })}
-                      />
-                      <Input
-                        className="h-9"
-                        placeholder="Pipeline value"
-                        value={mapping.pipelineValue}
-                        onChange={(e) => selectedMappingPipeline && updateLocationStringMapping(selectedMappingPipeline, mapping.id, { pipelineValue: e.target.value })}
-                      />
-                      <Button type="button" variant="outline" size="sm" onClick={() => selectedMappingPipeline && removeLocationStringMapping(selectedMappingPipeline, mapping.id)}>
-                        Remove
-                      </Button>
-                    </div>
-                  ))}
-                  <Button type="button" variant="outline" size="sm" onClick={() => selectedMappingPipeline && addLocationStringMapping(selectedMappingPipeline)}>
-                    Add location mapping
-                  </Button>
-                </div>
-              </div>
-
-              {mappingRules.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No mapping rules yet. Add a rule below. Rules are evaluated top-to-bottom.</p>
-              ) : null}
-              <div className="space-y-2 max-h-[320px] overflow-auto pr-1">
-                {mappingRules.map((rule, idx) => (
-                  <div key={rule.id} className="rounded-md border p-3 space-y-2">
-                    <div className="text-xs text-muted-foreground">Rule {idx + 1}</div>
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
-                      <div>
-                        <Label className="text-xs text-muted-foreground">Pipeline</Label>
-                        <select
-                          className="mt-1 w-full rounded-md border bg-background px-2 py-1.5 text-sm"
-                          value={rule.pipelineName}
-                          onChange={(e) => updateMappingRule(rule.id, { pipelineName: e.target.value })}
-                        >
-                          {mappingPipelineNames.map((name) => (
-                            <option key={name} value={name}>{name}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <Label className="text-xs text-muted-foreground">CSV column</Label>
-                        <Input
-                          className="mt-1 h-9"
-                          placeholder="Unit Amenities"
-                          value={rule.column}
-                          onChange={(e) => updateMappingRule(rule.id, { column: e.target.value })}
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs text-muted-foreground">Condition</Label>
-                        <select
-                          className="mt-1 w-full rounded-md border bg-background px-2 py-1.5 text-sm"
-                          value={rule.operator}
-                          onChange={(e) => updateMappingRule(rule.id, { operator: e.target.value as MappingOperator })}
-                        >
-                          <option value="contains">contains</option>
-                          <option value="equals">equals</option>
-                          <option value="not_contains">does not contain</option>
-                          <option value="empty">is empty</option>
-                          <option value="not_empty">is not empty</option>
-                        </select>
-                      </div>
-                      <div>
-                        <Label className="text-xs text-muted-foreground">Value</Label>
-                        <Input
-                          className="mt-1 h-9"
-                          placeholder="Drive Up"
-                          value={rule.value}
-                          disabled={rule.operator === "empty" || rule.operator === "not_empty"}
-                          onChange={(e) => updateMappingRule(rule.id, { value: e.target.value })}
-                        />
-                      </div>
-                    </div>
-                    <div className="flex justify-end">
-                      <Button type="button" size="sm" variant="outline" onClick={() => removeMappingRule(rule.id)}>
-                        Remove Rule
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <Button type="button" variant="outline" onClick={addMappingRule} disabled={mappingPipelineNames.length === 0}>
-                Add Rule
-              </Button>
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setShowMapping(false)}>
@@ -4237,16 +3962,12 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                           value={mapping.csvColumn}
                           onChange={(e) => selectedMappingGroup && updateGroupColumnMapping(selectedMappingGroup.id, mapping.id, { csvColumn: e.target.value })}
                         />
-                        <select
-                          className="h-9 rounded-md border bg-background px-2 py-1.5 text-sm"
+                        <Input
+                          className="h-9"
+                          placeholder="Competitor column (e.g. unit_area)"
                           value={mapping.competitorColumn}
                           onChange={(e) => selectedMappingGroup && updateGroupColumnMapping(selectedMappingGroup.id, mapping.id, { competitorColumn: e.target.value as MappingGroupCompetitorColumn })}
-                        >
-                          <option value="client_location">competitor: client_location</option>
-                          <option value="unit_dimensions">competitor: unit_dimensions</option>
-                          <option value="unit_area">competitor: unit_area</option>
-                          <option value="unit_amenities">competitor: unit_amenities</option>
-                        </select>
+                        />
                         <select
                           className="h-9 rounded-md border bg-background px-2 py-1.5 text-sm"
                           value={mapping.matchMode}
@@ -4254,11 +3975,11 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                         >
                           <option value="exact">match: exact</option>
                           <option value="contains">match: contains</option>
+                          <option value="concat">match: concat</option>
                         </select>
                         <Input
                           className="h-9"
-                          placeholder={mapping.competitorColumn === "client_location" ? "CSV concat column (optional)" : "Only for client_location"}
-                          disabled={mapping.competitorColumn !== "client_location"}
+                          placeholder="CSV concat column (optional)"
                           value={mapping.concatCsvColumn}
                           onChange={(e) => selectedMappingGroup && updateGroupColumnMapping(selectedMappingGroup.id, mapping.id, { concatCsvColumn: e.target.value })}
                         />
@@ -4318,179 +4039,6 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                 <p className="text-sm text-muted-foreground">No mapping groups yet. Add a group to configure grouped mapping behavior.</p>
               )}
             </div>
-
-            <div className="rounded-md border p-3 space-y-3">
-              <div className="text-sm font-medium">Pipeline mapping settings</div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                <div>
-                  <Label className="text-xs text-muted-foreground">Pipeline</Label>
-                  <select
-                    className="mt-1 w-full rounded-md border bg-background px-2 py-1.5 text-sm"
-                    value={selectedMappingPipeline}
-                    onChange={(e) => setSelectedMappingPipeline(e.target.value)}
-                  >
-                    {mappingPipelineNames.map((name) => (
-                      <option key={name} value={name}>{name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <Label className="text-xs text-muted-foreground">Location column</Label>
-                  <Input
-                    className="mt-1 h-9"
-                    value={selectedPipelineMappingConfig?.csvLocationColumn ?? ""}
-                    placeholder="Facility Name"
-                    onChange={(e) => selectedMappingPipeline && updatePipelineMappingConfig(selectedMappingPipeline, { csvLocationColumn: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs text-muted-foreground">Fallback pipeline (cascade)</Label>
-                  <select
-                    className="mt-1 w-full rounded-md border bg-background px-2 py-1.5 text-sm"
-                    value={selectedPipelineMappingConfig?.fallbackPipelineName ?? ""}
-                    onChange={(e) => selectedMappingPipeline && updatePipelineMappingConfig(selectedMappingPipeline, { fallbackPipelineName: e.target.value })}
-                  >
-                    <option value="">None</option>
-                    {mappingPipelineNames.filter((name) => name !== selectedMappingPipeline).map((name) => (
-                      <option key={name} value={name}>{name}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
-                <div>
-                  <Label className="text-xs text-muted-foreground">Dimension column</Label>
-                  <Input
-                    className="mt-1 h-9"
-                    value={selectedPipelineMappingConfig?.csvDimensionColumn ?? ""}
-                    placeholder="Size"
-                    onChange={(e) => selectedMappingPipeline && updatePipelineMappingConfig(selectedMappingPipeline, { csvDimensionColumn: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs text-muted-foreground">Dimension mode</Label>
-                  <select
-                    className="mt-1 w-full rounded-md border bg-background px-2 py-1.5 text-sm"
-                    value={selectedPipelineMappingConfig?.dimensionMode ?? "first_two"}
-                    onChange={(e) => selectedMappingPipeline && updatePipelineMappingConfig(selectedMappingPipeline, { dimensionMode: e.target.value as "full" | "first_two" })}
-                  >
-                    <option value="first_two">first two dimensions (8x7x10 → 8x7)</option>
-                    <option value="full">full string match</option>
-                  </select>
-                </div>
-                <div>
-                  <Label className="text-xs text-muted-foreground">Area column</Label>
-                  <Input
-                    className="mt-1 h-9"
-                    value={selectedPipelineMappingConfig?.csvAreaColumn ?? ""}
-                    placeholder="Area"
-                    onChange={(e) => selectedMappingPipeline && updatePipelineMappingConfig(selectedMappingPipeline, { csvAreaColumn: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs text-muted-foreground">Amenities column</Label>
-                  <Input
-                    className="mt-1 h-9"
-                    value={selectedPipelineMappingConfig?.csvAmenitiesColumn ?? ""}
-                    placeholder="Unit Amenities"
-                    onChange={(e) => selectedMappingPipeline && updatePipelineMappingConfig(selectedMappingPipeline, { csvAmenitiesColumn: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <div className="text-xs text-muted-foreground">Location string translations (CSV → Pipeline value)</div>
-                {(selectedPipelineMappingConfig?.locationMappings ?? []).map((mapping) => (
-                  <div key={mapping.id} className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-2">
-                    <Input
-                      className="h-9"
-                      placeholder="CSV value"
-                      value={mapping.csvValue}
-                      onChange={(e) => selectedMappingPipeline && updateLocationStringMapping(selectedMappingPipeline, mapping.id, { csvValue: e.target.value })}
-                    />
-                    <Input
-                      className="h-9"
-                      placeholder="Pipeline value"
-                      value={mapping.pipelineValue}
-                      onChange={(e) => selectedMappingPipeline && updateLocationStringMapping(selectedMappingPipeline, mapping.id, { pipelineValue: e.target.value })}
-                    />
-                    <Button type="button" variant="outline" size="sm" onClick={() => selectedMappingPipeline && removeLocationStringMapping(selectedMappingPipeline, mapping.id)}>
-                      Remove
-                    </Button>
-                  </div>
-                ))}
-                <Button type="button" variant="outline" size="sm" onClick={() => selectedMappingPipeline && addLocationStringMapping(selectedMappingPipeline)}>
-                  Add location mapping
-                </Button>
-              </div>
-            </div>
-
-            {mappingRules.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No mapping rules yet. Add a rule below. Rules are evaluated top-to-bottom.</p>
-            ) : null}
-            <div className="space-y-2 max-h-[320px] overflow-auto pr-1">
-              {mappingRules.map((rule, idx) => (
-                <div key={rule.id} className="rounded-md border p-3 space-y-2">
-                  <div className="text-xs text-muted-foreground">Rule {idx + 1}</div>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
-                    <div>
-                      <Label className="text-xs text-muted-foreground">Pipeline</Label>
-                      <select
-                        className="mt-1 w-full rounded-md border bg-background px-2 py-1.5 text-sm"
-                        value={rule.pipelineName}
-                        onChange={(e) => updateMappingRule(rule.id, { pipelineName: e.target.value })}
-                      >
-                        {mappingPipelineNames.map((name) => (
-                          <option key={name} value={name}>{name}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <Label className="text-xs text-muted-foreground">CSV column</Label>
-                      <Input
-                        className="mt-1 h-9"
-                        placeholder="Unit Amenities"
-                        value={rule.column}
-                        onChange={(e) => updateMappingRule(rule.id, { column: e.target.value })}
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-xs text-muted-foreground">Condition</Label>
-                      <select
-                        className="mt-1 w-full rounded-md border bg-background px-2 py-1.5 text-sm"
-                        value={rule.operator}
-                        onChange={(e) => updateMappingRule(rule.id, { operator: e.target.value as MappingOperator })}
-                      >
-                        <option value="contains">contains</option>
-                        <option value="equals">equals</option>
-                        <option value="not_contains">does not contain</option>
-                        <option value="empty">is empty</option>
-                        <option value="not_empty">is not empty</option>
-                      </select>
-                    </div>
-                    <div>
-                      <Label className="text-xs text-muted-foreground">Value</Label>
-                      <Input
-                        className="mt-1 h-9"
-                        placeholder="Drive Up"
-                        value={rule.value}
-                        disabled={rule.operator === "empty" || rule.operator === "not_empty"}
-                        onChange={(e) => updateMappingRule(rule.id, { value: e.target.value })}
-                      />
-                    </div>
-                  </div>
-                  <div className="flex justify-end">
-                    <Button type="button" size="sm" variant="outline" onClick={() => removeMappingRule(rule.id)}>
-                      Remove Rule
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <Button type="button" variant="outline" onClick={addMappingRule} disabled={mappingPipelineNames.length === 0}>
-              Add Rule
-            </Button>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setShowMapping(false)}>
