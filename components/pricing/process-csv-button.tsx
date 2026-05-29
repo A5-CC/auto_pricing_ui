@@ -1064,11 +1064,6 @@ function applyCalculatedPricesToCsv(
   const headers = [...original.headers]
   const rows = original.rows.map((row) => [...row])
 
-  const pipelineNameSet = new Set(
-    calculatedRows
-      .map((row) => String((row as Record<string, unknown>).__pipelineName ?? "").trim())
-      .filter(Boolean)
-  )
   const getPipelineConfig = (pipelineName: string): PipelineMappingConfig | undefined =>
     pipelineMappingConfigs.find((cfg) => cfg.pipelineName === pipelineName)
   const getGroupById = (id: string): MappingGroup | undefined => mappingGroups.find((group) => group.id === id)
@@ -1076,7 +1071,6 @@ function applyCalculatedPricesToCsv(
   const usingGroups = mappingGroups.length > 0
 
   const mappedPipelineNames = Array.from(new Set(mappingRules.map((rule) => rule.pipelineName).filter(Boolean)))
-  const groupPipelineNames = Array.from(new Set(mappingGroups.map((group) => group.pipelineName).filter(Boolean)))
   const hasUnitAreaRowsPre = calculatedRows.some((row) => Boolean(getAreaLookupToken(row.comboMap.unit_area)))
 
   for (const pipelineName of mappedPipelineNames) {
@@ -1248,7 +1242,6 @@ function applyCalculatedPricesToCsv(
     throw new Error("No frontend price rows available. Make sure location and unit_dimensions or unit_area are combinatoric in the pipeline table.")
   }
 
-  let matchedRows = 0
   for (let csvRowIndex = 0; csvRowIndex < rows.length; csvRowIndex++) {
     const row = rows[csvRowIndex]
     const csvRow = rowToRecord(headers, row)
@@ -1425,7 +1418,6 @@ function applyCalculatedPricesToCsv(
     row[newStandardRateIndex] = standardRate
     row[matchedUnitAreaIndex] = matchedAreaValue
     traceByCsvRowIndex[csvRowIndex] = mappedMatch.calculatedRowIndex
-    matchedRows += 1
   }
 
   return { headers, rows, traceByCsvRowIndex }
