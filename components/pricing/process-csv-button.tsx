@@ -112,6 +112,23 @@ type PipelineMappingRule = {
   value: string
 }
 
+type LocationStringMapping = {
+  id: string
+  csvValue: string
+  pipelineValue: string
+}
+
+type PipelineMappingConfig = {
+  pipelineName: string
+  csvLocationColumn: string
+  csvDimensionColumn: string
+  csvAreaColumn: string
+  csvAmenitiesColumn: string
+  dimensionMode: "full" | "first_two"
+  locationMappings: LocationStringMapping[]
+  fallbackPipelineName: string
+}
+
 function createDefaultAmenityAdjusterState(): AmenityAdjusterState {
   return {
     applyToWeb: true,
@@ -561,6 +578,32 @@ function getCsvValueByColumn(record: Record<string, string>, column: string): st
   return ""
 }
 
+function findColumnIndexByHeaderName(headers: string[], preferredHeader: string): number {
+  const normalizedTarget = normalizeColumnKey(preferredHeader)
+  if (!normalizedTarget) return -1
+  return headers.findIndex((header) => normalizeColumnKey(header) === normalizedTarget)
+}
+
+function getDimensionLookupTokenByMode(value: unknown, mode: "full" | "first_two"): string {
+  if (mode === "first_two") {
+    const pair = extractLeadingDimensionPair(value)
+    if (pair) return `dim:${pair}`
+  }
+
+  const normalized = normalizeMatchValue(value).replace(/\s+/g, "")
+  return normalized ? `dim:${normalized}` : ""
+}
+
+function translateCsvLocationValue(raw: string, mappings: LocationStringMapping[]): string {
+  const normalizedRaw = normalizeMatchValue(raw)
+  for (const mapping of mappings) {
+    if (normalizeMatchValue(mapping.csvValue) === normalizedRaw && mapping.pipelineValue.trim()) {
+      return mapping.pipelineValue
+    }
+  }
+  return raw
+}
+
 function doesMappingRuleMatch(record: Record<string, string>, rule: PipelineMappingRule): boolean {
   const leftRaw = String(getCsvValueByColumn(record, rule.column) ?? "")
   const left = leftRaw.trim().toLowerCase()
@@ -935,7 +978,8 @@ function applyCalculatedPricesToCsv(
   popupAdjusters: Adjuster[] = [],
   amenityAdjuster?: ResolvedAmenityAdjuster,
   standardRateFunction?: string,
-  mappingRules: PipelineMappingRule[] = []
+  mappingRules: PipelineMappingRule[] = [],
+  pipelineMappingConfigs: PipelineMappingConfig[] = []
 ): ProcessedCsvResult {
   const webRounding = rounding?.enabled === true
     ? {
@@ -960,10 +1004,19 @@ function applyCalculatedPricesToCsv(
   const headers = [...original.headers]
   const rows = original.rows.map((row) => [...row])
 
-  const locationIndex = findColumnIndex(headers, LOCATION_COLUMNS)
-  const unitSizeIndex = findColumnIndex(headers, UNIT_SIZE_COLUMNS)
-  const areaIndex = findColumnIndex(headers, AREA_COLUMNS)
-  const unitAmenitiesIndex = findColumnIndex(headers, UNIT_AMENITIES_COLUMNS)
+  const pipelineNameSet = new Set(
+    calculatedRows
+      .map((row) => String((row as Record<string, unknown>).__pipelineName ?? "").trim())
+      .filter(Boolean)
+  )
+  const singlePipelineName = pipelineNameSet.size === 1 ? Array.from(pipelineNameSet)[0] : ""
+  const getPipelineConfig = (pipelineName: string): PipelineMappingConfig | undefined =>
+    pipelineMappingConfigs.find((cfg) => cfg.pipelineName === pipelineName)
+
+  const defaultLocationIndex = findColumnIndex(headers, LOCATION_COLUMNS)
+  const defaultUnitSizeIndex = findColumnIndex(headers, UNIT_SIZE_COLUMNS)
+  const defaultAreaIndex = findColumnIndex(headers, AREA_COLUMNS)
+  const defaultUnitAmenitiesIndex = findColumnIndex(headers, UNIT_AMENITIES_COLUMNS)
   let newWebRateIndex = findColumnIndex(headers, NEW_WEB_RATE_COLUMNS)
   let newStandardRateIndex = findColumnIndex(headers, NEW_STANDARD_RATE_COLUMNS)
   const newRentRateIndex = findColumnIndex(headers, NEW_RENT_RATE_COLUMNS)
@@ -971,15 +1024,15 @@ function applyCalculatedPricesToCsv(
 
   const hasUnitAreaRowsPre = calculatedRows.some((row) => Boolean(getAreaLookupToken(row.comboMap.unit_area)))
 
-  if (locationIndex < 0) {
+  if (defaultLocationIndex < 0) {
     throw new Error("CSV must include a facility/location column to map frontend pricing.")
   }
 
-  if (hasUnitAreaRowsPre && areaIndex < 0) {
+  if (hasUnitAreaRowsPre && defaultAreaIndex < 0) {
     throw new Error("CSV must include an Area column to match unit_area pipelines.")
   }
 
-  if (!hasUnitAreaRowsPre && unitSizeIndex < 0) {
+  if (!hasUnitAreaRowsPre && defaultUnitSizeIndex < 0) {
     throw new Error("CSV must include a Size column to match unit_dimensions pipelines.")
   }
   if (newWebRateIndex < 0 && newRentRateIndex >= 0) {
@@ -1001,7 +1054,7 @@ function applyCalculatedPricesToCsv(
     amenityAdjuster.applyToWeb &&
     (amenityAdjuster.premium || amenityAdjuster.standard || amenityAdjuster.economy)
   )
-  if (hasAmenityAdjustments && unitAmenitiesIndex < 0) {
+  if (hasAmenityAdjustments && defaultUnitAmenitiesIndex < 0) {
     throw new Error("CSV must include a Unit Amenities column to apply amenity adjustments.")
   }
 
@@ -1088,6 +1141,10 @@ function applyCalculatedPricesToCsv(
     throw new Error("No frontend price rows available. Make sure location and unit_dimensions or unit_area are combinatoric in the pipeline table.")
   }
 
+  if (pipelineNameSet.size > 1 && mappingRules.length === 0) {
+    throw new Error("Multiple pipelines detected. Add Mapping rules to choose which pipeline applies per CSV row.")
+  }
+
   let matchedRows = 0
   for (let csvRowIndex = 0; csvRowIndex < rows.length; csvRowIndex++) {
     const row = rows[csvRowIndex]
@@ -1096,13 +1153,39 @@ function applyCalculatedPricesToCsv(
       for (const rule of mappingRules) {
         if (doesMappingRuleMatch(csvRow, rule)) return rule.pipelineName
       }
+      if (singlePipelineName) return singlePipelineName
       return undefined
     })()
-    const location = normalizeLocationKey(getCellValue(row, locationIndex))
+
+    if (pipelineNameSet.size > 1 && !selectedPipelineName) {
+      continue
+    }
+
+    const activeConfig = selectedPipelineName ? getPipelineConfig(selectedPipelineName) : undefined
+    const locationIndex = activeConfig?.csvLocationColumn
+      ? findColumnIndexByHeaderName(headers, activeConfig.csvLocationColumn)
+      : defaultLocationIndex
+    const unitSizeIndex = activeConfig?.csvDimensionColumn
+      ? findColumnIndexByHeaderName(headers, activeConfig.csvDimensionColumn)
+      : defaultUnitSizeIndex
+    const areaIndex = activeConfig?.csvAreaColumn
+      ? findColumnIndexByHeaderName(headers, activeConfig.csvAreaColumn)
+      : defaultAreaIndex
+    const unitAmenitiesIndex = activeConfig?.csvAmenitiesColumn
+      ? findColumnIndexByHeaderName(headers, activeConfig.csvAmenitiesColumn)
+      : defaultUnitAmenitiesIndex
+
+    if (locationIndex < 0) continue
+
+    const rawLocationValue = getCellValue(row, locationIndex)
+    const translatedLocationValue = translateCsvLocationValue(rawLocationValue, activeConfig?.locationMappings ?? [])
+    const location = normalizeLocationKey(translatedLocationValue)
     const locationKey = location
-    const city = normalizeCityValue(getCellValue(row, locationIndex))
+    const city = normalizeCityValue(translatedLocationValue)
     const cityKey = normalizeLocationKey(city)
-    const dimensionToken = unitSizeIndex >= 0 ? getDimensionLookupToken(getCellValue(row, unitSizeIndex)) : ""
+    const dimensionToken = unitSizeIndex >= 0
+      ? getDimensionLookupTokenByMode(getCellValue(row, unitSizeIndex), activeConfig?.dimensionMode ?? "first_two")
+      : ""
     const areaToken = areaIndex >= 0 ? getAreaLookupToken(getCellValue(row, areaIndex)) : ""
     const amenitySubsets = unitAmenitiesIndex >= 0
       ? buildCsvAmenityTokenSubsets(getCellValue(row, unitAmenitiesIndex))
@@ -1153,6 +1236,21 @@ function applyCalculatedPricesToCsv(
           mappedMatch = { price: best.price, calculatedRowIndex: best.calculatedRowIndex }
           matchedAreaValue = Number.isInteger(best.area) ? String(Math.trunc(best.area)) : String(best.area)
         }
+      }
+    }
+
+    if (mappedMatch === undefined && selectedPipelineName) {
+      const fallbackPipelineName = activeConfig?.fallbackPipelineName?.trim()
+      if (fallbackPipelineName) {
+        mappedMatch =
+          (areaToken ? findLookupByAmenitySubsets(priceLookup, location, areaToken, amenitySubsets, fallbackPipelineName) : undefined) ??
+          (areaToken && locationKey ? findLookupByAmenitySubsets(priceLookup, locationKey, areaToken, amenitySubsets, fallbackPipelineName) : undefined) ??
+          (areaToken && city ? findLookupByAmenitySubsets(cityPriceLookup, city, areaToken, amenitySubsets, fallbackPipelineName) : undefined) ??
+          (areaToken && cityKey ? findLookupByAmenitySubsets(cityPriceLookup, cityKey, areaToken, amenitySubsets, fallbackPipelineName) : undefined) ??
+          (allowDimensionMatching && dimensionToken ? findLookupByAmenitySubsets(priceLookup, location, dimensionToken, amenitySubsets, fallbackPipelineName) : undefined) ??
+          (allowDimensionMatching && dimensionToken && locationKey ? findLookupByAmenitySubsets(priceLookup, locationKey, dimensionToken, amenitySubsets, fallbackPipelineName) : undefined) ??
+          (allowDimensionMatching && dimensionToken && city ? findLookupByAmenitySubsets(cityPriceLookup, city, dimensionToken, amenitySubsets, fallbackPipelineName) : undefined)
+          ?? (allowDimensionMatching && dimensionToken && cityKey ? findLookupByAmenitySubsets(cityPriceLookup, cityKey, dimensionToken, amenitySubsets, fallbackPipelineName) : undefined)
       }
     }
 
@@ -1236,6 +1334,8 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
   const lastAutoRebuildKeyRef = useRef<string>("")
   const [showMapping, setShowMapping] = useState(false)
   const [mappingRules, setMappingRules] = useState<PipelineMappingRule[]>([])
+  const [pipelineMappingConfigs, setPipelineMappingConfigs] = useState<PipelineMappingConfig[]>([])
+  const [selectedMappingPipeline, setSelectedMappingPipeline] = useState("")
 
   const functionDialog = useAdjusterDialog()
   const showLevelsAdjusterPreview = useMemo(() => hasConfiguredLevelsAdjuster(amenityAdjuster), [amenityAdjuster])
@@ -1243,6 +1343,37 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
   const mappingPipelineNames = useMemo(
     () => Array.from(new Set((calculatedRowsBundle ?? []).map((entry) => entry.pipelineName).filter(Boolean))),
     [calculatedRowsBundle]
+  )
+
+  const createDefaultPipelineMappingConfig = useCallback((pipelineName: string): PipelineMappingConfig => ({
+    pipelineName,
+    csvLocationColumn: "Facility Name",
+    csvDimensionColumn: "Size",
+    csvAreaColumn: "Area",
+    csvAmenitiesColumn: "Unit Amenities",
+    dimensionMode: "first_two",
+    locationMappings: [],
+    fallbackPipelineName: "",
+  }), [])
+
+  useEffect(() => {
+    if (mappingPipelineNames.length === 0) {
+      setPipelineMappingConfigs([])
+      setSelectedMappingPipeline("")
+      return
+    }
+
+    setPipelineMappingConfigs((prev) => {
+      const byName = new Map(prev.map((cfg) => [cfg.pipelineName, cfg]))
+      return mappingPipelineNames.map((name) => byName.get(name) ?? createDefaultPipelineMappingConfig(name))
+    })
+
+    setSelectedMappingPipeline((prev) => (prev && mappingPipelineNames.includes(prev) ? prev : mappingPipelineNames[0]))
+  }, [createDefaultPipelineMappingConfig, mappingPipelineNames])
+
+  const selectedPipelineMappingConfig = useMemo(
+    () => pipelineMappingConfigs.find((cfg) => cfg.pipelineName === selectedMappingPipeline) ?? null,
+    [pipelineMappingConfigs, selectedMappingPipeline]
   )
 
   const createMappingRule = useCallback((): PipelineMappingRule => {
@@ -1266,6 +1397,47 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
 
   const removeMappingRule = useCallback((id: string) => {
     setMappingRules((prev) => prev.filter((rule) => rule.id !== id))
+  }, [])
+
+  const updatePipelineMappingConfig = useCallback((pipelineName: string, patch: Partial<PipelineMappingConfig>) => {
+    setPipelineMappingConfigs((prev) => prev.map((cfg) => (cfg.pipelineName === pipelineName ? { ...cfg, ...patch } : cfg)))
+  }, [])
+
+  const addLocationStringMapping = useCallback((pipelineName: string) => {
+    setPipelineMappingConfigs((prev) => prev.map((cfg) => {
+      if (cfg.pipelineName !== pipelineName) return cfg
+      return {
+        ...cfg,
+        locationMappings: [
+          ...cfg.locationMappings,
+          {
+            id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            csvValue: "",
+            pipelineValue: "",
+          },
+        ],
+      }
+    }))
+  }, [])
+
+  const updateLocationStringMapping = useCallback((pipelineName: string, mappingId: string, patch: Partial<LocationStringMapping>) => {
+    setPipelineMappingConfigs((prev) => prev.map((cfg) => {
+      if (cfg.pipelineName !== pipelineName) return cfg
+      return {
+        ...cfg,
+        locationMappings: cfg.locationMappings.map((item) => (item.id === mappingId ? { ...item, ...patch } : item)),
+      }
+    }))
+  }, [])
+
+  const removeLocationStringMapping = useCallback((pipelineName: string, mappingId: string) => {
+    setPipelineMappingConfigs((prev) => prev.map((cfg) => {
+      if (cfg.pipelineName !== pipelineName) return cfg
+      return {
+        ...cfg,
+        locationMappings: cfg.locationMappings.filter((item) => item.id !== mappingId),
+      }
+    }))
   }, [])
 
   const resolvedCalculatedRows = useMemo<ResolvedCalculatedRows>(() => {
@@ -1472,6 +1644,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     setPopupAdjusters([])
     setAmenityAdjuster(createDefaultAmenityAdjusterState())
     setMappingRules([])
+    setPipelineMappingConfigs(mappingPipelineNames.map((name) => createDefaultPipelineMappingConfig(name)))
     setOriginalParsed(null)
     setCsvNumericVariables([])
     lastAutoRebuildKeyRef.current = ""
@@ -1581,6 +1754,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
       resolvedAmenityAdjuster,
       standardRateFunction,
       mappingRules,
+      pipelineMappingConfigs,
     )
     const headers = processed.headers.length ? processed.headers : original.headers
     const changes = buildChanges(original, processed)
@@ -1604,6 +1778,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     resolvedAmenityAdjuster,
     standardRateFunction,
     mappingRules,
+    pipelineMappingConfigs,
   ])
 
   const handleAddPopupAdjuster = (adjuster: Adjuster) => {
@@ -1642,6 +1817,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     setPopupAdjusters([])
     setAmenityAdjuster(createDefaultAmenityAdjusterState())
     setMappingRules([])
+    setPipelineMappingConfigs(mappingPipelineNames.map((name) => createDefaultPipelineMappingConfig(name)))
     setStandardRateFunction(DEFAULT_STANDARD_RATE_FUNCTION)
     setStandardRateRoundingEnabled(false)
     setStandardRateRoundingOffset(0)
@@ -1653,6 +1829,18 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
   const autoRebuildKey = useMemo(() => {
     const mappingKey = mappingRules
       .map((r) => `${r.pipelineName}|${r.column}|${r.operator}|${r.value}`)
+      .join("||")
+    const pipelineMappingKey = pipelineMappingConfigs
+      .map((cfg) => [
+        cfg.pipelineName,
+        cfg.csvLocationColumn,
+        cfg.csvDimensionColumn,
+        cfg.csvAreaColumn,
+        cfg.csvAmenitiesColumn,
+        cfg.dimensionMode,
+        cfg.fallbackPipelineName,
+        cfg.locationMappings.map((m) => `${m.csvValue}=>${m.pipelineValue}`).join("@@"),
+      ].join("|"))
       .join("||")
     const amenityKey = [
       amenityAdjuster.applyToWeb ? "1" : "0",
@@ -1674,10 +1862,12 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
       resolvedCalculatedRows.error ?? "",
       resolvedCalculatedRows.rows.length,
       mappingKey,
+      pipelineMappingKey,
     ].join("::")
   }, [
     amenityAdjuster,
     mappingRules,
+    pipelineMappingConfigs,
     originalParsed,
     popupAdjusters.length,
     resolvedCalculatedRows.error,
@@ -1754,6 +1944,49 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
       standard: toEntry(levels?.standard),
       economy: toEntry(levels?.economy),
     })
+
+    const loadedRulesRaw = (config as ProcessCsvConfiguration & { mapping_rules?: unknown }).mapping_rules
+    const loadedRules = Array.isArray(loadedRulesRaw)
+      ? loadedRulesRaw
+          .map((item) => item as Partial<PipelineMappingRule>)
+          .filter((item) => item && typeof item.pipelineName === "string")
+          .map((item) => ({
+            id: String(item.id ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`),
+            pipelineName: String(item.pipelineName ?? ""),
+            column: String(item.column ?? ""),
+            operator: (String(item.operator ?? "contains") as MappingOperator),
+            value: String(item.value ?? ""),
+          }))
+      : []
+    setMappingRules(loadedRules)
+
+    const loadedPipelineMappingsRaw = (config as ProcessCsvConfiguration & { pipeline_mappings?: unknown }).pipeline_mappings
+    if (Array.isArray(loadedPipelineMappingsRaw)) {
+      const normalized = loadedPipelineMappingsRaw
+        .map((item) => item as Partial<PipelineMappingConfig>)
+        .filter((item) => item && typeof item.pipelineName === "string")
+        .map((item) => ({
+          pipelineName: String(item.pipelineName ?? ""),
+          csvLocationColumn: String(item.csvLocationColumn ?? "Facility Name"),
+          csvDimensionColumn: String(item.csvDimensionColumn ?? "Size"),
+          csvAreaColumn: String(item.csvAreaColumn ?? "Area"),
+          csvAmenitiesColumn: String(item.csvAmenitiesColumn ?? "Unit Amenities"),
+          dimensionMode: (item.dimensionMode === "full" ? "full" : "first_two") as "full" | "first_two",
+          fallbackPipelineName: String(item.fallbackPipelineName ?? ""),
+          locationMappings: Array.isArray(item.locationMappings)
+            ? item.locationMappings
+                .map((lm) => lm as Partial<LocationStringMapping>)
+                .map((lm) => ({
+                  id: String(lm.id ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`),
+                  csvValue: String(lm.csvValue ?? ""),
+                  pipelineValue: String(lm.pipelineValue ?? ""),
+                }))
+            : [],
+        }))
+      setPipelineMappingConfigs(normalized)
+    } else {
+      setPipelineMappingConfigs(mappingPipelineNames.map((name) => createDefaultPipelineMappingConfig(name)))
+    }
   }
 
   const handleLoadProcessCsvConfig = async () => {
@@ -1831,6 +2064,8 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
           standard: resolvedAmenityAdjuster.standard,
           economy: resolvedAmenityAdjuster.economy,
         },
+        mapping_rules: mappingRules,
+        pipeline_mappings: pipelineMappingConfigs,
       })
 
       toast.success("Process CSV configuration saved.")
@@ -1863,6 +2098,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
         resolvedAmenityAdjuster,
         standardRateFunction,
         mappingRules,
+        pipelineMappingConfigs,
       )
 
       if (original.headers.length === 0 || processed.headers.length === 0) {
@@ -1996,41 +2232,23 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
 
   const renderReviewSortableHeader = (label: string, column: ReviewSortColumn, infoText?: string) => (
     <th className="px-3 py-2 text-left font-medium">
-      <div className="inline-flex items-center gap-1.5">
-        <button
-          type="button"
-          className="inline-flex items-center gap-1 hover:underline"
-          onClick={() => handleReviewSortClick(column)}
-        >
-          <span>{label}</span>
-          {reviewSortBy === column ? (
-            reviewSortDir === "asc" ? (
-              <ArrowUp className="h-3.5 w-3.5 shrink-0" />
-            ) : (
-              <ArrowDown className="h-3.5 w-3.5 shrink-0" />
-            )
+      {void infoText}
+      <button
+        type="button"
+        className="inline-flex items-center gap-1 hover:underline"
+        onClick={() => handleReviewSortClick(column)}
+      >
+        <span>{label}</span>
+        {reviewSortBy === column ? (
+          reviewSortDir === "asc" ? (
+            <ArrowUp className="h-3.5 w-3.5 shrink-0" />
           ) : (
-            <ArrowUpDown className="h-3.5 w-3.5 shrink-0 opacity-50" />
-          )}
-        </button>
-        {infoText ? (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                className="inline-flex items-center justify-center text-muted-foreground hover:text-foreground"
-                aria-label={`${label} mapping info`}
-                onClick={(event) => event.stopPropagation()}
-              >
-                <Info className="h-3.5 w-3.5" aria-hidden />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="top" className="max-w-[260px] text-xs leading-relaxed">
-              {infoText}
-            </TooltipContent>
-          </Tooltip>
-        ) : null}
-      </div>
+            <ArrowDown className="h-3.5 w-3.5 shrink-0" />
+          )
+        ) : (
+          <ArrowUpDown className="h-3.5 w-3.5 shrink-0 opacity-50" />
+        )}
+      </button>
     </th>
   )
 
@@ -2045,6 +2263,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
       setPopupAdjusters([])
       setAmenityAdjuster(createDefaultAmenityAdjusterState())
       setMappingRules([])
+      setPipelineMappingConfigs(mappingPipelineNames.map((name) => createDefaultPipelineMappingConfig(name)))
       setOriginalParsed(null)
       setCsvNumericVariables([])
       lastAutoRebuildKeyRef.current = ""
@@ -2488,6 +2707,113 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-3">
+              <div className="rounded-md border p-3 space-y-3">
+                <div className="text-sm font-medium">Pipeline mapping settings</div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Pipeline</Label>
+                    <select
+                      className="mt-1 w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+                      value={selectedMappingPipeline}
+                      onChange={(e) => setSelectedMappingPipeline(e.target.value)}
+                    >
+                      {mappingPipelineNames.map((name) => (
+                        <option key={name} value={name}>{name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Location column</Label>
+                    <Input
+                      className="mt-1 h-9"
+                      value={selectedPipelineMappingConfig?.csvLocationColumn ?? ""}
+                      placeholder="Facility Name"
+                      onChange={(e) => selectedMappingPipeline && updatePipelineMappingConfig(selectedMappingPipeline, { csvLocationColumn: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Fallback pipeline (cascade)</Label>
+                    <select
+                      className="mt-1 w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+                      value={selectedPipelineMappingConfig?.fallbackPipelineName ?? ""}
+                      onChange={(e) => selectedMappingPipeline && updatePipelineMappingConfig(selectedMappingPipeline, { fallbackPipelineName: e.target.value })}
+                    >
+                      <option value="">None</option>
+                      {mappingPipelineNames.filter((name) => name !== selectedMappingPipeline).map((name) => (
+                        <option key={name} value={name}>{name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Dimension column</Label>
+                    <Input
+                      className="mt-1 h-9"
+                      value={selectedPipelineMappingConfig?.csvDimensionColumn ?? ""}
+                      placeholder="Size"
+                      onChange={(e) => selectedMappingPipeline && updatePipelineMappingConfig(selectedMappingPipeline, { csvDimensionColumn: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Dimension mode</Label>
+                    <select
+                      className="mt-1 w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+                      value={selectedPipelineMappingConfig?.dimensionMode ?? "first_two"}
+                      onChange={(e) => selectedMappingPipeline && updatePipelineMappingConfig(selectedMappingPipeline, { dimensionMode: e.target.value as "full" | "first_two" })}
+                    >
+                      <option value="first_two">first two dimensions (8x7x10 → 8x7)</option>
+                      <option value="full">full string match</option>
+                    </select>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Area column</Label>
+                    <Input
+                      className="mt-1 h-9"
+                      value={selectedPipelineMappingConfig?.csvAreaColumn ?? ""}
+                      placeholder="Area"
+                      onChange={(e) => selectedMappingPipeline && updatePipelineMappingConfig(selectedMappingPipeline, { csvAreaColumn: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Amenities column</Label>
+                    <Input
+                      className="mt-1 h-9"
+                      value={selectedPipelineMappingConfig?.csvAmenitiesColumn ?? ""}
+                      placeholder="Unit Amenities"
+                      onChange={(e) => selectedMappingPipeline && updatePipelineMappingConfig(selectedMappingPipeline, { csvAmenitiesColumn: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="text-xs text-muted-foreground">Location string translations (CSV → Pipeline value)</div>
+                  {(selectedPipelineMappingConfig?.locationMappings ?? []).map((mapping) => (
+                    <div key={mapping.id} className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-2">
+                      <Input
+                        className="h-9"
+                        placeholder="CSV value"
+                        value={mapping.csvValue}
+                        onChange={(e) => selectedMappingPipeline && updateLocationStringMapping(selectedMappingPipeline, mapping.id, { csvValue: e.target.value })}
+                      />
+                      <Input
+                        className="h-9"
+                        placeholder="Pipeline value"
+                        value={mapping.pipelineValue}
+                        onChange={(e) => selectedMappingPipeline && updateLocationStringMapping(selectedMappingPipeline, mapping.id, { pipelineValue: e.target.value })}
+                      />
+                      <Button type="button" variant="outline" size="sm" onClick={() => selectedMappingPipeline && removeLocationStringMapping(selectedMappingPipeline, mapping.id)}>
+                        Remove
+                      </Button>
+                    </div>
+                  ))}
+                  <Button type="button" variant="outline" size="sm" onClick={() => selectedMappingPipeline && addLocationStringMapping(selectedMappingPipeline)}>
+                    Add location mapping
+                  </Button>
+                </div>
+              </div>
+
               {mappingRules.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No mapping rules yet. Add a rule below. Rules are evaluated top-to-bottom.</p>
               ) : null}
@@ -3289,6 +3615,113 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
+            <div className="rounded-md border p-3 space-y-3">
+              <div className="text-sm font-medium">Pipeline mapping settings</div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                <div>
+                  <Label className="text-xs text-muted-foreground">Pipeline</Label>
+                  <select
+                    className="mt-1 w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+                    value={selectedMappingPipeline}
+                    onChange={(e) => setSelectedMappingPipeline(e.target.value)}
+                  >
+                    {mappingPipelineNames.map((name) => (
+                      <option key={name} value={name}>{name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Location column</Label>
+                  <Input
+                    className="mt-1 h-9"
+                    value={selectedPipelineMappingConfig?.csvLocationColumn ?? ""}
+                    placeholder="Facility Name"
+                    onChange={(e) => selectedMappingPipeline && updatePipelineMappingConfig(selectedMappingPipeline, { csvLocationColumn: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Fallback pipeline (cascade)</Label>
+                  <select
+                    className="mt-1 w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+                    value={selectedPipelineMappingConfig?.fallbackPipelineName ?? ""}
+                    onChange={(e) => selectedMappingPipeline && updatePipelineMappingConfig(selectedMappingPipeline, { fallbackPipelineName: e.target.value })}
+                  >
+                    <option value="">None</option>
+                    {mappingPipelineNames.filter((name) => name !== selectedMappingPipeline).map((name) => (
+                      <option key={name} value={name}>{name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+                <div>
+                  <Label className="text-xs text-muted-foreground">Dimension column</Label>
+                  <Input
+                    className="mt-1 h-9"
+                    value={selectedPipelineMappingConfig?.csvDimensionColumn ?? ""}
+                    placeholder="Size"
+                    onChange={(e) => selectedMappingPipeline && updatePipelineMappingConfig(selectedMappingPipeline, { csvDimensionColumn: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Dimension mode</Label>
+                  <select
+                    className="mt-1 w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+                    value={selectedPipelineMappingConfig?.dimensionMode ?? "first_two"}
+                    onChange={(e) => selectedMappingPipeline && updatePipelineMappingConfig(selectedMappingPipeline, { dimensionMode: e.target.value as "full" | "first_two" })}
+                  >
+                    <option value="first_two">first two dimensions (8x7x10 → 8x7)</option>
+                    <option value="full">full string match</option>
+                  </select>
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Area column</Label>
+                  <Input
+                    className="mt-1 h-9"
+                    value={selectedPipelineMappingConfig?.csvAreaColumn ?? ""}
+                    placeholder="Area"
+                    onChange={(e) => selectedMappingPipeline && updatePipelineMappingConfig(selectedMappingPipeline, { csvAreaColumn: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Amenities column</Label>
+                  <Input
+                    className="mt-1 h-9"
+                    value={selectedPipelineMappingConfig?.csvAmenitiesColumn ?? ""}
+                    placeholder="Unit Amenities"
+                    onChange={(e) => selectedMappingPipeline && updatePipelineMappingConfig(selectedMappingPipeline, { csvAmenitiesColumn: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="text-xs text-muted-foreground">Location string translations (CSV → Pipeline value)</div>
+                {(selectedPipelineMappingConfig?.locationMappings ?? []).map((mapping) => (
+                  <div key={mapping.id} className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-2">
+                    <Input
+                      className="h-9"
+                      placeholder="CSV value"
+                      value={mapping.csvValue}
+                      onChange={(e) => selectedMappingPipeline && updateLocationStringMapping(selectedMappingPipeline, mapping.id, { csvValue: e.target.value })}
+                    />
+                    <Input
+                      className="h-9"
+                      placeholder="Pipeline value"
+                      value={mapping.pipelineValue}
+                      onChange={(e) => selectedMappingPipeline && updateLocationStringMapping(selectedMappingPipeline, mapping.id, { pipelineValue: e.target.value })}
+                    />
+                    <Button type="button" variant="outline" size="sm" onClick={() => selectedMappingPipeline && removeLocationStringMapping(selectedMappingPipeline, mapping.id)}>
+                      Remove
+                    </Button>
+                  </div>
+                ))}
+                <Button type="button" variant="outline" size="sm" onClick={() => selectedMappingPipeline && addLocationStringMapping(selectedMappingPipeline)}>
+                  Add location mapping
+                </Button>
+              </div>
+            </div>
+
             {mappingRules.length === 0 ? (
               <p className="text-sm text-muted-foreground">No mapping rules yet. Add a rule below. Rules are evaluated top-to-bottom.</p>
             ) : null}

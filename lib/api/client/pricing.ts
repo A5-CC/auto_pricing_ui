@@ -25,6 +25,27 @@ export interface ProcessCsvConfigurationPayload {
     standard?: { multiplier: number; offset: number }
     economy?: { multiplier: number; offset: number }
   }
+  mapping_rules?: Array<{
+    id: string
+    pipelineName: string
+    column: string
+    operator: "contains" | "equals" | "not_contains" | "empty" | "not_empty"
+    value: string
+  }>
+  pipeline_mappings?: Array<{
+    pipelineName: string
+    csvLocationColumn: string
+    csvDimensionColumn: string
+    csvAreaColumn: string
+    csvAmenitiesColumn: string
+    dimensionMode: "full" | "first_two"
+    fallbackPipelineName: string
+    locationMappings: Array<{
+      id: string
+      csvValue: string
+      pipelineValue: string
+    }>
+  }>
 }
 
 export interface ProcessCsvConfiguration extends ProcessCsvConfigurationPayload {
