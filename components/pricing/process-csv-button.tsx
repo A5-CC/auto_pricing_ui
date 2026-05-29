@@ -2644,16 +2644,6 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
             type="button"
             size="sm"
             variant="outline"
-            onClick={handleLoadProcessCsvConfig}
-            disabled={isLoadingProcessConfig || isSavingProcessConfig || deletingProcessConfigId !== null}
-          >
-            {isLoadingProcessConfig ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
-            Config Settings
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
             onClick={() => setShowMapping(true)}
             disabled={mappingPipelineNames.length === 0}
           >
@@ -3706,16 +3696,6 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                   disabled={mappingPipelineNames.length === 0}
                 >
                   Mapping
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={handleLoadProcessCsvConfig}
-                  disabled={isLoadingProcessConfig || isSavingProcessConfig || deletingProcessConfigId !== null}
-                >
-                  {isLoadingProcessConfig ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
-                  Config Settings
                 </Button>
                 <Button
                   type="button"
