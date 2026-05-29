@@ -681,11 +681,30 @@ function getComboMapValueByColumn(comboMap: Record<string, unknown>, column: str
   return ""
 }
 
-function doesGroupMappingPairMatch(csvRaw: string, pipelineRaw: string, pair: MappingGroupPair): boolean {
+function doesGroupMappingPairMatch(
+  csvRaw: string,
+  pipelineRaw: string,
+  pair: MappingGroupPair,
+  pipelineColumnName?: string
+): boolean {
   if (pair.csvFirstTwoDimensions) {
-    const csvDim = extractLeadingDimensionPair(csvRaw)
-    const pipelineDim = normalizeDimensionValue(pipelineRaw)
-    return Boolean(csvDim) && Boolean(pipelineDim) && csvDim === pipelineDim
+    const normalizedPipelineColumn = normalizeColumnKey(String(pipelineColumnName ?? ""))
+
+    if (normalizedPipelineColumn === "unitarea") {
+      const csvAreaRaw = computeAreaFromDimensionLikeValue(csvRaw)
+      const pipelineAreaRaw = normalizeUnitAreaValue(pipelineRaw) || computeAreaFromDimensionLikeValue(pipelineRaw)
+      const csvArea = Number(csvAreaRaw)
+      const pipelineArea = Number(pipelineAreaRaw)
+      return Number.isFinite(csvArea) && Number.isFinite(pipelineArea) && Math.abs(csvArea - pipelineArea) < 0.000001
+    }
+
+    if (normalizedPipelineColumn === "unitdimensions") {
+      const csvDim = extractLeadingDimensionPair(csvRaw)
+      const pipelineDim = normalizeDimensionValue(pipelineRaw)
+      return Boolean(csvDim) && Boolean(pipelineDim) && csvDim === pipelineDim
+    }
+
+    return false
   }
 
   if (pair.exactMatch) {
@@ -1447,7 +1466,7 @@ function applyCalculatedPricesToCsv(
             if (!Array.isArray(mapping.pairs) || mapping.pairs.length === 0) return true
             const csvRaw = String(getCsvValueByColumn(csvRow, mapping.csvColumn) ?? "")
             const pipelineRaw = getComboMapValueByColumn(comboMap, mapping.competitorColumn)
-            return mapping.pairs.some((pair) => doesGroupMappingPairMatch(csvRaw, pipelineRaw, pair))
+            return mapping.pairs.some((pair) => doesGroupMappingPairMatch(csvRaw, pipelineRaw, pair, mapping.competitorColumn))
           })
 
           if (!mappingPairsPass) {
