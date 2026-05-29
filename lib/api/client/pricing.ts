@@ -56,8 +56,13 @@ export interface ProcessCsvConfigurationPayload {
       id: string
       csvColumn: string
       competitorColumn: string
-      matchMode: "exact" | "contains" | "concat"
-      concatCsvColumn: string
+      pairs: Array<{
+        id: string
+        csvValue: string
+        pipelineValue: string
+        exactMatch: boolean
+        csvFirstTwoDimensions: boolean
+      }>
     }>
   }>
 }

@@ -130,14 +130,20 @@ type PipelineMappingConfig = {
 }
 
 type MappingGroupCompetitorColumn = string
-type MappingGroupMatchMode = "exact" | "contains" | "concat"
+
+type MappingGroupPair = {
+  id: string
+  csvValue: string
+  pipelineValue: string
+  exactMatch: boolean
+  csvFirstTwoDimensions: boolean
+}
 
 type MappingGroupColumnMapping = {
   id: string
   csvColumn: string
   competitorColumn: MappingGroupCompetitorColumn
-  matchMode: MappingGroupMatchMode
-  concatCsvColumn: string
+  pairs: MappingGroupPair[]
 }
 
 type MappingGroup = {
@@ -661,6 +667,40 @@ function findGroupColumnMapping(
 ): MappingGroupColumnMapping | undefined {
   const normalizedTarget = normalizeColumnKey(competitorColumn)
   return group.columnMappings.find((mapping) => normalizeColumnKey(mapping.competitorColumn) === normalizedTarget)
+}
+
+function getComboMapValueByColumn(comboMap: Record<string, unknown>, column: string): string {
+  const target = normalizeColumnKey(column)
+  if (!target) return ""
+  for (const [key, value] of Object.entries(comboMap)) {
+    if (normalizeColumnKey(key) === target) {
+      if (Array.isArray(value)) return value.map((item) => String(item ?? "")).join(", ")
+      return String(value ?? "")
+    }
+  }
+  return ""
+}
+
+function doesGroupMappingPairMatch(csvRaw: string, pipelineRaw: string, pair: MappingGroupPair): boolean {
+  if (pair.exactMatch) {
+    if (pair.csvFirstTwoDimensions) {
+      const csvDim = extractLeadingDimensionPair(csvRaw)
+      const pipelineDim = normalizeDimensionValue(pipelineRaw)
+      return Boolean(csvDim) && Boolean(pipelineDim) && csvDim === pipelineDim
+    }
+    return normalizeMatchValue(csvRaw) === normalizeMatchValue(pipelineRaw)
+  }
+
+  if (pair.csvFirstTwoDimensions) {
+    const left = extractLeadingDimensionPair(csvRaw)
+    const right = extractLeadingDimensionPair(pair.csvValue)
+    const pipelineLeft = normalizeMatchValue(pipelineRaw)
+    const pipelineRight = normalizeMatchValue(pair.pipelineValue)
+    return Boolean(left) && Boolean(right) && left === right && pipelineLeft === pipelineRight
+  }
+
+  return normalizeMatchValue(csvRaw) === normalizeMatchValue(pair.csvValue)
+    && normalizeMatchValue(pipelineRaw) === normalizeMatchValue(pair.pipelineValue)
 }
 
 function applyPopupAdjustersToWebRate(
@@ -1272,13 +1312,12 @@ function applyCalculatedPricesToCsv(
     type CandidateMapping = {
       pipelineName: string
       locationIndex: number
-      locationConcatIndex: number
-      locationMatchMode: MappingGroupMatchMode
       unitSizeIndex: number
       areaIndex: number
       unitAmenitiesIndex: number
       dimensionMode: "full" | "first_two"
       locationMappings: LocationStringMapping[]
+      groupColumnMappings?: MappingGroupColumnMapping[]
     }
 
     const candidates: CandidateMapping[] = []
@@ -1296,13 +1335,12 @@ function applyCalculatedPricesToCsv(
           candidates.push({
             pipelineName: activeGroup.pipelineName,
             locationIndex: locationMapping?.csvColumn ? findColumnIndexByHeaderName(headers, locationMapping.csvColumn) : -1,
-            locationConcatIndex: locationMapping?.concatCsvColumn ? findColumnIndexByHeaderName(headers, locationMapping.concatCsvColumn) : -1,
-            locationMatchMode: locationMapping?.matchMode ?? "exact",
             unitSizeIndex: dimensionMapping?.csvColumn ? findColumnIndexByHeaderName(headers, dimensionMapping.csvColumn) : -1,
             areaIndex: areaMapping?.csvColumn ? findColumnIndexByHeaderName(headers, areaMapping.csvColumn) : -1,
             unitAmenitiesIndex: amenityMapping?.csvColumn ? findColumnIndexByHeaderName(headers, amenityMapping.csvColumn) : -1,
-            dimensionMode: activeGroup.dimensionMode,
+            dimensionMode: "first_two",
             locationMappings: [],
+            groupColumnMappings: activeGroup.columnMappings,
           })
           activeGroup = activeGroup.fallbackGroupId ? getGroupById(activeGroup.fallbackGroupId) : undefined
         }
@@ -1322,8 +1360,6 @@ function applyCalculatedPricesToCsv(
         locationIndex: activeConfig.csvLocationColumn
           ? findColumnIndexByHeaderName(headers, activeConfig.csvLocationColumn)
           : defaultLocationIndex,
-        locationConcatIndex: -1,
-        locationMatchMode: "exact",
         unitSizeIndex: activeConfig.csvDimensionColumn
           ? findColumnIndexByHeaderName(headers, activeConfig.csvDimensionColumn)
           : defaultUnitSizeIndex,
@@ -1348,10 +1384,7 @@ function applyCalculatedPricesToCsv(
 
       let candidateMatchedAreaValue = ""
       const baseLocation = getCellValue(row, candidate.locationIndex)
-      const concatLocation = candidate.locationMatchMode === "concat" && candidate.locationConcatIndex >= 0
-        ? getCellValue(row, candidate.locationConcatIndex)
-        : ""
-      const rawLocationValue = [baseLocation, concatLocation].filter(Boolean).join(" ")
+      const rawLocationValue = baseLocation
       const translatedLocationValue = translateCsvLocationValue(rawLocationValue, candidate.locationMappings)
       const location = normalizeLocationKey(translatedLocationValue)
       const locationKey = location
@@ -1413,6 +1446,22 @@ function applyCalculatedPricesToCsv(
       }
 
       if (candidateMatch !== undefined) {
+        if (candidate.groupColumnMappings && candidate.groupColumnMappings.length > 0) {
+          const tracedCandidateRow = calculatedRows[candidateMatch.calculatedRowIndex]
+          const comboMap = (tracedCandidateRow?.comboMap ?? {}) as Record<string, unknown>
+
+          const mappingPairsPass = candidate.groupColumnMappings.every((mapping) => {
+            if (!Array.isArray(mapping.pairs) || mapping.pairs.length === 0) return true
+            const csvRaw = String(getCsvValueByColumn(csvRow, mapping.csvColumn) ?? "")
+            const pipelineRaw = getComboMapValueByColumn(comboMap, mapping.competitorColumn)
+            return mapping.pairs.some((pair) => doesGroupMappingPairMatch(csvRaw, pipelineRaw, pair))
+          })
+
+          if (!mappingPairsPass) {
+            continue
+          }
+        }
+
         mappedMatch = candidateMatch
         matchedAreaValue = candidateMatchedAreaValue
         unitAmenitiesIndex = candidate.unitAmenitiesIndex
@@ -1599,8 +1648,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
             id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
             csvColumn: "",
             competitorColumn: "",
-            matchMode: "exact",
-            concatCsvColumn: "",
+            pairs: [],
           },
         ],
       }
@@ -1623,6 +1671,63 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
       return {
         ...group,
         columnMappings: group.columnMappings.filter((mapping) => mapping.id !== mappingId),
+      }
+    }))
+  }, [])
+
+  const addGroupColumnMappingPair = useCallback((groupId: string, mappingId: string) => {
+    setMappingGroups((prev) => prev.map((group) => {
+      if (group.id !== groupId) return group
+      return {
+        ...group,
+        columnMappings: group.columnMappings.map((mapping) => {
+          if (mapping.id !== mappingId) return mapping
+          return {
+            ...mapping,
+            pairs: [
+              ...mapping.pairs,
+              {
+                id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                csvValue: "",
+                pipelineValue: "",
+                exactMatch: false,
+                csvFirstTwoDimensions: false,
+              },
+            ],
+          }
+        }),
+      }
+    }))
+  }, [])
+
+  const updateGroupColumnMappingPair = useCallback((groupId: string, mappingId: string, pairId: string, patch: Partial<MappingGroupPair>) => {
+    setMappingGroups((prev) => prev.map((group) => {
+      if (group.id !== groupId) return group
+      return {
+        ...group,
+        columnMappings: group.columnMappings.map((mapping) => {
+          if (mapping.id !== mappingId) return mapping
+          return {
+            ...mapping,
+            pairs: mapping.pairs.map((pair) => (pair.id === pairId ? { ...pair, ...patch } : pair)),
+          }
+        }),
+      }
+    }))
+  }, [])
+
+  const removeGroupColumnMappingPair = useCallback((groupId: string, mappingId: string, pairId: string) => {
+    setMappingGroups((prev) => prev.map((group) => {
+      if (group.id !== groupId) return group
+      return {
+        ...group,
+        columnMappings: group.columnMappings.map((mapping) => {
+          if (mapping.id !== mappingId) return mapping
+          return {
+            ...mapping,
+            pairs: mapping.pairs.filter((pair) => pair.id !== pairId),
+          }
+        }),
       }
     }))
   }, [])
@@ -1959,7 +2064,9 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
         group.pipelineName,
         group.fallbackGroupId,
         group.dimensionMode,
-        group.columnMappings.map((mapping) => `${mapping.csvColumn}|${mapping.competitorColumn}|${mapping.matchMode}|${mapping.concatCsvColumn}`).join("@@"),
+        group.columnMappings
+          .map((mapping) => `${mapping.csvColumn}|${mapping.competitorColumn}|${mapping.pairs.map((pair) => `${pair.csvValue}=>${pair.pipelineValue}|${pair.exactMatch ? "1" : "0"}|${pair.csvFirstTwoDimensions ? "1" : "0"}`).join("##")}`)
+          .join("@@"),
       ].join("|"))
       .join("||")
     const amenityKey = [
@@ -2112,8 +2219,8 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
 
     const loadedGroupsRaw = (config as ProcessCsvConfiguration & { mapping_groups?: unknown }).mapping_groups
     const loadedGroups = Array.isArray(loadedGroupsRaw)
-      ? loadedGroupsRaw
-          .map((item) => item as Partial<MappingGroup>)
+        ? loadedGroupsRaw
+          .map((item) => item as unknown as Partial<MappingGroup>)
           .filter((item) => item && typeof item.id === "string")
           .map((item) => ({
             id: String(item.id ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`),
@@ -2123,13 +2230,22 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
             dimensionMode: (item.dimensionMode === "full" ? "full" : "first_two") as "full" | "first_two",
             columnMappings: Array.isArray(item.columnMappings)
               ? item.columnMappings
-                  .map((mapping) => mapping as Partial<MappingGroupColumnMapping>)
+                  .map((mapping) => mapping as Partial<MappingGroupColumnMapping> & { pairs?: unknown })
                   .map((mapping) => ({
                     id: String(mapping.id ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`),
                     csvColumn: String(mapping.csvColumn ?? ""),
                     competitorColumn: String(mapping.competitorColumn ?? "") as MappingGroupCompetitorColumn,
-                    matchMode: (mapping.matchMode === "contains" || mapping.matchMode === "concat" ? mapping.matchMode : "exact") as MappingGroupMatchMode,
-                    concatCsvColumn: String(mapping.concatCsvColumn ?? ""),
+                    pairs: Array.isArray(mapping.pairs)
+                      ? mapping.pairs
+                          .map((pair) => pair as Partial<MappingGroupPair>)
+                          .map((pair) => ({
+                            id: String(pair.id ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`),
+                            csvValue: String(pair.csvValue ?? ""),
+                            pipelineValue: String(pair.pipelineValue ?? ""),
+                            exactMatch: Boolean(pair.exactMatch),
+                            csvFirstTwoDimensions: Boolean(pair.csvFirstTwoDimensions),
+                          }))
+                      : [],
                   }))
               : [],
           }))
@@ -2833,9 +2949,6 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
           <DialogContent className="sm:max-w-[760px]">
             <DialogHeader>
               <DialogTitle>Mapping</DialogTitle>
-              <DialogDescription>
-                Choose which pipeline to use when CSV rows match specific conditions.
-              </DialogDescription>
             </DialogHeader>
             <div className="max-h-[62vh] overflow-y-auto pr-1">
               <div className="rounded-md border p-3 space-y-3">
@@ -2848,7 +2961,6 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                 {mappingGroups.length > 0 ? (
                   <>
                     <div className="sticky top-0 z-10 -mx-3 mb-3 border-b bg-background/95 px-3 pb-3 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-                      <Label className="text-xs text-muted-foreground">Groups (stacked)</Label>
                       <div className="mt-2 space-y-1">
                         {mappingGroups.map((group) => {
                           const isActive = group.id === selectedMappingGroupId
@@ -2890,7 +3002,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                         />
                       </div>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                       <div>
                         <Label className="text-xs text-muted-foreground">Pipeline</Label>
                         <select
@@ -2916,58 +3028,80 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                           ))}
                         </select>
                       </div>
-                      <div>
-                        <Label className="text-xs text-muted-foreground">Dimension mode</Label>
-                        <select
-                          className="mt-1 w-full rounded-md border bg-background px-2 py-1.5 text-sm"
-                          value={selectedMappingGroup?.dimensionMode ?? "first_two"}
-                          onChange={(e) => selectedMappingGroup && updateMappingGroup(selectedMappingGroup.id, { dimensionMode: e.target.value as "full" | "first_two" })}
-                        >
-                          <option value="first_two">first two dimensions (8x7x10 → 8x7)</option>
-                          <option value="full">full string match</option>
-                        </select>
-                      </div>
                     </div>
 
                     <div className="space-y-2">
                       <div className="flex items-center justify-between gap-2">
-                        <div className="text-xs text-muted-foreground">Column mappings (CSV column names are free text)</div>
+                        <div className="text-xs text-muted-foreground">Column mappings</div>
                         <Button type="button" size="sm" variant="outline" onClick={() => selectedMappingGroup && addGroupColumnMapping(selectedMappingGroup.id)}>
                           Add Column Mapping
                         </Button>
                       </div>
                       {(selectedMappingGroup?.columnMappings ?? []).map((mapping) => (
-                        <div key={mapping.id} className="grid grid-cols-1 md:grid-cols-[1fr_1fr_1fr_1fr_auto] gap-2">
-                          <Input
-                            className="h-9"
-                            placeholder="CSV column"
-                            value={mapping.csvColumn}
-                            onChange={(e) => selectedMappingGroup && updateGroupColumnMapping(selectedMappingGroup.id, mapping.id, { csvColumn: e.target.value })}
-                          />
-                          <Input
-                            className="h-9"
-                            placeholder="Competitor column (e.g. unit_area)"
-                            value={mapping.competitorColumn}
-                            onChange={(e) => selectedMappingGroup && updateGroupColumnMapping(selectedMappingGroup.id, mapping.id, { competitorColumn: e.target.value as MappingGroupCompetitorColumn })}
-                          />
-                          <select
-                            className="h-9 rounded-md border bg-background px-2 py-1.5 text-sm"
-                            value={mapping.matchMode}
-                            onChange={(e) => selectedMappingGroup && updateGroupColumnMapping(selectedMappingGroup.id, mapping.id, { matchMode: e.target.value as MappingGroupMatchMode })}
-                          >
-                            <option value="exact">match: exact</option>
-                            <option value="contains">match: contains</option>
-                            <option value="concat">match: concat</option>
-                          </select>
-                          <Input
-                            className="h-9"
-                            placeholder="CSV concat column (optional)"
-                            value={mapping.concatCsvColumn}
-                            onChange={(e) => selectedMappingGroup && updateGroupColumnMapping(selectedMappingGroup.id, mapping.id, { concatCsvColumn: e.target.value })}
-                          />
-                          <Button type="button" size="sm" variant="outline" onClick={() => selectedMappingGroup && removeGroupColumnMapping(selectedMappingGroup.id, mapping.id)}>
-                            Remove
-                          </Button>
+                        <div key={mapping.id} className="rounded-md border p-2 space-y-2">
+                          <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-2">
+                            <Input
+                              className="h-9"
+                              placeholder="CSV column"
+                              value={mapping.csvColumn}
+                              onChange={(e) => selectedMappingGroup && updateGroupColumnMapping(selectedMappingGroup.id, mapping.id, { csvColumn: e.target.value })}
+                            />
+                            <Input
+                              className="h-9"
+                              placeholder="Pipeline column"
+                              value={mapping.competitorColumn}
+                              onChange={(e) => selectedMappingGroup && updateGroupColumnMapping(selectedMappingGroup.id, mapping.id, { competitorColumn: e.target.value as MappingGroupCompetitorColumn })}
+                            />
+                            <div className="flex gap-2">
+                              <Button type="button" size="sm" variant="outline" onClick={() => selectedMappingGroup && addGroupColumnMappingPair(selectedMappingGroup.id, mapping.id)}>
+                                Add Pair
+                              </Button>
+                              <Button type="button" size="sm" variant="outline" onClick={() => selectedMappingGroup && removeGroupColumnMapping(selectedMappingGroup.id, mapping.id)}>
+                                Remove
+                              </Button>
+                            </div>
+                          </div>
+                          {(mapping.pairs ?? []).map((pair) => (
+                            <div key={pair.id} className="rounded-md border border-dashed p-2 space-y-2">
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                <Input
+                                  className="h-9 rounded-full"
+                                  placeholder="CSV value bubble"
+                                  value={pair.exactMatch ? "" : pair.csvValue}
+                                  disabled={pair.exactMatch}
+                                  onChange={(e) => selectedMappingGroup && updateGroupColumnMappingPair(selectedMappingGroup.id, mapping.id, pair.id, { csvValue: e.target.value })}
+                                />
+                                <Input
+                                  className="h-9 rounded-full"
+                                  placeholder="Pipeline value bubble"
+                                  value={pair.exactMatch ? "" : pair.pipelineValue}
+                                  disabled={pair.exactMatch}
+                                  onChange={(e) => selectedMappingGroup && updateGroupColumnMappingPair(selectedMappingGroup.id, mapping.id, pair.id, { pipelineValue: e.target.value })}
+                                />
+                              </div>
+                              <div className="flex flex-wrap items-center gap-3 text-xs">
+                                <label className="inline-flex items-center gap-1">
+                                  <input
+                                    type="checkbox"
+                                    checked={pair.exactMatch}
+                                    onChange={(e) => selectedMappingGroup && updateGroupColumnMappingPair(selectedMappingGroup.id, mapping.id, pair.id, { exactMatch: e.target.checked })}
+                                  />
+                                  <span>Exact match between CSV and pipeline columns</span>
+                                </label>
+                                <label className="inline-flex items-center gap-1">
+                                  <input
+                                    type="checkbox"
+                                    checked={pair.csvFirstTwoDimensions}
+                                    onChange={(e) => selectedMappingGroup && updateGroupColumnMappingPair(selectedMappingGroup.id, mapping.id, pair.id, { csvFirstTwoDimensions: e.target.checked })}
+                                  />
+                                  <span>CSV first two dimensions only</span>
+                                </label>
+                                <Button type="button" size="sm" variant="outline" onClick={() => selectedMappingGroup && removeGroupColumnMappingPair(selectedMappingGroup.id, mapping.id, pair.id)}>
+                                  Remove Pair
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       ))}
                     </div>
@@ -3787,9 +3921,6 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
         <DialogContent className="sm:max-w-[760px]">
           <DialogHeader>
             <DialogTitle>Mapping</DialogTitle>
-            <DialogDescription>
-              Choose which pipeline to use when CSV rows match specific conditions.
-            </DialogDescription>
           </DialogHeader>
           <div className="max-h-[62vh] overflow-y-auto pr-1">
             <div className="rounded-md border p-3 space-y-3">
@@ -3802,7 +3933,6 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
               {mappingGroups.length > 0 ? (
                 <>
                   <div className="sticky top-0 z-10 -mx-3 mb-3 border-b bg-background/95 px-3 pb-3 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-                    <Label className="text-xs text-muted-foreground">Groups (stacked)</Label>
                     <div className="mt-2 space-y-1">
                       {mappingGroups.map((group) => {
                         const isActive = group.id === selectedMappingGroupId
@@ -3844,7 +3974,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                       />
                     </div>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                     <div>
                       <Label className="text-xs text-muted-foreground">Pipeline</Label>
                       <select
@@ -3870,58 +4000,80 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                         ))}
                       </select>
                     </div>
-                    <div>
-                      <Label className="text-xs text-muted-foreground">Dimension mode</Label>
-                      <select
-                        className="mt-1 w-full rounded-md border bg-background px-2 py-1.5 text-sm"
-                        value={selectedMappingGroup?.dimensionMode ?? "first_two"}
-                        onChange={(e) => selectedMappingGroup && updateMappingGroup(selectedMappingGroup.id, { dimensionMode: e.target.value as "full" | "first_two" })}
-                      >
-                        <option value="first_two">first two dimensions (8x7x10 → 8x7)</option>
-                        <option value="full">full string match</option>
-                      </select>
-                    </div>
                   </div>
 
                   <div className="space-y-2">
                     <div className="flex items-center justify-between gap-2">
-                      <div className="text-xs text-muted-foreground">Column mappings (CSV column names are free text)</div>
+                      <div className="text-xs text-muted-foreground">Column mappings</div>
                       <Button type="button" size="sm" variant="outline" onClick={() => selectedMappingGroup && addGroupColumnMapping(selectedMappingGroup.id)}>
                         Add Column Mapping
                       </Button>
                     </div>
                     {(selectedMappingGroup?.columnMappings ?? []).map((mapping) => (
-                      <div key={mapping.id} className="grid grid-cols-1 md:grid-cols-[1fr_1fr_1fr_1fr_auto] gap-2">
-                        <Input
-                          className="h-9"
-                          placeholder="CSV column"
-                          value={mapping.csvColumn}
-                          onChange={(e) => selectedMappingGroup && updateGroupColumnMapping(selectedMappingGroup.id, mapping.id, { csvColumn: e.target.value })}
-                        />
-                        <Input
-                          className="h-9"
-                          placeholder="Competitor column (e.g. unit_area)"
-                          value={mapping.competitorColumn}
-                          onChange={(e) => selectedMappingGroup && updateGroupColumnMapping(selectedMappingGroup.id, mapping.id, { competitorColumn: e.target.value as MappingGroupCompetitorColumn })}
-                        />
-                        <select
-                          className="h-9 rounded-md border bg-background px-2 py-1.5 text-sm"
-                          value={mapping.matchMode}
-                          onChange={(e) => selectedMappingGroup && updateGroupColumnMapping(selectedMappingGroup.id, mapping.id, { matchMode: e.target.value as MappingGroupMatchMode })}
-                        >
-                          <option value="exact">match: exact</option>
-                          <option value="contains">match: contains</option>
-                          <option value="concat">match: concat</option>
-                        </select>
-                        <Input
-                          className="h-9"
-                          placeholder="CSV concat column (optional)"
-                          value={mapping.concatCsvColumn}
-                          onChange={(e) => selectedMappingGroup && updateGroupColumnMapping(selectedMappingGroup.id, mapping.id, { concatCsvColumn: e.target.value })}
-                        />
-                        <Button type="button" size="sm" variant="outline" onClick={() => selectedMappingGroup && removeGroupColumnMapping(selectedMappingGroup.id, mapping.id)}>
-                          Remove
-                        </Button>
+                      <div key={mapping.id} className="rounded-md border p-2 space-y-2">
+                        <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-2">
+                          <Input
+                            className="h-9"
+                            placeholder="CSV column"
+                            value={mapping.csvColumn}
+                            onChange={(e) => selectedMappingGroup && updateGroupColumnMapping(selectedMappingGroup.id, mapping.id, { csvColumn: e.target.value })}
+                          />
+                          <Input
+                            className="h-9"
+                            placeholder="Pipeline column"
+                            value={mapping.competitorColumn}
+                            onChange={(e) => selectedMappingGroup && updateGroupColumnMapping(selectedMappingGroup.id, mapping.id, { competitorColumn: e.target.value as MappingGroupCompetitorColumn })}
+                          />
+                          <div className="flex gap-2">
+                            <Button type="button" size="sm" variant="outline" onClick={() => selectedMappingGroup && addGroupColumnMappingPair(selectedMappingGroup.id, mapping.id)}>
+                              Add Pair
+                            </Button>
+                            <Button type="button" size="sm" variant="outline" onClick={() => selectedMappingGroup && removeGroupColumnMapping(selectedMappingGroup.id, mapping.id)}>
+                              Remove
+                            </Button>
+                          </div>
+                        </div>
+                        {(mapping.pairs ?? []).map((pair) => (
+                          <div key={pair.id} className="rounded-md border border-dashed p-2 space-y-2">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                              <Input
+                                className="h-9 rounded-full"
+                                placeholder="CSV value bubble"
+                                value={pair.exactMatch ? "" : pair.csvValue}
+                                disabled={pair.exactMatch}
+                                onChange={(e) => selectedMappingGroup && updateGroupColumnMappingPair(selectedMappingGroup.id, mapping.id, pair.id, { csvValue: e.target.value })}
+                              />
+                              <Input
+                                className="h-9 rounded-full"
+                                placeholder="Pipeline value bubble"
+                                value={pair.exactMatch ? "" : pair.pipelineValue}
+                                disabled={pair.exactMatch}
+                                onChange={(e) => selectedMappingGroup && updateGroupColumnMappingPair(selectedMappingGroup.id, mapping.id, pair.id, { pipelineValue: e.target.value })}
+                              />
+                            </div>
+                            <div className="flex flex-wrap items-center gap-3 text-xs">
+                              <label className="inline-flex items-center gap-1">
+                                <input
+                                  type="checkbox"
+                                  checked={pair.exactMatch}
+                                  onChange={(e) => selectedMappingGroup && updateGroupColumnMappingPair(selectedMappingGroup.id, mapping.id, pair.id, { exactMatch: e.target.checked })}
+                                />
+                                <span>Exact match between CSV and pipeline columns</span>
+                              </label>
+                              <label className="inline-flex items-center gap-1">
+                                <input
+                                  type="checkbox"
+                                  checked={pair.csvFirstTwoDimensions}
+                                  onChange={(e) => selectedMappingGroup && updateGroupColumnMappingPair(selectedMappingGroup.id, mapping.id, pair.id, { csvFirstTwoDimensions: e.target.checked })}
+                                />
+                                <span>CSV first two dimensions only</span>
+                              </label>
+                              <Button type="button" size="sm" variant="outline" onClick={() => selectedMappingGroup && removeGroupColumnMappingPair(selectedMappingGroup.id, mapping.id, pair.id)}>
+                                Remove Pair
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     ))}
                   </div>
