@@ -2122,7 +2122,11 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
       setReviewData(nextReviewData)
       toast.success("Current pipeline pricing applied in the browser. Review changes before download.")
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to process CSV")
+      const message = error instanceof Error ? error.message : "Failed to process CSV"
+      if (message.includes("Multiple pipelines detected. Add Mapping rules")) {
+        setShowMapping(true)
+      }
+      toast.error(message)
     } finally {
       setIsProcessing(false)
     }
@@ -2437,6 +2441,11 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                   Selected: <span className="font-medium text-foreground">{file.name}</span>
                 </p>
               )}
+              {mappingPipelineNames.length > 1 ? (
+                <Button type="button" variant="outline" className="w-full" onClick={() => setShowMapping(true)}>
+                  Mapping
+                </Button>
+              ) : null}
             </div>
           </div>
         ) : (
@@ -3271,6 +3280,13 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                 onChange={(e: ChangeEvent<HTMLInputElement>) => setFile(e.target.files?.[0] || null)}
               />
             </div>
+            {mappingPipelineNames.length > 1 ? (
+              <div className="grid w-full max-w-sm items-center gap-1.5">
+                <Button type="button" variant="outline" onClick={() => setShowMapping(true)}>
+                  Mapping
+                </Button>
+              </div>
+            ) : null}
           </div>
         ) : (
           <div className="space-y-3 overflow-hidden">
