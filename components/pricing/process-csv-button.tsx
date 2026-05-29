@@ -1009,9 +1009,32 @@ function applyCalculatedPricesToCsv(
       .map((row) => String((row as Record<string, unknown>).__pipelineName ?? "").trim())
       .filter(Boolean)
   )
-  const singlePipelineName = pipelineNameSet.size === 1 ? Array.from(pipelineNameSet)[0] : ""
   const getPipelineConfig = (pipelineName: string): PipelineMappingConfig | undefined =>
     pipelineMappingConfigs.find((cfg) => cfg.pipelineName === pipelineName)
+
+  const mappedPipelineNames = Array.from(new Set(mappingRules.map((rule) => rule.pipelineName).filter(Boolean)))
+  const hasUnitAreaRowsPre = calculatedRows.some((row) => Boolean(getAreaLookupToken(row.comboMap.unit_area)))
+
+  if (mappedPipelineNames.length === 0) {
+    throw new Error("No mapping rules configured. Add Mapping rules before applying pricing.")
+  }
+
+  for (const pipelineName of mappedPipelineNames) {
+    const cfg = getPipelineConfig(pipelineName)
+    if (!cfg) {
+      throw new Error(`Mapping configuration is missing for pipeline \"${pipelineName}\".`)
+    }
+    if (!cfg.csvLocationColumn.trim()) {
+      throw new Error(`Mapping for pipeline \"${pipelineName}\" must define a Location column.`)
+    }
+    if (hasUnitAreaRowsPre) {
+      if (!cfg.csvAreaColumn.trim()) {
+        throw new Error(`Mapping for pipeline \"${pipelineName}\" must define an Area column.`)
+      }
+    } else if (!cfg.csvDimensionColumn.trim()) {
+      throw new Error(`Mapping for pipeline \"${pipelineName}\" must define a Dimension column.`)
+    }
+  }
 
   const defaultLocationIndex = findColumnIndex(headers, LOCATION_COLUMNS)
   const defaultUnitSizeIndex = findColumnIndex(headers, UNIT_SIZE_COLUMNS)
@@ -1021,8 +1044,6 @@ function applyCalculatedPricesToCsv(
   let newStandardRateIndex = findColumnIndex(headers, NEW_STANDARD_RATE_COLUMNS)
   const newRentRateIndex = findColumnIndex(headers, NEW_RENT_RATE_COLUMNS)
   let matchedUnitAreaIndex = findColumnIndex(headers, MATCHED_UNIT_AREA_COLUMNS)
-
-  const hasUnitAreaRowsPre = calculatedRows.some((row) => Boolean(getAreaLookupToken(row.comboMap.unit_area)))
 
   if (defaultLocationIndex < 0) {
     throw new Error("CSV must include a facility/location column to map frontend pricing.")
@@ -1153,15 +1174,15 @@ function applyCalculatedPricesToCsv(
       for (const rule of mappingRules) {
         if (doesMappingRuleMatch(csvRow, rule)) return rule.pipelineName
       }
-      if (singlePipelineName) return singlePipelineName
       return undefined
     })()
 
-    if (pipelineNameSet.size > 1 && !selectedPipelineName) {
+    if (!selectedPipelineName) {
       continue
     }
 
-    const activeConfig = selectedPipelineName ? getPipelineConfig(selectedPipelineName) : undefined
+    const activeConfig = getPipelineConfig(selectedPipelineName)
+    if (!activeConfig) continue
     const locationIndex = activeConfig?.csvLocationColumn
       ? findColumnIndexByHeaderName(headers, activeConfig.csvLocationColumn)
       : defaultLocationIndex
@@ -1236,21 +1257,6 @@ function applyCalculatedPricesToCsv(
           mappedMatch = { price: best.price, calculatedRowIndex: best.calculatedRowIndex }
           matchedAreaValue = Number.isInteger(best.area) ? String(Math.trunc(best.area)) : String(best.area)
         }
-      }
-    }
-
-    if (mappedMatch === undefined && selectedPipelineName) {
-      const fallbackPipelineName = activeConfig?.fallbackPipelineName?.trim()
-      if (fallbackPipelineName) {
-        mappedMatch =
-          (areaToken ? findLookupByAmenitySubsets(priceLookup, location, areaToken, amenitySubsets, fallbackPipelineName) : undefined) ??
-          (areaToken && locationKey ? findLookupByAmenitySubsets(priceLookup, locationKey, areaToken, amenitySubsets, fallbackPipelineName) : undefined) ??
-          (areaToken && city ? findLookupByAmenitySubsets(cityPriceLookup, city, areaToken, amenitySubsets, fallbackPipelineName) : undefined) ??
-          (areaToken && cityKey ? findLookupByAmenitySubsets(cityPriceLookup, cityKey, areaToken, amenitySubsets, fallbackPipelineName) : undefined) ??
-          (allowDimensionMatching && dimensionToken ? findLookupByAmenitySubsets(priceLookup, location, dimensionToken, amenitySubsets, fallbackPipelineName) : undefined) ??
-          (allowDimensionMatching && dimensionToken && locationKey ? findLookupByAmenitySubsets(priceLookup, locationKey, dimensionToken, amenitySubsets, fallbackPipelineName) : undefined) ??
-          (allowDimensionMatching && dimensionToken && city ? findLookupByAmenitySubsets(cityPriceLookup, city, dimensionToken, amenitySubsets, fallbackPipelineName) : undefined)
-          ?? (allowDimensionMatching && dimensionToken && cityKey ? findLookupByAmenitySubsets(cityPriceLookup, cityKey, dimensionToken, amenitySubsets, fallbackPipelineName) : undefined)
       }
     }
 
@@ -1347,10 +1353,10 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
 
   const createDefaultPipelineMappingConfig = useCallback((pipelineName: string): PipelineMappingConfig => ({
     pipelineName,
-    csvLocationColumn: "Facility Name",
-    csvDimensionColumn: "Size",
-    csvAreaColumn: "Area",
-    csvAmenitiesColumn: "Unit Amenities",
+    csvLocationColumn: "",
+    csvDimensionColumn: "",
+    csvAreaColumn: "",
+    csvAmenitiesColumn: "",
     dimensionMode: "first_two",
     locationMappings: [],
     fallbackPipelineName: "",
@@ -1967,10 +1973,10 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
         .filter((item) => item && typeof item.pipelineName === "string")
         .map((item) => ({
           pipelineName: String(item.pipelineName ?? ""),
-          csvLocationColumn: String(item.csvLocationColumn ?? "Facility Name"),
-          csvDimensionColumn: String(item.csvDimensionColumn ?? "Size"),
-          csvAreaColumn: String(item.csvAreaColumn ?? "Area"),
-          csvAmenitiesColumn: String(item.csvAmenitiesColumn ?? "Unit Amenities"),
+          csvLocationColumn: String(item.csvLocationColumn ?? ""),
+          csvDimensionColumn: String(item.csvDimensionColumn ?? ""),
+          csvAreaColumn: String(item.csvAreaColumn ?? ""),
+          csvAmenitiesColumn: String(item.csvAmenitiesColumn ?? ""),
           dimensionMode: (item.dimensionMode === "full" ? "full" : "first_two") as "full" | "first_two",
           fallbackPipelineName: String(item.fallbackPipelineName ?? ""),
           locationMappings: Array.isArray(item.locationMappings)
