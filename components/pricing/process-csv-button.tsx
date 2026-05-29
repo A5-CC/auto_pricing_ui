@@ -1108,6 +1108,22 @@ function applyCalculatedPricesToCsv(
   }
 
   if (usingGroups) {
+    const hasSamePipelineFallbackAncestor = (group: MappingGroup): boolean => {
+      const visited = new Set<string>()
+      let cursor: MappingGroup | undefined = group
+      while (cursor?.fallbackGroupId) {
+        if (visited.has(cursor.fallbackGroupId)) break
+        visited.add(cursor.fallbackGroupId)
+        const parent = getGroupById(cursor.fallbackGroupId)
+        if (!parent) break
+        if (normalizeColumnKey(parent.pipelineName) === normalizeColumnKey(group.pipelineName)) {
+          return true
+        }
+        cursor = parent
+      }
+      return false
+    }
+
     for (const group of mappingGroups) {
       if (!group.pipelineName.trim()) {
         throw new Error(`Mapping group "${group.name || "Unnamed group"}" must define a pipeline.`)
@@ -1129,6 +1145,24 @@ function applyCalculatedPricesToCsv(
       }
       if (group.fallbackGroupId && !getGroupById(group.fallbackGroupId)) {
         throw new Error(`Mapping group "${group.name || "Unnamed group"}" has an invalid fallback group.`)
+      }
+    }
+
+    const groupsByPipeline = new Map<string, MappingGroup[]>()
+    for (const group of mappingGroups) {
+      const key = normalizeColumnKey(group.pipelineName)
+      if (!key) continue
+      const next = groupsByPipeline.get(key) ?? []
+      next.push(group)
+      groupsByPipeline.set(key, next)
+    }
+
+    for (const groups of groupsByPipeline.values()) {
+      if (groups.length <= 1) continue
+      const rootsWithoutSamePipelineFallback = groups.filter((group) => !hasSamePipelineFallbackAncestor(group))
+      if (rootsWithoutSamePipelineFallback.length > 1) {
+        const names = rootsWithoutSamePipelineFallback.map((group) => group.name || "Unnamed group").join(", ")
+        throw new Error(`Only one root mapping group is allowed per pipeline. For shared pipeline groups, make additional groups fall back to the same pipeline chain. Conflicting groups: ${names}`)
       }
     }
   }
