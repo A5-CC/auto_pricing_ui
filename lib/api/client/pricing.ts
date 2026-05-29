@@ -234,12 +234,21 @@ export async function processClientCSV(
 export async function saveProcessCsvConfiguration(
   payload: ProcessCsvConfigurationPayload
 ): Promise<{ success: boolean; id?: string; name?: string }> {
-  const response = await fetchWithError(`${API_BASE_URL}/client-data/process-csv-configurations`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  })
-  return response.json()
+  try {
+    const response = await fetchWithError(`${API_BASE_URL}/client-data/process-csv-configurations`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...payload, payload }),
+    })
+    return response.json()
+  } catch {
+    const fallback = await fetchWithError(`${API_BASE_URL}/client-data/process-csv-configurations`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    })
+    return fallback.json()
+  }
 }
 
 export async function listProcessCsvConfigurations(
