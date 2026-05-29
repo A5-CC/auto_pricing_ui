@@ -3110,7 +3110,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                                 <Input
                                   className="h-9 rounded-full"
-                                  placeholder="CSV value"
+                                  placeholder="CSV Value"
                                   value={pair.exactMatch || pair.csvFirstTwoDimensions ? "" : pair.csvValue}
                                   disabled={pair.exactMatch || pair.csvFirstTwoDimensions}
                                   onChange={(e) => selectedMappingGroup && updateGroupColumnMappingPair(selectedMappingGroup.id, mapping.id, pair.id, { csvValue: e.target.value })}
@@ -4089,7 +4089,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                               />
                               <Input
                                 className="h-9 rounded-full"
-                                placeholder="Pipeline value"
+                                placeholder="Pipeline Value"
                                 value={pair.exactMatch || pair.csvFirstTwoDimensions ? "" : pair.pipelineValue}
                                 disabled={pair.exactMatch || pair.csvFirstTwoDimensions}
                                 onChange={(e) => selectedMappingGroup && updateGroupColumnMappingPair(selectedMappingGroup.id, mapping.id, pair.id, { pipelineValue: e.target.value })}
