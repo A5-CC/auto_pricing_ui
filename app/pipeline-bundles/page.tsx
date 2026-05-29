@@ -387,6 +387,28 @@ export default function PipelineBundlesPage() {
       </div>
       <div className="mb-6 overflow-x-auto snap-x snap-mandatory">
         <div className="flex gap-6">
+          <section className="w-full min-w-full max-w-full shrink-0 snap-start space-y-3">
+            <SectionLabel text="Effect Pricing" />
+            <ProcessCsvButton
+              inline
+              snapshotId={selectedSnapshot}
+              filters={{ competitors: [], locations: [], unit_dimensions: [], unitCategories: [] }}
+              rounding={{ enabled: false, offset: 0 }}
+              calculatedRowsBundle={selectedPipelineContexts.map((ctx) => ({
+                pipelineName: ctx.pipeline.name,
+                rows: ctx.calculatedRowsForCsv,
+              }))}
+              pricingContext={{
+                competitorData: dataResponse?.data ?? [],
+                clientAvailableUnits: clientDataResponse?.data.length || 0,
+                currentDate,
+                filters: {},
+                combinatoricFlags: selectedPipelineContexts[0]?.mergedCombinatoricFlags ?? {},
+                availableVariables,
+              }}
+            />
+          </section>
+
           <section className="w-full min-w-full max-w-full shrink-0 snap-start space-y-6">
             <div>
               <label className="block mb-2 font-medium">Selected pipelines:</label>
@@ -449,28 +471,6 @@ export default function PipelineBundlesPage() {
                 })}
               </section>
             )}
-          </section>
-
-          <section className="w-full min-w-full max-w-full shrink-0 snap-start space-y-3">
-            <SectionLabel text="Effect Pricing" />
-            <ProcessCsvButton
-              inline
-              snapshotId={selectedSnapshot}
-              filters={{ competitors: [], locations: [], unit_dimensions: [], unitCategories: [] }}
-              rounding={{ enabled: false, offset: 0 }}
-              calculatedRowsBundle={selectedPipelineContexts.map((ctx) => ({
-                pipelineName: ctx.pipeline.name,
-                rows: ctx.calculatedRowsForCsv,
-              }))}
-              pricingContext={{
-                competitorData: dataResponse?.data ?? [],
-                clientAvailableUnits: clientDataResponse?.data.length || 0,
-                currentDate,
-                filters: {},
-                combinatoricFlags: selectedPipelineContexts[0]?.mergedCombinatoricFlags ?? {},
-                availableVariables,
-              }}
-            />
           </section>
         </div>
       </div>
