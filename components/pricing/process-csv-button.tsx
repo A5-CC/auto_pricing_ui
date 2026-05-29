@@ -3000,7 +3000,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                     {overwritingProcessConfigId === (config.id ?? (config.name || "Unnamed configuration")) ? (
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
                     ) : (
-                      "Save Over"
+                      "Save"
                     )}
                   </Button>
                   <Button
