@@ -52,12 +52,6 @@ export interface ProcessCsvConfigurationPayload {
     pipelineName: string
     fallbackGroupId: string
     dimensionMode: "full" | "first_two"
-    rules: Array<{
-      id: string
-      column: string
-      operator: "contains" | "equals" | "not_contains" | "empty" | "not_empty"
-      value: string
-    }>
     columnMappings: Array<{
       id: string
       csvColumn: string

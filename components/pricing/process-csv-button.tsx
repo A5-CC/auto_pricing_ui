@@ -132,13 +132,6 @@ type PipelineMappingConfig = {
 type MappingGroupCompetitorColumn = string
 type MappingGroupMatchMode = "exact" | "contains" | "concat"
 
-type MappingGroupRule = {
-  id: string
-  column: string
-  operator: MappingOperator
-  value: string
-}
-
 type MappingGroupColumnMapping = {
   id: string
   csvColumn: string
@@ -153,7 +146,6 @@ type MappingGroup = {
   pipelineName: string
   fallbackGroupId: string
   dimensionMode: "full" | "first_two"
-  rules: MappingGroupRule[]
   columnMappings: MappingGroupColumnMapping[]
 }
 
@@ -643,30 +635,6 @@ function translateCsvLocationValue(raw: string, mappings: LocationStringMapping[
 }
 
 function doesMappingRuleMatch(record: Record<string, string>, rule: PipelineMappingRule): boolean {
-  const leftRaw = String(getCsvValueByColumn(record, rule.column) ?? "")
-  const left = leftRaw.trim().toLowerCase()
-  const right = String(rule.value ?? "").trim().toLowerCase()
-
-  switch (rule.operator) {
-    case "contains":
-      return right.length > 0 && left.includes(right)
-    case "equals":
-      return left === right
-    case "not_contains":
-      return right.length > 0 && !left.includes(right)
-    case "empty":
-      return left.length === 0
-    case "not_empty":
-      return left.length > 0
-    default:
-      return false
-  }
-}
-
-function doesBasicMappingRuleMatch(
-  record: Record<string, string>,
-  rule: { column: string; operator: MappingOperator; value: string }
-): boolean {
   const leftRaw = String(getCsvValueByColumn(record, rule.column) ?? "")
   const left = leftRaw.trim().toLowerCase()
   const right = String(rule.value ?? "").trim().toLowerCase()
@@ -1316,29 +1284,28 @@ function applyCalculatedPricesToCsv(
     const candidates: CandidateMapping[] = []
 
     if (usingGroups) {
-      const primaryGroup = mappingGroups.find((group) => group.rules.every((rule) => doesBasicMappingRuleMatch(csvRow, rule)))
-      if (!primaryGroup) continue
-
-      const visitedGroupIds = new Set<string>()
-      let activeGroup: MappingGroup | undefined = primaryGroup
-      while (activeGroup && !visitedGroupIds.has(activeGroup.id)) {
-        visitedGroupIds.add(activeGroup.id)
-        const locationMapping = findGroupColumnMapping(activeGroup, "client_location")
-        const dimensionMapping = findGroupColumnMapping(activeGroup, "unit_dimensions")
-        const areaMapping = findGroupColumnMapping(activeGroup, "unit_area")
-        const amenityMapping = findGroupColumnMapping(activeGroup, "unit_amenities")
-        candidates.push({
-          pipelineName: activeGroup.pipelineName,
-          locationIndex: locationMapping?.csvColumn ? findColumnIndexByHeaderName(headers, locationMapping.csvColumn) : -1,
-          locationConcatIndex: locationMapping?.concatCsvColumn ? findColumnIndexByHeaderName(headers, locationMapping.concatCsvColumn) : -1,
-          locationMatchMode: locationMapping?.matchMode ?? "exact",
-          unitSizeIndex: dimensionMapping?.csvColumn ? findColumnIndexByHeaderName(headers, dimensionMapping.csvColumn) : -1,
-          areaIndex: areaMapping?.csvColumn ? findColumnIndexByHeaderName(headers, areaMapping.csvColumn) : -1,
-          unitAmenitiesIndex: amenityMapping?.csvColumn ? findColumnIndexByHeaderName(headers, amenityMapping.csvColumn) : -1,
-          dimensionMode: activeGroup.dimensionMode,
-          locationMappings: [],
-        })
-        activeGroup = activeGroup.fallbackGroupId ? getGroupById(activeGroup.fallbackGroupId) : undefined
+      for (const primaryGroup of mappingGroups) {
+        const visitedGroupIds = new Set<string>()
+        let activeGroup: MappingGroup | undefined = primaryGroup
+        while (activeGroup && !visitedGroupIds.has(activeGroup.id)) {
+          visitedGroupIds.add(activeGroup.id)
+          const locationMapping = findGroupColumnMapping(activeGroup, "client_location")
+          const dimensionMapping = findGroupColumnMapping(activeGroup, "unit_dimensions")
+          const areaMapping = findGroupColumnMapping(activeGroup, "unit_area")
+          const amenityMapping = findGroupColumnMapping(activeGroup, "unit_amenities")
+          candidates.push({
+            pipelineName: activeGroup.pipelineName,
+            locationIndex: locationMapping?.csvColumn ? findColumnIndexByHeaderName(headers, locationMapping.csvColumn) : -1,
+            locationConcatIndex: locationMapping?.concatCsvColumn ? findColumnIndexByHeaderName(headers, locationMapping.concatCsvColumn) : -1,
+            locationMatchMode: locationMapping?.matchMode ?? "exact",
+            unitSizeIndex: dimensionMapping?.csvColumn ? findColumnIndexByHeaderName(headers, dimensionMapping.csvColumn) : -1,
+            areaIndex: areaMapping?.csvColumn ? findColumnIndexByHeaderName(headers, areaMapping.csvColumn) : -1,
+            unitAmenitiesIndex: amenityMapping?.csvColumn ? findColumnIndexByHeaderName(headers, amenityMapping.csvColumn) : -1,
+            dimensionMode: activeGroup.dimensionMode,
+            locationMappings: [],
+          })
+          activeGroup = activeGroup.fallbackGroupId ? getGroupById(activeGroup.fallbackGroupId) : undefined
+        }
       }
     } else {
       const selectedPipelineName = (() => {
@@ -1377,7 +1344,9 @@ function applyCalculatedPricesToCsv(
 
     for (const candidate of candidates) {
       if (candidate.locationIndex < 0) continue
+      if (!candidate.pipelineName.trim()) continue
 
+      let candidateMatchedAreaValue = ""
       const baseLocation = getCellValue(row, candidate.locationIndex)
       const concatLocation = candidate.locationMatchMode === "concat" && candidate.locationConcatIndex >= 0
         ? getCellValue(row, candidate.locationConcatIndex)
@@ -1408,7 +1377,7 @@ function applyCalculatedPricesToCsv(
         ?? (allowDimensionMatching && dimensionToken && cityKey ? findLookupByAmenitySubsets(cityPriceLookup, cityKey, dimensionToken, amenitySubsets, candidate.pipelineName) : undefined)
 
       if (candidateMatch !== undefined && areaToken) {
-        matchedAreaValue = areaToken.replace(/^area:/, "")
+        candidateMatchedAreaValue = areaToken.replace(/^area:/, "")
       }
 
       if (candidateMatch === undefined && areaToken) {
@@ -1438,13 +1407,14 @@ function applyCalculatedPricesToCsv(
 
           if (best) {
             candidateMatch = { price: best.price, calculatedRowIndex: best.calculatedRowIndex }
-            matchedAreaValue = Number.isInteger(best.area) ? String(Math.trunc(best.area)) : String(best.area)
+            candidateMatchedAreaValue = Number.isInteger(best.area) ? String(Math.trunc(best.area)) : String(best.area)
           }
         }
       }
 
       if (candidateMatch !== undefined) {
         mappedMatch = candidateMatch
+        matchedAreaValue = candidateMatchedAreaValue
         unitAmenitiesIndex = candidate.unitAmenitiesIndex
         break
       }
@@ -1587,7 +1557,6 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
       pipelineName: "",
       fallbackGroupId: "",
       dimensionMode: "first_two",
-      rules: [],
       columnMappings: [],
     }
   }, [])
@@ -1617,44 +1586,6 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
 
   const updateMappingGroup = useCallback((groupId: string, patch: Partial<MappingGroup>) => {
     setMappingGroups((prev) => prev.map((group) => (group.id === groupId ? { ...group, ...patch } : group)))
-  }, [])
-
-  const addMappingGroupRule = useCallback((groupId: string) => {
-    setMappingGroups((prev) => prev.map((group) => {
-      if (group.id !== groupId) return group
-      return {
-        ...group,
-        rules: [
-          ...group.rules,
-          {
-            id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-            column: "",
-            operator: "contains",
-            value: "",
-          },
-        ],
-      }
-    }))
-  }, [])
-
-  const updateMappingGroupRule = useCallback((groupId: string, ruleId: string, patch: Partial<MappingGroupRule>) => {
-    setMappingGroups((prev) => prev.map((group) => {
-      if (group.id !== groupId) return group
-      return {
-        ...group,
-        rules: group.rules.map((rule) => (rule.id === ruleId ? { ...rule, ...patch } : rule)),
-      }
-    }))
-  }, [])
-
-  const removeMappingGroupRule = useCallback((groupId: string, ruleId: string) => {
-    setMappingGroups((prev) => prev.map((group) => {
-      if (group.id !== groupId) return group
-      return {
-        ...group,
-        rules: group.rules.filter((rule) => rule.id !== ruleId),
-      }
-    }))
   }, [])
 
   const addGroupColumnMapping = useCallback((groupId: string) => {
@@ -2028,7 +1959,6 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
         group.pipelineName,
         group.fallbackGroupId,
         group.dimensionMode,
-        group.rules.map((rule) => `${rule.column}|${rule.operator}|${rule.value}`).join("@@"),
         group.columnMappings.map((mapping) => `${mapping.csvColumn}|${mapping.competitorColumn}|${mapping.matchMode}|${mapping.concatCsvColumn}`).join("@@"),
       ].join("|"))
       .join("||")
@@ -2191,16 +2121,6 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
             pipelineName: String(item.pipelineName ?? ""),
             fallbackGroupId: String(item.fallbackGroupId ?? ""),
             dimensionMode: (item.dimensionMode === "full" ? "full" : "first_two") as "full" | "first_two",
-            rules: Array.isArray(item.rules)
-              ? item.rules
-                  .map((rule) => rule as Partial<MappingGroupRule>)
-                  .map((rule) => ({
-                    id: String(rule.id ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`),
-                    column: String(rule.column ?? ""),
-                    operator: (String(rule.operator ?? "contains") as MappingOperator),
-                    value: String(rule.value ?? ""),
-                  }))
-              : [],
             columnMappings: Array.isArray(item.columnMappings)
               ? item.columnMappings
                   .map((mapping) => mapping as Partial<MappingGroupColumnMapping>)
@@ -2917,7 +2837,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                 Choose which pipeline to use when CSV rows match specific conditions.
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-3">
+            <div className="max-h-[62vh] overflow-y-auto pr-1">
               <div className="rounded-md border p-3 space-y-3">
                 <div className="flex items-center justify-between gap-2">
                   <div className="text-sm font-medium">Mapping groups</div>
@@ -2927,6 +2847,26 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                 </div>
                 {mappingGroups.length > 0 ? (
                   <>
+                    <div className="sticky top-0 z-10 -mx-3 mb-3 border-b bg-background/95 px-3 pb-3 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+                      <Label className="text-xs text-muted-foreground">Groups (stacked)</Label>
+                      <div className="mt-2 space-y-1">
+                        {mappingGroups.map((group) => {
+                          const isActive = group.id === selectedMappingGroupId
+                          return (
+                            <Button
+                              key={group.id}
+                              type="button"
+                              size="sm"
+                              variant={isActive ? "default" : "outline"}
+                              className="h-8 w-full justify-start"
+                              onClick={() => setSelectedMappingGroupId(group.id)}
+                            >
+                              {group.name || "Unnamed group"}
+                            </Button>
+                          )
+                        })}
+                      </div>
+                    </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                       <div>
                         <Label className="text-xs text-muted-foreground">Selected group</Label>
@@ -3032,45 +2972,6 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                       ))}
                     </div>
 
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="text-xs text-muted-foreground">Group rules (all rules in a group must match)</div>
-                        <Button type="button" size="sm" variant="outline" onClick={() => selectedMappingGroup && addMappingGroupRule(selectedMappingGroup.id)}>
-                          Add Group Rule
-                        </Button>
-                      </div>
-                      {(selectedMappingGroup?.rules ?? []).map((rule) => (
-                        <div key={rule.id} className="grid grid-cols-1 md:grid-cols-[1fr_1fr_1fr_auto] gap-2">
-                          <Input
-                            className="h-9"
-                            placeholder="CSV column"
-                            value={rule.column}
-                            onChange={(e) => selectedMappingGroup && updateMappingGroupRule(selectedMappingGroup.id, rule.id, { column: e.target.value })}
-                          />
-                          <select
-                            className="h-9 rounded-md border bg-background px-2 py-1.5 text-sm"
-                            value={rule.operator}
-                            onChange={(e) => selectedMappingGroup && updateMappingGroupRule(selectedMappingGroup.id, rule.id, { operator: e.target.value as MappingOperator })}
-                          >
-                            <option value="contains">contains</option>
-                            <option value="equals">equals</option>
-                            <option value="not_contains">does not contain</option>
-                            <option value="empty">is empty</option>
-                            <option value="not_empty">is not empty</option>
-                          </select>
-                          <Input
-                            className="h-9"
-                            placeholder="Value"
-                            value={rule.value}
-                            disabled={rule.operator === "empty" || rule.operator === "not_empty"}
-                            onChange={(e) => selectedMappingGroup && updateMappingGroupRule(selectedMappingGroup.id, rule.id, { value: e.target.value })}
-                          />
-                          <Button type="button" size="sm" variant="outline" onClick={() => selectedMappingGroup && removeMappingGroupRule(selectedMappingGroup.id, rule.id)}>
-                            Remove
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
                     <div className="flex justify-end">
                       <Button type="button" size="sm" variant="destructive" onClick={() => selectedMappingGroup && removeMappingGroup(selectedMappingGroup.id)}>
                         Delete Group
@@ -3890,7 +3791,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
               Choose which pipeline to use when CSV rows match specific conditions.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-3">
+          <div className="max-h-[62vh] overflow-y-auto pr-1">
             <div className="rounded-md border p-3 space-y-3">
               <div className="flex items-center justify-between gap-2">
                 <div className="text-sm font-medium">Mapping groups</div>
@@ -3900,6 +3801,26 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
               </div>
               {mappingGroups.length > 0 ? (
                 <>
+                  <div className="sticky top-0 z-10 -mx-3 mb-3 border-b bg-background/95 px-3 pb-3 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+                    <Label className="text-xs text-muted-foreground">Groups (stacked)</Label>
+                    <div className="mt-2 space-y-1">
+                      {mappingGroups.map((group) => {
+                        const isActive = group.id === selectedMappingGroupId
+                        return (
+                          <Button
+                            key={group.id}
+                            type="button"
+                            size="sm"
+                            variant={isActive ? "default" : "outline"}
+                            className="h-8 w-full justify-start"
+                            onClick={() => setSelectedMappingGroupId(group.id)}
+                          >
+                            {group.name || "Unnamed group"}
+                          </Button>
+                        )
+                      })}
+                    </div>
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                     <div>
                       <Label className="text-xs text-muted-foreground">Selected group</Label>
@@ -4005,45 +3926,6 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                     ))}
                   </div>
 
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="text-xs text-muted-foreground">Group rules (all rules in a group must match)</div>
-                      <Button type="button" size="sm" variant="outline" onClick={() => selectedMappingGroup && addMappingGroupRule(selectedMappingGroup.id)}>
-                        Add Group Rule
-                      </Button>
-                    </div>
-                    {(selectedMappingGroup?.rules ?? []).map((rule) => (
-                      <div key={rule.id} className="grid grid-cols-1 md:grid-cols-[1fr_1fr_1fr_auto] gap-2">
-                        <Input
-                          className="h-9"
-                          placeholder="CSV column"
-                          value={rule.column}
-                          onChange={(e) => selectedMappingGroup && updateMappingGroupRule(selectedMappingGroup.id, rule.id, { column: e.target.value })}
-                        />
-                        <select
-                          className="h-9 rounded-md border bg-background px-2 py-1.5 text-sm"
-                          value={rule.operator}
-                          onChange={(e) => selectedMappingGroup && updateMappingGroupRule(selectedMappingGroup.id, rule.id, { operator: e.target.value as MappingOperator })}
-                        >
-                          <option value="contains">contains</option>
-                          <option value="equals">equals</option>
-                          <option value="not_contains">does not contain</option>
-                          <option value="empty">is empty</option>
-                          <option value="not_empty">is not empty</option>
-                        </select>
-                        <Input
-                          className="h-9"
-                          placeholder="Value"
-                          value={rule.value}
-                          disabled={rule.operator === "empty" || rule.operator === "not_empty"}
-                          onChange={(e) => selectedMappingGroup && updateMappingGroupRule(selectedMappingGroup.id, rule.id, { value: e.target.value })}
-                        />
-                        <Button type="button" size="sm" variant="outline" onClick={() => selectedMappingGroup && removeMappingGroupRule(selectedMappingGroup.id, rule.id)}>
-                          Remove
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
                   <div className="flex justify-end">
                     <Button type="button" size="sm" variant="destructive" onClick={() => selectedMappingGroup && removeMappingGroup(selectedMappingGroup.id)}>
                       Delete Group
