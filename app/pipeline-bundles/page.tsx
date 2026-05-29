@@ -1,6 +1,6 @@
 "use client";
 import type { FilterSelection } from "@/components/pipelines/calculated-price";
-import { CalculatedPrice, calculatePriceTable } from "@/components/pipelines/calculated-price";
+import { calculatePriceTable } from "@/components/pipelines/calculated-price";
 import { ProcessCsvButton } from "@/components/pricing/process-csv-button";
 import { SectionLabel } from "@/components/ui/section-label";
 import { getE1Client, listPipelines } from "@/lib/api/client/pipelines";
@@ -49,11 +49,6 @@ export default function PipelineBundlesPage() {
   }, []);
 
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
-  const [selectedPipelineIds, setSelectedPipelineIds] = useState<string[]>([]);
-
-  useEffect(() => {
-    listPipelines().then(setPipelines);
-  }, []);
 
   // Selected pipeline objects
   const [snapshots, setSnapshots] = useState<PricingSnapshot[]>([]);
@@ -77,18 +72,6 @@ export default function PipelineBundlesPage() {
       setColumnsStats(statsObj);
     });
   }, [selectedSnapshot]);
-
-  // Selected pipeline objects
-  const selectedPipelines = useMemo(
-    () => selectedPipelineIds.map((id) => pipelines.find((p) => p.id === id)).filter(Boolean) as Pipeline[],
-    [selectedPipelineIds, pipelines]
-  );
-
-  // All pipelines not selected are eligible
-  const eligiblePipelines = useMemo(
-    () => pipelines.filter((p) => !selectedPipelineIds.includes(p.id)),
-    [pipelines, selectedPipelineIds]
-  );
 
   const currentDate = useMemo(() => new Date(), []);
 
@@ -155,7 +138,7 @@ export default function PipelineBundlesPage() {
       return next.length > 0 ? next : values;
     };
 
-    return selectedPipelines.map((pipeline) => {
+    return pipelines.map((pipeline) => {
       const adjusters = pipeline.adjusters || [];
       const settings = (pipeline.settings ?? {}) as Record<string, unknown>;
       const nestedFilterSettings = (settings.filter_settings ?? {}) as Record<string, string>
@@ -362,7 +345,7 @@ export default function PipelineBundlesPage() {
       };
     });
   }, [
-    selectedPipelines,
+    pipelines,
     dataResponse,
     clientDataResponse?.data.length,
     currentDate,
@@ -407,70 +390,6 @@ export default function PipelineBundlesPage() {
                 availableVariables,
               }}
             />
-          </section>
-
-          <section className="w-full min-w-full max-w-full shrink-0 snap-start space-y-6">
-            <div>
-              <label className="block mb-2 font-medium">Selected pipelines:</label>
-              <div className="flex flex-wrap gap-2 mb-2">
-                {selectedPipelines.length === 0 && <span className="text-muted-foreground">None selected</span>}
-                {selectedPipelines.map((p) => (
-                  <span key={p.id} className="inline-flex items-center bg-primary/10 text-primary px-3 py-1 rounded-full">
-                    {p.name}
-                    <button
-                      className="ml-2 text-red-500 hover:text-red-700"
-                      onClick={() => setSelectedPipelineIds(ids => ids.filter(id => id !== p.id))}
-                      title="Remove pipeline"
-                    >
-                      ×
-                    </button>
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <label className="block mb-2 font-medium">Available pipelines:</label>
-              <div className="w-full max-h-64 overflow-y-auto border rounded-lg bg-background/50 p-4">
-                {eligiblePipelines.length > 0 ? (
-                  <ul className="space-y-2">
-                    {eligiblePipelines.map((p) => (
-                      <li
-                        key={p.id}
-                        className="py-1 px-2 rounded hover:bg-accent cursor-pointer"
-                        onClick={() => setSelectedPipelineIds(ids => [...ids, p.id])}
-                      >
-                        {p.name}
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <div className="text-muted-foreground">No pipelines available.</div>
-                )}
-              </div>
-            </div>
-
-            {selectedPipelines.length > 0 && (
-              <section className="space-y-12 pt-2">
-                {selectedPipelineContexts.map((ctx) => {
-                  return (
-                    <div key={ctx.pipeline.id} className="border rounded-lg bg-background/50 p-6">
-                      <h2 className="text-xl font-semibold mb-2">{ctx.pipeline.name}</h2>
-                      <CalculatedPrice
-                        competitorData={ctx.subsetFilteredRows}
-                        clientAvailableUnits={clientDataResponse?.data.length || 0}
-                        adjusters={ctx.adjusters}
-                        currentDate={currentDate}
-                        filters={ctx.filters}
-                        combinatoricFlags={ctx.mergedCombinatoricFlags}
-                        roundingEnabled={ctx.roundingEnabled}
-                        roundingOffset={ctx.roundingOffset}
-                      />
-                    </div>
-                  );
-                })}
-              </section>
-            )}
           </section>
         </div>
       </div>

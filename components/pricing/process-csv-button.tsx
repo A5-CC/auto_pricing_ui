@@ -182,6 +182,11 @@ type ReviewRow = {
   rowIndex: number
   traceCalculatedRowIndex: number | null
   traceTargetId: string | null
+  traceDetails: {
+    pipelineName: string
+    price: string
+    comboMapEntries: Array<{ key: string; value: string }>
+  } | null
   facilityName: string
   unitSize: string
   totalUnits: string
@@ -235,6 +240,11 @@ type ReviewSortColumn =
 
 type ProcessedCsvResult = ParsedCsv & {
   traceByCsvRowIndex: Record<number, number>
+  traceDetailsByCsvRowIndex: Record<number, {
+    pipelineName: string
+    price: string
+    comboMapEntries: Array<{ key: string; value: string }>
+  }>
 }
 
 
@@ -944,7 +954,12 @@ function buildReviewRows(
   original: ParsedCsv,
   processed: ParsedCsv,
   changes: CsvRateChange[],
-  traceByCsvRowIndex?: Record<number, number>
+  traceByCsvRowIndex?: Record<number, number>,
+  traceDetailsByCsvRowIndex?: Record<number, {
+    pipelineName: string
+    price: string
+    comboMapEntries: Array<{ key: string; value: string }>
+  }>
 ): ReviewRow[] {
   const headers = processed.headers.length ? processed.headers : original.headers
   const facilityNameIndex = findColumnIndex(headers, FACILITY_NAME_COLUMNS)
@@ -978,6 +993,7 @@ function buildReviewRows(
       traceTargetId: Number.isFinite(traceByCsvRowIndex?.[change.rowIndex])
         ? `calculated-price-row-${Number(traceByCsvRowIndex?.[change.rowIndex])}`
         : null,
+      traceDetails: traceDetailsByCsvRowIndex?.[change.rowIndex] ?? null,
       facilityName: getCellValue(originalRow, facilityNameIndex) || getCellValue(processedRow, facilityNameIndex),
       unitSize: getCellValue(originalRow, unitSizeIndex) || getCellValue(processedRow, unitSizeIndex),
       totalUnits: getCellValue(originalRow, totalUnitsIndex) || getCellValue(processedRow, totalUnitsIndex),
@@ -1170,6 +1186,11 @@ function applyCalculatedPricesToCsv(
   const cityPriceLookup = new Map<string, Array<{ price: number; calculatedRowIndex: number; pipelineName?: string }>>()
   const areaLookup = new Map<string, Array<{ area: number; price: number; calculatedRowIndex: number; pipelineName?: string; amenityRequirementToken: string }>>()
   const traceByCsvRowIndex: Record<number, number> = {}
+  const traceDetailsByCsvRowIndex: Record<number, {
+    pipelineName: string
+    price: string
+    comboMapEntries: Array<{ key: string; value: string }>
+  }> = {}
   let hasUnitAreaRows = false
 
   const areaBucketKey = (place: string) => place
@@ -1424,9 +1445,25 @@ function applyCalculatedPricesToCsv(
     row[newStandardRateIndex] = standardRate
     row[matchedUnitAreaIndex] = matchedAreaValue
     traceByCsvRowIndex[csvRowIndex] = mappedMatch.calculatedRowIndex
+    const tracedRow = calculatedRows[mappedMatch.calculatedRowIndex]
+    if (tracedRow) {
+      const tracedPipelineName = String((tracedRow as Record<string, unknown>).__pipelineName ?? "").trim() || "Unknown pipeline"
+      const comboMapEntries = Object.entries((tracedRow.comboMap ?? {}) as Record<string, unknown>)
+        .map(([key, value]) => ({
+          key,
+          value: Array.isArray(value)
+            ? value.map((item) => String(item)).join(", ")
+            : String(value ?? ""),
+        }))
+      traceDetailsByCsvRowIndex[csvRowIndex] = {
+        pipelineName: tracedPipelineName,
+        price: formatCurrency(Number(tracedRow.price)),
+        comboMapEntries,
+      }
+    }
   }
 
-  return { headers, rows, traceByCsvRowIndex }
+  return { headers, rows, traceByCsvRowIndex, traceDetailsByCsvRowIndex }
 }
 
 export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], calculatedRowsBundle, rounding, pricingContext, inline = false }: ProcessCsvButtonProps) {
@@ -1438,7 +1475,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
   const [reviewSortBy, setReviewSortBy] = useState<ReviewSortColumn>("rowIndex")
   const [reviewSortDir, setReviewSortDir] = useState<SortDirection>("asc")
   const [approvedChanges, setApprovedChanges] = useState<Record<string, boolean>>({})
-  const [traceSelections, setTraceSelections] = useState<Record<string, boolean>>({})
+  const [traceDialogRow, setTraceDialogRow] = useState<ReviewRow | null>(null)
   const [popupAdjusters, setPopupAdjusters] = useState<Adjuster[]>([])
   const [showLevels, setShowLevels] = useState(false)
   const [isSavingProcessConfig, setIsSavingProcessConfig] = useState(false)
@@ -1825,7 +1862,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     setIsProcessing(false)
     setReviewData(null)
     setApprovedChanges({})
-    setTraceSelections({})
+    setTraceDialogRow(null)
     setPopupAdjusters([])
     setAmenityAdjuster(createDefaultAmenityAdjusterState())
     setMappingRules([])
@@ -1842,91 +1879,10 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     return approvals
   }
 
-  const buildDefaultTraceSelections = (rows: ReviewRow[]) => {
-    const selections: Record<string, boolean> = {}
-    for (const row of rows) selections[row.id] = false
-    return selections
+  const openTraceDialog = (row: ReviewRow) => {
+    if (!row.traceDetails) return
+    setTraceDialogRow(row)
   }
-
-  const jumpToTraceTarget = (targetId: string | null) => {
-    if (!targetId) return
-    const target = document.getElementById(targetId)
-    target?.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" })
-  }
-
-  const clearCalculatedTraceHighlights = useCallback(() => {
-    const rows = document.querySelectorAll('tr[data-calculated-row-index]')
-    rows.forEach((row) => {
-      const rowEl = row as HTMLElement
-      rowEl.style.backgroundColor = ""
-      rowEl.style.boxShadow = ""
-      const cells = rowEl.querySelectorAll("td")
-      cells.forEach((cell) => {
-        const cellEl = cell as HTMLElement
-        cellEl.style.outline = ""
-        cellEl.style.outlineOffset = ""
-        cellEl.style.backgroundColor = ""
-      })
-    })
-  }, [])
-
-  const applyCalculatedTraceHighlights = useCallback((targetIds: string[]) => {
-    clearCalculatedTraceHighlights()
-    for (const id of targetIds) {
-      const row = document.getElementById(id)
-      if (!row) continue
-      const rowEl = row as HTMLElement
-      rowEl.style.backgroundColor = "rgba(59, 130, 246, 0.10)"
-      rowEl.style.boxShadow = "inset 0 0 0 1px rgba(59, 130, 246, 0.45)"
-
-      const cells = rowEl.querySelectorAll("td")
-      if (cells.length > 0) {
-        const firstCell = cells[0] as HTMLElement
-        firstCell.style.outline = "2px solid rgba(59, 130, 246, 0.75)"
-        firstCell.style.outlineOffset = "-2px"
-        firstCell.style.backgroundColor = "rgba(59, 130, 246, 0.14)"
-
-        const priceCell = cells[cells.length - 1] as HTMLElement
-        priceCell.style.outline = "2px solid rgba(59, 130, 246, 0.75)"
-        priceCell.style.outlineOffset = "-2px"
-        priceCell.style.backgroundColor = "rgba(59, 130, 246, 0.14)"
-      }
-    }
-  }, [clearCalculatedTraceHighlights])
-
-  const toggleTraceSelection = (row: ReviewRow) => {
-    setTraceSelections((prev) => {
-      const nextChecked = !Boolean(prev[row.id])
-      if (nextChecked) jumpToTraceTarget(row.traceTargetId)
-      return { ...prev, [row.id]: nextChecked }
-    })
-  }
-
-  const setAllTraceSelections = (checked: boolean) => {
-    if (!reviewData) return
-    const next: Record<string, boolean> = {}
-    for (const row of reviewData.reviewRows) {
-      next[row.id] = checked
-    }
-    setTraceSelections(next)
-  }
-
-  useEffect(() => {
-    if (!reviewData) {
-      clearCalculatedTraceHighlights()
-      return
-    }
-
-    const selectedTargetIds = reviewData.reviewRows
-      .filter((row) => Boolean(traceSelections[row.id]) && Boolean(row.traceTargetId))
-      .map((row) => row.traceTargetId as string)
-
-    applyCalculatedTraceHighlights(selectedTargetIds)
-
-    return () => {
-      clearCalculatedTraceHighlights()
-    }
-  }, [traceSelections, reviewData, applyCalculatedTraceHighlights, clearCalculatedTraceHighlights])
 
   const rebuildReviewFromOriginal = useCallback((original: ParsedCsv, nextAdjusters: Adjuster[]) => {
     if (resolvedCalculatedRows.error) {
@@ -1945,7 +1901,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     )
     const headers = processed.headers.length ? processed.headers : original.headers
     const changes = buildChanges(original, processed)
-    const reviewRows = buildReviewRows(original, processed, changes, processed.traceByCsvRowIndex)
+    const reviewRows = buildReviewRows(original, processed, changes, processed.traceByCsvRowIndex, processed.traceDetailsByCsvRowIndex)
     const nextReviewData: ReviewData = {
       fileName: file?.name ?? "client.csv",
       headers,
@@ -1956,7 +1912,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     }
     setReviewData(nextReviewData)
     setApprovedChanges(buildDefaultApprovals(changes))
-    setTraceSelections(buildDefaultTraceSelections(reviewRows))
+    setTraceDialogRow(null)
   }, [
     file?.name,
     resolvedCalculatedRows.error,
@@ -2320,7 +2276,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     setFile(nextFile)
     setReviewData(null)
     setApprovedChanges({})
-    setTraceSelections({})
+    setTraceDialogRow(null)
   }
 
   const handleProcess = async () => {
@@ -2355,7 +2311,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
 
       const headers = processed.headers.length ? processed.headers : original.headers
       const changes = buildChanges(original, processed)
-      const reviewRowsWithTrace = buildReviewRows(original, processed, changes, processed.traceByCsvRowIndex)
+      const reviewRowsWithTrace = buildReviewRows(original, processed, changes, processed.traceByCsvRowIndex, processed.traceDetailsByCsvRowIndex)
       const nextReviewData: ReviewData = {
         fileName: file.name,
         headers,
@@ -2366,7 +2322,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
       }
 
       setApprovedChanges(buildDefaultApprovals(changes))
-      setTraceSelections(buildDefaultTraceSelections(reviewRowsWithTrace))
+      setTraceDialogRow(null)
       setReviewData(nextReviewData)
       toast.success("Current pipeline pricing applied in the browser. Review changes before download.")
     } catch (error) {
@@ -2508,7 +2464,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
       setIsProcessing(false)
       setReviewData(null)
       setApprovedChanges({})
-      setTraceSelections({})
+      setTraceDialogRow(null)
       setPopupAdjusters([])
       setAmenityAdjuster(createDefaultAmenityAdjusterState())
       setMappingRules([])
@@ -2754,7 +2710,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
             <div className="flex flex-wrap items-center gap-2">
               <Button type="button" variant="outline" size="sm" onClick={() => setAllApprovals(true)}>Approve all</Button>
               <Button type="button" variant="outline" size="sm" onClick={() => setAllApprovals(false)}>Reject all</Button>
-              <Button type="button" variant="outline" size="sm" onClick={() => { setReviewData(null); setApprovedChanges({}); setTraceSelections({}) }}>Choose another CSV</Button>
+              <Button type="button" variant="outline" size="sm" onClick={() => { setReviewData(null); setApprovedChanges({}); setTraceDialogRow(null) }}>Choose another CSV</Button>
             </div>
             <div className="overflow-auto rounded-md border" style={{ maxHeight: "calc(100vh - 420px)" }}>
               {reviewData.reviewRows.length === 0 ? (
@@ -2763,27 +2719,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                 <table className="w-full text-sm">
                   <thead className="sticky top-0 bg-background border-b">
                     <tr>
-                      <th className="px-3 py-2 text-left font-medium">
-                        <div className="flex flex-col gap-1">
-                          <span>Trace</span>
-                          <div className="flex items-center gap-1 text-[10px]">
-                            <button
-                              type="button"
-                              className="rounded border px-1.5 py-0.5 hover:bg-muted"
-                              onClick={() => setAllTraceSelections(true)}
-                            >
-                              All
-                            </button>
-                            <button
-                              type="button"
-                              className="rounded border px-1.5 py-0.5 hover:bg-muted"
-                              onClick={() => setAllTraceSelections(false)}
-                            >
-                              Clear
-                            </button>
-                          </div>
-                        </div>
-                      </th>
+                      <th className="px-3 py-2 text-left font-medium">Trace</th>
                       {renderReviewSortableHeader("Row", "rowIndex")}
                       {renderReviewSortableHeader("Facility", "facilityName", "Maps from CSV Facility Name and matches calculated client_location (with city/location fallbacks).")}
                       {renderReviewSortableHeader("Unit", "unitSize", "Maps from CSV Size/Unit Size and matches calculated unit_dimensions. If unit_area is used, matching uses CSV Area instead.")}
@@ -2808,30 +2744,14 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                   <tbody>
                     {sortedReviewRows.map((row: ReviewRow) => (
                       <tr key={row.id} className="border-b last:border-b-0">
-                        <td className={`px-3 py-2 align-top ${traceSelections[row.id] ? "bg-blue-50/60" : ""}`}>
-                          <div className="flex items-center gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => toggleTraceSelection(row)}
-                              className="inline-flex items-center justify-center"
-                              aria-label={`Toggle trace for row ${row.rowIndex + 2}`}
-                              title={row.traceTargetId ? "Trace to matching row" : "No trace target"}
-                            >
-                              <span
-                                className={`h-3 w-3 rounded-full border ${traceSelections[row.id] ? "bg-blue-600 border-blue-600" : "bg-transparent border-muted-foreground/60"}`}
-                              />
-                            </button>
-                            {row.traceTargetId ? (
-                              <button
-                                type="button"
-                                className={`text-xs ${traceSelections[row.id] ? "text-blue-700" : "text-blue-600"} hover:underline`}
-                                onClick={() => jumpToTraceTarget(row.traceTargetId)}
-                                title="Jump to matching row"
-                              >
-                                ↖
-                              </button>
-                            ) : null}
-                          </div>
+                        <td className="px-3 py-2 align-top">
+                          {row.traceDetails ? (
+                            <Button type="button" size="sm" variant="outline" onClick={() => openTraceDialog(row)}>
+                              View
+                            </Button>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
                         </td>
                         <td className="px-3 py-2 align-top">{row.rowIndex + 2}</td>
                         <td className="px-3 py-2 align-top">{row.facilityName || "—"}</td>
@@ -3145,6 +3065,55 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
           clientAvailableUnits={pricingContext?.clientAvailableUnits ?? 0}
           includeAvailableUnits={false}
         />
+
+        <Dialog open={Boolean(traceDialogRow)} onOpenChange={(nextOpen) => { if (!nextOpen) setTraceDialogRow(null) }}>
+          <DialogContent className="sm:max-w-[640px]">
+            <DialogHeader>
+              <DialogTitle>Trace details</DialogTitle>
+              <DialogDescription>
+                {traceDialogRow?.traceDetails
+                  ? `Pipeline: ${traceDialogRow.traceDetails.pipelineName} · Row ${traceDialogRow.rowIndex + 2}`
+                  : "No trace details available."}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3">
+              {traceDialogRow?.traceDetails ? (
+                <>
+                  <div className="text-sm">
+                    <span className="font-medium">Traced price: </span>
+                    <span>{traceDialogRow.traceDetails.price || "—"}</span>
+                  </div>
+                  <div className="max-h-[360px] overflow-auto rounded-md border">
+                    <table className="w-full text-sm">
+                      <thead className="sticky top-0 bg-background border-b">
+                        <tr>
+                          <th className="px-3 py-2 text-left font-medium">Competitor column</th>
+                          <th className="px-3 py-2 text-left font-medium">Value</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {traceDialogRow.traceDetails.comboMapEntries.map((entry) => (
+                          <tr key={entry.key} className="border-b last:border-b-0">
+                            <td className="px-3 py-2 align-top font-mono text-xs">{entry.key}</td>
+                            <td className="px-3 py-2 align-top">{entry.value || "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">No trace details available for this row.</p>
+              )}
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setTraceDialogRow(null)}>
+                Close
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         <Dialog open={showLevels} onOpenChange={setShowLevels}>
           <DialogContent className="sm:max-w-[520px]">
             <DialogHeader>
@@ -3621,7 +3590,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                 onClick={() => {
                   setReviewData(null)
                   setApprovedChanges({})
-                  setTraceSelections({})
+                  setTraceDialogRow(null)
                 }}
               >
                 Choose another CSV
@@ -3637,27 +3606,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                 <table className="w-full text-sm">
                   <thead className="sticky top-0 bg-background border-b">
                     <tr>
-                      <th className="px-3 py-2 text-left font-medium">
-                        <div className="flex flex-col gap-1">
-                          <span>Trace</span>
-                          <div className="flex items-center gap-1 text-[10px]">
-                            <button
-                              type="button"
-                              className="rounded border px-1.5 py-0.5 hover:bg-muted"
-                              onClick={() => setAllTraceSelections(true)}
-                            >
-                              All
-                            </button>
-                            <button
-                              type="button"
-                              className="rounded border px-1.5 py-0.5 hover:bg-muted"
-                              onClick={() => setAllTraceSelections(false)}
-                            >
-                              Clear
-                            </button>
-                          </div>
-                        </div>
-                      </th>
+                      <th className="px-3 py-2 text-left font-medium">Trace</th>
                       {renderReviewSortableHeader("Row", "rowIndex")}
                       {renderReviewSortableHeader("Facility", "facilityName", "Maps from CSV Facility Name and matches calculated client_location (with city/location fallbacks).")}
                       {renderReviewSortableHeader("Unit", "unitSize", "Maps from CSV Size/Unit Size and matches calculated unit_dimensions. If unit_area is used, matching uses CSV Area instead.")}
@@ -3682,30 +3631,14 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                   <tbody>
                     {sortedReviewRows.map((row: ReviewRow) => (
                       <tr key={row.id} className="border-b last:border-b-0">
-                        <td className={`px-3 py-2 align-top ${traceSelections[row.id] ? "bg-blue-50/60" : ""}`}>
-                          <div className="flex items-center gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => toggleTraceSelection(row)}
-                              className="inline-flex items-center justify-center"
-                              aria-label={`Toggle trace for row ${row.rowIndex + 2}`}
-                              title={row.traceTargetId ? "Trace to matching row" : "No trace target"}
-                            >
-                              <span
-                                className={`h-3 w-3 rounded-full border ${traceSelections[row.id] ? "bg-blue-600 border-blue-600" : "bg-transparent border-muted-foreground/60"}`}
-                              />
-                            </button>
-                            {row.traceTargetId ? (
-                              <button
-                                type="button"
-                                className={`text-xs ${traceSelections[row.id] ? "text-blue-700" : "text-blue-600"} hover:underline`}
-                                onClick={() => jumpToTraceTarget(row.traceTargetId)}
-                                title="Jump to matching row"
-                              >
-                                ↖
-                              </button>
-                            ) : null}
-                          </div>
+                        <td className="px-3 py-2 align-top">
+                          {row.traceDetails ? (
+                            <Button type="button" size="sm" variant="outline" onClick={() => openTraceDialog(row)}>
+                              View
+                            </Button>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
                         </td>
                         <td className="px-3 py-2 align-top">{row.rowIndex + 2}</td>
                         <td className="px-3 py-2 align-top">{row.facilityName || "—"}</td>
@@ -3810,6 +3743,54 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
         clientAvailableUnits={pricingContext?.clientAvailableUnits ?? 0}
         includeAvailableUnits={false}
       />
+
+      <Dialog open={Boolean(traceDialogRow)} onOpenChange={(nextOpen) => { if (!nextOpen) setTraceDialogRow(null) }}>
+        <DialogContent className="sm:max-w-[640px]">
+          <DialogHeader>
+            <DialogTitle>Trace details</DialogTitle>
+            <DialogDescription>
+              {traceDialogRow?.traceDetails
+                ? `Pipeline: ${traceDialogRow.traceDetails.pipelineName} · Row ${traceDialogRow.rowIndex + 2}`
+                : "No trace details available."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            {traceDialogRow?.traceDetails ? (
+              <>
+                <div className="text-sm">
+                  <span className="font-medium">Traced price: </span>
+                  <span>{traceDialogRow.traceDetails.price || "—"}</span>
+                </div>
+                <div className="max-h-[360px] overflow-auto rounded-md border">
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0 bg-background border-b">
+                      <tr>
+                        <th className="px-3 py-2 text-left font-medium">Competitor column</th>
+                        <th className="px-3 py-2 text-left font-medium">Value</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {traceDialogRow.traceDetails.comboMapEntries.map((entry) => (
+                        <tr key={entry.key} className="border-b last:border-b-0">
+                          <td className="px-3 py-2 align-top font-mono text-xs">{entry.key}</td>
+                          <td className="px-3 py-2 align-top">{entry.value || "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">No trace details available for this row.</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setTraceDialogRow(null)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={loadConfigOpen} onOpenChange={setLoadConfigOpen}>
         <DialogContent className="sm:max-w-[560px]">
