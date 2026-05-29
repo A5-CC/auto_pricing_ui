@@ -3086,7 +3086,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                                     checked={pair.exactMatch}
                                     onChange={(e) => selectedMappingGroup && updateGroupColumnMappingPair(selectedMappingGroup.id, mapping.id, pair.id, { exactMatch: e.target.checked })}
                                   />
-                                  <span>Exact match between CSV and pipeline columns</span>
+                                  <span>Exact Match</span>
                                 </label>
                                 <label className="inline-flex items-center gap-1">
                                   <input
@@ -3094,7 +3094,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                                     checked={pair.csvFirstTwoDimensions}
                                     onChange={(e) => selectedMappingGroup && updateGroupColumnMappingPair(selectedMappingGroup.id, mapping.id, pair.id, { csvFirstTwoDimensions: e.target.checked })}
                                   />
-                                  <span>CSV first two dimensions only</span>
+                                  <span>Dimensions Operator</span>
                                 </label>
                                 <Button type="button" size="sm" variant="outline" onClick={() => selectedMappingGroup && removeGroupColumnMappingPair(selectedMappingGroup.id, mapping.id, pair.id)}>
                                   Remove Pair
