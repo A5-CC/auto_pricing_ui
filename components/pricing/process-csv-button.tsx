@@ -682,21 +682,14 @@ function getComboMapValueByColumn(comboMap: Record<string, unknown>, column: str
 }
 
 function doesGroupMappingPairMatch(csvRaw: string, pipelineRaw: string, pair: MappingGroupPair): boolean {
-  if (pair.exactMatch) {
-    if (pair.csvFirstTwoDimensions) {
-      const csvDim = extractLeadingDimensionPair(csvRaw)
-      const pipelineDim = normalizeDimensionValue(pipelineRaw)
-      return Boolean(csvDim) && Boolean(pipelineDim) && csvDim === pipelineDim
-    }
-    return normalizeMatchValue(csvRaw) === normalizeMatchValue(pipelineRaw)
+  if (pair.csvFirstTwoDimensions) {
+    const csvDim = extractLeadingDimensionPair(csvRaw)
+    const pipelineDim = normalizeDimensionValue(pipelineRaw)
+    return Boolean(csvDim) && Boolean(pipelineDim) && csvDim === pipelineDim
   }
 
-  if (pair.csvFirstTwoDimensions) {
-    const left = extractLeadingDimensionPair(csvRaw)
-    const right = extractLeadingDimensionPair(pair.csvValue)
-    const pipelineLeft = normalizeMatchValue(pipelineRaw)
-    const pipelineRight = normalizeMatchValue(pair.pipelineValue)
-    return Boolean(left) && Boolean(right) && left === right && pipelineLeft === pipelineRight
+  if (pair.exactMatch) {
+    return normalizeMatchValue(csvRaw) === normalizeMatchValue(pipelineRaw)
   }
 
   return normalizeMatchValue(csvRaw) === normalizeMatchValue(pair.csvValue)
@@ -1603,12 +1596,22 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     return {
       id,
       name: `Group ${index + 1}`,
-      pipelineName: "",
+      pipelineName: mappingPipelineNames[0] ?? "",
       fallbackGroupId: "",
       dimensionMode: "first_two",
       columnMappings: [],
     }
-  }, [])
+  }, [mappingPipelineNames])
+
+  useEffect(() => {
+    if (mappingPipelineNames.length === 0) return
+    const defaultPipeline = mappingPipelineNames[0]
+    setMappingGroups((prev) => prev.map((group) => (
+      group.pipelineName.trim()
+        ? group
+        : { ...group, pipelineName: defaultPipeline }
+    )))
+  }, [mappingPipelineNames])
 
   useEffect(() => {
     if (mappingGroups.length === 0) {
@@ -2225,7 +2228,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
           .map((item) => ({
             id: String(item.id ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`),
             name: String(item.name ?? ""),
-            pipelineName: String(item.pipelineName ?? ""),
+            pipelineName: String((item as Record<string, unknown>).pipelineName ?? (item as Record<string, unknown>).pipeline ?? mappingPipelineNames[0] ?? ""),
             fallbackGroupId: String(item.fallbackGroupId ?? ""),
             dimensionMode: (item.dimensionMode === "full" ? "full" : "first_two") as "full" | "first_two",
             columnMappings: Array.isArray(item.columnMappings)
@@ -2300,6 +2303,50 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     }
   }
 
+  const saveProcessCsvConfigurationByName = useCallback(async (name: string, options?: { silent?: boolean }) => {
+    const standardOffsetRaw = Number(standardRateRoundingOffset)
+    const standardOffset = Number.isFinite(standardOffsetRaw)
+      ? Math.min(1, Math.max(0, standardOffsetRaw))
+      : 0
+
+    await saveProcessCsvConfiguration({
+      name,
+      snapshot_id: snapshotId,
+      standard_rate_formula: standardRateFunction,
+      standard_rate_rounding: {
+        enabled: standardRateRoundingEnabled,
+        offset: standardOffset,
+      },
+      competitive_adjusters: popupAdjusters,
+      levels_adjuster: {
+        apply_to_web: Boolean(resolvedAmenityAdjuster.applyToWeb),
+        premium: resolvedAmenityAdjuster.premium,
+        standard: resolvedAmenityAdjuster.standard,
+        economy: resolvedAmenityAdjuster.economy,
+      },
+      mapping_rules: mappingRules,
+      pipeline_mappings: pipelineMappingConfigs,
+      mapping_groups: mappingGroups,
+    })
+
+    const refreshed = await listProcessCsvConfigurations(snapshotId)
+    setAvailableProcessConfigs(Array.isArray(refreshed?.configurations) ? refreshed.configurations : [])
+
+    if (!options?.silent) {
+      toast.success("Process CSV configuration saved.")
+    }
+  }, [
+    mappingGroups,
+    mappingRules,
+    pipelineMappingConfigs,
+    popupAdjusters,
+    resolvedAmenityAdjuster,
+    snapshotId,
+    standardRateFunction,
+    standardRateRoundingEnabled,
+    standardRateRoundingOffset,
+  ])
+
   const handleSaveProcessCsvConfig = async () => {
     const defaultName = `process-csv-${new Date().toISOString().slice(0, 19).replace(/[T:]/g, "-")}`
     const inputName = window.prompt("Name this Process CSV configuration", defaultName)
@@ -2308,38 +2355,35 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
 
     setIsSavingProcessConfig(true)
     try {
-      const standardOffsetRaw = Number(standardRateRoundingOffset)
-      const standardOffset = Number.isFinite(standardOffsetRaw)
-        ? Math.min(1, Math.max(0, standardOffsetRaw))
-        : 0
-
-      await saveProcessCsvConfiguration({
-        name,
-        snapshot_id: snapshotId,
-        standard_rate_formula: standardRateFunction,
-        standard_rate_rounding: {
-          enabled: standardRateRoundingEnabled,
-          offset: standardOffset,
-        },
-        competitive_adjusters: popupAdjusters,
-        levels_adjuster: {
-          apply_to_web: Boolean(resolvedAmenityAdjuster.applyToWeb),
-          premium: resolvedAmenityAdjuster.premium,
-          standard: resolvedAmenityAdjuster.standard,
-          economy: resolvedAmenityAdjuster.economy,
-        },
-        mapping_rules: mappingRules,
-        pipeline_mappings: pipelineMappingConfigs,
-        mapping_groups: mappingGroups,
-      })
-
-      toast.success("Process CSV configuration saved.")
+      await saveProcessCsvConfigurationByName(name)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to save Process CSV configuration")
     } finally {
       setIsSavingProcessConfig(false)
     }
   }
+
+  const handleMappingDialogOpenChange = useCallback((nextOpen: boolean) => {
+    if (nextOpen) {
+      setShowMapping(true)
+      return
+    }
+
+    setShowMapping(false)
+
+    const autoConfigName = `process-csv-autosave-${snapshotId}`
+    setIsSavingProcessConfig(true)
+    void saveProcessCsvConfigurationByName(autoConfigName, { silent: true })
+      .then(() => {
+        toast.success("Mapping groups auto-saved.")
+      })
+      .catch((error) => {
+        toast.error(error instanceof Error ? error.message : "Failed to auto-save mapping groups")
+      })
+      .finally(() => {
+        setIsSavingProcessConfig(false)
+      })
+  }, [saveProcessCsvConfigurationByName, snapshotId])
 
   const handleCsvFileSelected = (event: ChangeEvent<HTMLInputElement>) => {
     const nextFile = event.target.files?.[0] || null
@@ -2945,7 +2989,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
           </DialogContent>
         </Dialog>
 
-        <Dialog open={showMapping} onOpenChange={setShowMapping}>
+        <Dialog open={showMapping} onOpenChange={handleMappingDialogOpenChange}>
           <DialogContent className="sm:max-w-[760px]">
             <DialogHeader>
               <DialogTitle>Mapping</DialogTitle>
@@ -3067,15 +3111,15 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                                 <Input
                                   className="h-9 rounded-full"
                                   placeholder="CSV value"
-                                  value={pair.exactMatch ? "" : pair.csvValue}
-                                  disabled={pair.exactMatch}
+                                  value={pair.exactMatch || pair.csvFirstTwoDimensions ? "" : pair.csvValue}
+                                  disabled={pair.exactMatch || pair.csvFirstTwoDimensions}
                                   onChange={(e) => selectedMappingGroup && updateGroupColumnMappingPair(selectedMappingGroup.id, mapping.id, pair.id, { csvValue: e.target.value })}
                                 />
                                 <Input
                                   className="h-9 rounded-full"
                                   placeholder="Pipeline value"
-                                  value={pair.exactMatch ? "" : pair.pipelineValue}
-                                  disabled={pair.exactMatch}
+                                  value={pair.exactMatch || pair.csvFirstTwoDimensions ? "" : pair.pipelineValue}
+                                  disabled={pair.exactMatch || pair.csvFirstTwoDimensions}
                                   onChange={(e) => selectedMappingGroup && updateGroupColumnMappingPair(selectedMappingGroup.id, mapping.id, pair.id, { pipelineValue: e.target.value })}
                                 />
                               </div>
@@ -3118,7 +3162,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
               </div>
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setShowMapping(false)}>
+              <Button type="button" variant="outline" onClick={() => handleMappingDialogOpenChange(false)}>
                 Done
               </Button>
             </DialogFooter>
@@ -3917,7 +3961,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showMapping} onOpenChange={setShowMapping}>
+      <Dialog open={showMapping} onOpenChange={handleMappingDialogOpenChange}>
         <DialogContent className="sm:max-w-[760px]">
           <DialogHeader>
             <DialogTitle>Mapping</DialogTitle>
@@ -4039,15 +4083,15 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                               <Input
                                 className="h-9 rounded-full"
                                 placeholder="CSV value"
-                                value={pair.exactMatch ? "" : pair.csvValue}
-                                disabled={pair.exactMatch}
+                                value={pair.exactMatch || pair.csvFirstTwoDimensions ? "" : pair.csvValue}
+                                disabled={pair.exactMatch || pair.csvFirstTwoDimensions}
                                 onChange={(e) => selectedMappingGroup && updateGroupColumnMappingPair(selectedMappingGroup.id, mapping.id, pair.id, { csvValue: e.target.value })}
                               />
                               <Input
                                 className="h-9 rounded-full"
                                 placeholder="Pipeline value"
-                                value={pair.exactMatch ? "" : pair.pipelineValue}
-                                disabled={pair.exactMatch}
+                                value={pair.exactMatch || pair.csvFirstTwoDimensions ? "" : pair.pipelineValue}
+                                disabled={pair.exactMatch || pair.csvFirstTwoDimensions}
                                 onChange={(e) => selectedMappingGroup && updateGroupColumnMappingPair(selectedMappingGroup.id, mapping.id, pair.id, { pipelineValue: e.target.value })}
                               />
                             </div>
@@ -4090,7 +4134,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setShowMapping(false)}>
+            <Button type="button" variant="outline" onClick={() => handleMappingDialogOpenChange(false)}>
               Done
             </Button>
           </DialogFooter>
