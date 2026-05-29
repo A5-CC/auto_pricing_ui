@@ -3066,14 +3066,14 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                                 <Input
                                   className="h-9 rounded-full"
-                                  placeholder="CSV value bubble"
+                                  placeholder="CSV value"
                                   value={pair.exactMatch ? "" : pair.csvValue}
                                   disabled={pair.exactMatch}
                                   onChange={(e) => selectedMappingGroup && updateGroupColumnMappingPair(selectedMappingGroup.id, mapping.id, pair.id, { csvValue: e.target.value })}
                                 />
                                 <Input
                                   className="h-9 rounded-full"
-                                  placeholder="Pipeline value bubble"
+                                  placeholder="Pipeline value"
                                   value={pair.exactMatch ? "" : pair.pipelineValue}
                                   disabled={pair.exactMatch}
                                   onChange={(e) => selectedMappingGroup && updateGroupColumnMappingPair(selectedMappingGroup.id, mapping.id, pair.id, { pipelineValue: e.target.value })}
@@ -4038,14 +4038,14 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                               <Input
                                 className="h-9 rounded-full"
-                                placeholder="CSV value bubble"
+                                placeholder="CSV value"
                                 value={pair.exactMatch ? "" : pair.csvValue}
                                 disabled={pair.exactMatch}
                                 onChange={(e) => selectedMappingGroup && updateGroupColumnMappingPair(selectedMappingGroup.id, mapping.id, pair.id, { csvValue: e.target.value })}
                               />
                               <Input
                                 className="h-9 rounded-full"
-                                placeholder="Pipeline value bubble"
+                                placeholder="Pipeline value"
                                 value={pair.exactMatch ? "" : pair.pipelineValue}
                                 disabled={pair.exactMatch}
                                 onChange={(e) => selectedMappingGroup && updateGroupColumnMappingPair(selectedMappingGroup.id, mapping.id, pair.id, { pipelineValue: e.target.value })}
