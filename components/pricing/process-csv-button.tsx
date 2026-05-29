@@ -1546,6 +1546,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
   const [isSavingProcessConfig, setIsSavingProcessConfig] = useState(false)
   const [isLoadingProcessConfig, setIsLoadingProcessConfig] = useState(false)
   const [deletingProcessConfigId, setDeletingProcessConfigId] = useState<string | null>(null)
+  const [overwritingProcessConfigId, setOverwritingProcessConfigId] = useState<string | null>(null)
   const [loadConfigOpen, setLoadConfigOpen] = useState(false)
   const [availableProcessConfigs, setAvailableProcessConfigs] = useState<ProcessCsvConfiguration[]>([])
   const [standardRateOpen, setStandardRateOpen] = useState(false)
@@ -2322,6 +2323,26 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     }
   }
 
+  const handleOverwriteProcessCsvConfig = async (config: ProcessCsvConfiguration) => {
+    const targetName = String(config.name ?? "").trim() || "Unnamed configuration"
+    const confirmed = window.confirm(`Overwrite Process CSV configuration "${targetName}" with current settings?`)
+    if (!confirmed) return
+
+    setOverwritingProcessConfigId(config.id ?? targetName)
+    setIsSavingProcessConfig(true)
+    try {
+      if (config.id) {
+        await deleteProcessCsvConfiguration(config.id)
+      }
+      await saveProcessCsvConfigurationByName(targetName)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to overwrite Process CSV configuration")
+    } finally {
+      setOverwritingProcessConfigId(null)
+      setIsSavingProcessConfig(false)
+    }
+  }
+
   const saveProcessCsvConfigurationByName = useCallback(async (name: string, options?: { silent?: boolean }) => {
     const standardOffsetRaw = Number(standardRateRoundingOffset)
     const standardOffset = Number.isFinite(standardOffsetRaw)
@@ -2389,20 +2410,8 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     }
 
     setShowMapping(false)
-
-    const autoConfigName = `process-csv-autosave-${snapshotId}`
-    setIsSavingProcessConfig(true)
-    void saveProcessCsvConfigurationByName(autoConfigName, { silent: true })
-      .then(() => {
-        toast.success("Mapping groups auto-saved.")
-      })
-      .catch((error) => {
-        toast.error(error instanceof Error ? error.message : "Failed to auto-save mapping groups")
-      })
-      .finally(() => {
-        setIsSavingProcessConfig(false)
-      })
-  }, [saveProcessCsvConfigurationByName, snapshotId])
+    setLoadConfigOpen(true)
+  }, [])
 
   const handleCsvFileSelected = (event: ChangeEvent<HTMLInputElement>) => {
     const nextFile = event.target.files?.[0] || null
@@ -2983,6 +2992,19 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                   </Button>
                   <Button
                     type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={isSavingProcessConfig || overwritingProcessConfigId === (config.id ?? (config.name || "Unnamed configuration"))}
+                    onClick={() => handleOverwriteProcessCsvConfig(config)}
+                  >
+                    {overwritingProcessConfigId === (config.id ?? (config.name || "Unnamed configuration")) ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      "Save Over"
+                    )}
+                  </Button>
+                  <Button
+                    type="button"
                     variant="destructive"
                     size="sm"
                     disabled={!config.id || deletingProcessConfigId === config.id}
@@ -3182,7 +3204,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => handleMappingDialogOpenChange(false)}>
-                Done
+                Back
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -3955,6 +3977,19 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                 </Button>
                 <Button
                   type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={isSavingProcessConfig || overwritingProcessConfigId === (config.id ?? (config.name || "Unnamed configuration"))}
+                  onClick={() => handleOverwriteProcessCsvConfig(config)}
+                >
+                  {overwritingProcessConfigId === (config.id ?? (config.name || "Unnamed configuration")) ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    "Save Over"
+                  )}
+                </Button>
+                <Button
+                  type="button"
                   variant="destructive"
                   size="sm"
                   disabled={!config.id || deletingProcessConfigId === config.id}
@@ -4154,7 +4189,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => handleMappingDialogOpenChange(false)}>
-              Done
+              Back
             </Button>
           </DialogFooter>
         </DialogContent>
