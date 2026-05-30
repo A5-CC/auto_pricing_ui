@@ -2807,7 +2807,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
               <Button type="button" size="sm" variant="outline" onClick={functionDialog.handleOpen}>Competitive</Button>
               <Button type="button" size="sm" variant="outline" onClick={() => setShowLevels(true)}>Levels</Button>
               <div className="ml-auto flex flex-col gap-1 self-start">
-                <Button type="button" size="sm" variant="outline" onClick={() => setStandardRateOpen(true)}>
+                <Button type="button" size="sm" className="h-8" variant="outline" onClick={() => setStandardRateOpen(true)}>
                   Standard Rate Function
                 </Button>
                 <Button type="button" size="sm" variant="outline" onClick={() => setShowMapping(true)} disabled={mappingPipelineNames.length === 0}>
@@ -2867,7 +2867,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
               <Button type="button" size="sm" variant="outline" onClick={functionDialog.handleOpen}>Competitive</Button>
               <Button type="button" size="sm" variant="outline" onClick={() => setShowLevels(true)}>Levels</Button>
               <div className="ml-auto flex flex-col gap-1 self-start">
-                <Button type="button" size="sm" variant="outline" onClick={() => setStandardRateOpen(true)}>
+                <Button type="button" size="sm" className="h-8" variant="outline" onClick={() => setStandardRateOpen(true)}>
                   Standard Rate Function
                 </Button>
                 <Button type="button" size="sm" variant="outline" onClick={() => setShowMapping(true)} disabled={mappingPipelineNames.length === 0}>
@@ -2924,7 +2924,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
               <Button type="button" variant="outline" size="sm" onClick={() => setAllApprovals(false)}>Reject all</Button>
               <Button type="button" variant="outline" size="sm" onClick={() => { setReviewData(null); setApprovedChanges({}); setTraceDialogRow(null) }}>Choose another CSV</Button>
             </div>
-            <div className="overflow-auto rounded-md border" style={{ maxHeight: "calc(100vh - 300px)" }}>
+            <div className="overflow-auto rounded-md border" style={{ maxHeight: "calc(100vh - 240px)" }}>
               {reviewData.reviewRows.length === 0 ? (
                 <div className="p-4 text-sm text-muted-foreground">No changes were produced by pricing algorithms. You can still download the processed CSV.</div>
               ) : (
@@ -3391,7 +3391,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
             Effect Pricing
           </Button>
         </DialogTrigger>
-        <DialogContent className="sm:max-w-[1180px] h-[96vh] max-h-[96vh] overflow-hidden">
+        <DialogContent className="w-[98vw] sm:max-w-[1280px] h-[98vh] max-h-[98vh] overflow-hidden">
         <DialogHeader>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="space-y-1.5">
@@ -3740,7 +3740,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                 Levels
               </Button>
               <div className="ml-auto flex flex-col gap-1 self-start">
-                <Button type="button" size="sm" variant="outline" onClick={() => setStandardRateOpen(true)}>
+                <Button type="button" size="sm" className="h-8" variant="outline" onClick={() => setStandardRateOpen(true)}>
                   Standard Rate Function
                 </Button>
                 <Button type="button" size="sm" variant="outline" onClick={() => setShowMapping(true)} disabled={mappingPipelineNames.length === 0}>
@@ -3810,7 +3810,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                 Levels
               </Button>
               <div className="ml-auto flex flex-col gap-1 self-start">
-                <Button type="button" size="sm" variant="outline" onClick={() => setStandardRateOpen(true)}>
+                <Button type="button" size="sm" className="h-8" variant="outline" onClick={() => setStandardRateOpen(true)}>
                   Standard Rate Function
                 </Button>
                 <Button type="button" size="sm" variant="outline" onClick={() => setShowMapping(true)} disabled={mappingPipelineNames.length === 0}>
@@ -3885,7 +3885,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
               </Button>
             </div>
 
-            <div className="max-h-[64vh] overflow-auto rounded-md border">
+            <div className="max-h-[72vh] overflow-auto rounded-md border">
               {reviewData.reviewRows.length === 0 ? (
                 <div className="p-4 text-sm text-muted-foreground">
                   No changes were produced by pricing algorithms. You can still download the processed CSV.
