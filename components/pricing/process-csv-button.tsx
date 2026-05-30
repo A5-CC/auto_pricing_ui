@@ -2666,10 +2666,10 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
         </div>
         {file ? <div className="text-xs text-muted-foreground text-right">Selected: {file.name}</div> : null}
 
-        {/* Panel header — only shown when reviewing changes */}
-        {reviewData && (
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="space-y-1.5">
+        {/* Panel header */}
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="space-y-1.5">
+            {reviewData ? (
               <div className="text-sm text-muted-foreground space-y-1">
                 <span className="text-xs text-muted-foreground block">
                   Reviewing only New Web Rate / New Standard Rate changes.
@@ -2677,7 +2677,8 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                   Rows changed: {reviewData.reviewRows.length.toLocaleString()} · Changes approved: {approvedCount.toLocaleString()} / {reviewData.changes.length.toLocaleString()}
                 </span>
               </div>
-            </div>
+            ) : null}
+          </div>
             {true ? (
             <Dialog open={standardRateOpen} onOpenChange={setStandardRateOpen}>
               <DialogTrigger asChild>
@@ -2796,8 +2797,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
               </DialogContent>
             </Dialog>
           ) : null}
-          </div>
-        )}
+        </div>
 
         {/* Panel body */}
         {!reviewData ? (
