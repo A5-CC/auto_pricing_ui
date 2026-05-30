@@ -2918,7 +2918,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
               <Button type="button" variant="outline" size="sm" onClick={() => setAllApprovals(false)}>Reject all</Button>
               <Button type="button" variant="outline" size="sm" onClick={() => { setReviewData(null); setApprovedChanges({}); setTraceDialogRow(null) }}>Choose another CSV</Button>
             </div>
-            <div className="overflow-auto rounded-md border" style={{ maxHeight: "calc(100vh - 360px)" }}>
+            <div className="overflow-auto rounded-md border" style={{ maxHeight: "calc(100vh - 300px)" }}>
               {reviewData.reviewRows.length === 0 ? (
                 <div className="p-4 text-sm text-muted-foreground">No changes were produced by pricing algorithms. You can still download the processed CSV.</div>
               ) : (
@@ -3385,7 +3385,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
             Effect Pricing
           </Button>
         </DialogTrigger>
-        <DialogContent className={reviewData ? "sm:max-w-[1000px] max-h-[90vh] overflow-hidden" : "sm:max-w-[425px]"}>
+        <DialogContent className={reviewData ? "sm:max-w-[1100px] max-h-[95vh] overflow-hidden" : "sm:max-w-[425px]"}>
         <DialogHeader>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="space-y-1.5">
@@ -3872,7 +3872,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
               </Button>
             </div>
 
-            <div className="max-h-[56vh] overflow-auto rounded-md border">
+            <div className="max-h-[64vh] overflow-auto rounded-md border">
               {reviewData.reviewRows.length === 0 ? (
                 <div className="p-4 text-sm text-muted-foreground">
                   No changes were produced by pricing algorithms. You can still download the processed CSV.
