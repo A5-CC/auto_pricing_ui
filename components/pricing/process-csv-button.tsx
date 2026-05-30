@@ -2802,7 +2802,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
 
         {/* Panel body */}
         {!reviewData ? (
-          <div className="space-y-3 flex-1 min-h-0 overflow-hidden">
+          <div className="flex flex-1 min-h-0 flex-col gap-3 overflow-hidden">
             <div className="flex w-full flex-wrap items-start gap-2">
               <span className="text-sm font-medium">Adjusters</span>
               <Button type="button" size="sm" variant="outline" onClick={functionDialog.handleOpen}>Competitive</Button>
@@ -2925,7 +2925,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
               <Button type="button" variant="outline" size="sm" onClick={() => setAllApprovals(false)}>Reject all</Button>
               <Button type="button" variant="outline" size="sm" onClick={() => { setReviewData(null); setApprovedChanges({}); setTraceDialogRow(null) }}>Choose another CSV</Button>
             </div>
-            <div className="overflow-auto rounded-md border" style={{ maxHeight: "calc(100vh - 240px)" }}>
+            <div className="flex-1 min-h-0 overflow-auto rounded-md border">
               {reviewData.reviewRows.length === 0 ? (
                 <div className="p-4 text-sm text-muted-foreground">No changes were produced by pricing algorithms. You can still download the processed CSV.</div>
               ) : (
@@ -3401,7 +3401,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
             Effect Pricing
           </Button>
         </DialogTrigger>
-        <DialogContent className="w-[99vw] max-w-[99vw] h-[99vh] max-h-[99vh] overflow-hidden flex flex-col">
+        <DialogContent className="w-screen max-w-screen h-[100dvh] max-h-[100dvh] overflow-hidden flex flex-col">
         <DialogHeader className="shrink-0">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="space-y-1.5">
@@ -3736,7 +3736,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
         </DialogHeader>
 
         {!reviewData ? (
-          <div className="space-y-3 flex-1 min-h-0 overflow-auto pr-1">
+          <div className="flex flex-1 min-h-0 flex-col gap-3 overflow-hidden pr-1">
             <div className="flex w-full flex-wrap items-start gap-2">
               <span className="text-sm font-medium">Adjusters</span>
               <Button type="button" size="sm" variant="outline" onClick={functionDialog.handleOpen}>
@@ -3896,7 +3896,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
               </Button>
             </div>
 
-            <div className="max-h-[72vh] overflow-auto rounded-md border">
+            <div className="flex-1 min-h-0 overflow-auto rounded-md border">
               {reviewData.reviewRows.length === 0 ? (
                 <div className="p-4 text-sm text-muted-foreground">
                   No changes were produced by pricing algorithms. You can still download the processed CSV.
