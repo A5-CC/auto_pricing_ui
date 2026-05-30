@@ -357,7 +357,6 @@ export default function PipelineBundlesPage() {
   return (
     <main className="px-4 py-6 sm:px-6 space-y-4 sm:space-y-5">
       <h1 className="text-2xl font-bold mb-6">Pipeline Bundles</h1>
-      <div className="mb-8 text-muted-foreground"></div>
       {/* Overview and snapshot selector */}
       <div className="mb-8">
         <PricingOverview
@@ -368,7 +367,7 @@ export default function PipelineBundlesPage() {
           onSnapshotChange={setSelectedSnapshot}
         />
       </div>
-      <div className="mb-6 overflow-x-auto snap-x snap-mandatory">
+      <div className="mb-2 overflow-x-auto snap-x snap-mandatory">
         <div className="flex gap-6">
           <section className="w-full min-w-full max-w-full shrink-0 snap-start space-y-3">
             <SectionLabel text="Effect Pricing" />
