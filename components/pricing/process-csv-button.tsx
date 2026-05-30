@@ -2657,15 +2657,25 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
           >
             {isSavingProcessConfig ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
           </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={() => setShowMapping(true)}
-            disabled={mappingPipelineNames.length === 0}
-          >
-            Mapping
-          </Button>
+          <div className="flex flex-col gap-1">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => setStandardRateOpen(true)}
+            >
+              Standard Rate Function
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => setShowMapping(true)}
+              disabled={mappingPipelineNames.length === 0}
+            >
+              Mapping
+            </Button>
+          </div>
           <Button
             type="button"
             size="sm"
@@ -3705,15 +3715,25 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                 >
                   {isSavingProcessConfig ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
                 </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setShowMapping(true)}
-                  disabled={mappingPipelineNames.length === 0}
-                >
-                  Mapping
-                </Button>
+                <div className="flex flex-col gap-1">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setStandardRateOpen(true)}
+                  >
+                    Standard Rate Function
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setShowMapping(true)}
+                    disabled={mappingPipelineNames.length === 0}
+                  >
+                    Mapping
+                  </Button>
+                </div>
                 <Button
                   type="button"
                   size="sm"
