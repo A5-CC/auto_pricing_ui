@@ -74,7 +74,7 @@ export interface ProcessCsvConfiguration extends ProcessCsvConfigurationPayload 
 }
 
 type ProcessCsvConfigurationResponseItem = Partial<ProcessCsvConfiguration> & {
-  payload?: Partial<ProcessCsvConfigurationPayload>
+  payload?: Partial<ProcessCsvConfigurationPayload> | string
 }
 
 export async function getPricingSchemas(): Promise<PricingSchemas> {
@@ -238,14 +238,14 @@ export async function saveProcessCsvConfiguration(
     const response = await fetchWithError(`${API_BASE_URL}/client-data/process-csv-configurations`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...payload, payload }),
+      body: JSON.stringify(payload),
     })
     return response.json()
   } catch {
     const fallback = await fetchWithError(`${API_BASE_URL}/client-data/process-csv-configurations`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ ...payload, payload }),
     })
     return fallback.json()
   }
@@ -259,7 +259,29 @@ export async function listProcessCsvConfigurations(
   const raw = await response.json() as unknown
 
   const normalize = (item: ProcessCsvConfigurationResponseItem): ProcessCsvConfiguration => {
-    const payload = item?.payload ?? {}
+    const rawPayload = item?.payload
+    const payload: Partial<ProcessCsvConfigurationPayload> = (() => {
+      if (rawPayload && typeof rawPayload === "object") {
+        return rawPayload as Partial<ProcessCsvConfigurationPayload>
+      }
+      if (typeof rawPayload === "string") {
+        try {
+          const parsed = JSON.parse(rawPayload) as unknown
+          return parsed && typeof parsed === "object"
+            ? (parsed as Partial<ProcessCsvConfigurationPayload>)
+            : {}
+        } catch {
+          return {}
+        }
+      }
+      return {}
+    })()
+
+    const topLevel = item as Partial<ProcessCsvConfiguration>
+    const mappingRules = (payload.mapping_rules ?? topLevel.mapping_rules ?? []) as ProcessCsvConfigurationPayload["mapping_rules"]
+    const pipelineMappings = (payload.pipeline_mappings ?? topLevel.pipeline_mappings ?? []) as ProcessCsvConfigurationPayload["pipeline_mappings"]
+    const mappingGroups = (payload.mapping_groups ?? topLevel.mapping_groups ?? []) as ProcessCsvConfigurationPayload["mapping_groups"]
+
     return {
       ...(payload as ProcessCsvConfigurationPayload),
       ...(item as Partial<ProcessCsvConfiguration>),
@@ -272,6 +294,9 @@ export async function listProcessCsvConfigurations(
       standard_rate_rounding: ((payload as ProcessCsvConfigurationPayload).standard_rate_rounding ?? item?.standard_rate_rounding ?? { enabled: false, offset: 0 }) as ProcessCsvConfigurationPayload["standard_rate_rounding"],
       competitive_adjusters: (((payload as ProcessCsvConfigurationPayload).competitive_adjusters ?? item?.competitive_adjusters ?? []) as Adjuster[]),
       levels_adjuster: (((payload as ProcessCsvConfigurationPayload).levels_adjuster ?? item?.levels_adjuster ?? { apply_to_web: true }) as ProcessCsvConfigurationPayload["levels_adjuster"]),
+      mapping_rules: Array.isArray(mappingRules) ? mappingRules : [],
+      pipeline_mappings: Array.isArray(pipelineMappings) ? pipelineMappings : [],
+      mapping_groups: Array.isArray(mappingGroups) ? mappingGroups : [],
     }
   }
 
