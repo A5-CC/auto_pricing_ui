@@ -2366,13 +2366,21 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
       ? Math.min(1, Math.max(0, standardOffsetRaw))
       : 0
 
+    const expectedFormula = String(standardRateFunction ?? "")
+    const expectedRoundingEnabled = Boolean(standardRateRoundingEnabled)
+    const expectedRoundingOffset = standardOffset
+    const expectedAdjustersCount = Array.isArray(popupAdjusters) ? popupAdjusters.length : 0
+    const expectedRulesCount = Array.isArray(mappingRules) ? mappingRules.length : 0
+    const expectedPipelineMappingsCount = Array.isArray(pipelineMappingConfigs) ? pipelineMappingConfigs.length : 0
+    const expectedMappingGroupsCount = Array.isArray(mappingGroups) ? mappingGroups.length : 0
+
     await saveProcessCsvConfiguration({
       name,
       snapshot_id: snapshotId,
-      standard_rate_formula: standardRateFunction,
+      standard_rate_formula: expectedFormula,
       standard_rate_rounding: {
-        enabled: standardRateRoundingEnabled,
-        offset: standardOffset,
+        enabled: expectedRoundingEnabled,
+        offset: expectedRoundingOffset,
       },
       competitive_adjusters: popupAdjusters,
       levels_adjuster: {
@@ -2387,7 +2395,48 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     })
 
     const refreshed = await listProcessCsvConfigurations(snapshotId)
-    setAvailableProcessConfigs(Array.isArray(refreshed?.configurations) ? refreshed.configurations : [])
+    const refreshedConfigs = Array.isArray(refreshed?.configurations) ? refreshed.configurations : []
+    setAvailableProcessConfigs(refreshedConfigs)
+
+    const savedConfig = refreshedConfigs
+      .filter((cfg) => String(cfg.name ?? "").trim() === String(name).trim())
+      .sort((a, b) => {
+        const aTs = Date.parse(String(a.updated_at ?? a.created_at ?? ""))
+        const bTs = Date.parse(String(b.updated_at ?? b.created_at ?? ""))
+        return (Number.isFinite(bTs) ? bTs : 0) - (Number.isFinite(aTs) ? aTs : 0)
+      })[0]
+
+    if (!savedConfig) {
+      throw new Error("Configuration save could not be verified after write.")
+    }
+
+    const savedFormula = String(savedConfig.standard_rate_formula ?? "")
+    const savedRoundingEnabled = Boolean(savedConfig.standard_rate_rounding?.enabled)
+    const savedOffsetRaw = Number(savedConfig.standard_rate_rounding?.offset ?? 0)
+    const savedRoundingOffset = Number.isFinite(savedOffsetRaw)
+      ? Math.min(1, Math.max(0, savedOffsetRaw))
+      : 0
+    const savedAdjustersCount = Array.isArray(savedConfig.competitive_adjusters) ? savedConfig.competitive_adjusters.length : 0
+    const savedRulesCount = Array.isArray((savedConfig as ProcessCsvConfiguration & { mapping_rules?: unknown }).mapping_rules)
+      ? ((savedConfig as ProcessCsvConfiguration & { mapping_rules?: unknown }).mapping_rules as unknown[]).length
+      : 0
+    const savedPipelineMappingsCount = Array.isArray((savedConfig as ProcessCsvConfiguration & { pipeline_mappings?: unknown }).pipeline_mappings)
+      ? ((savedConfig as ProcessCsvConfiguration & { pipeline_mappings?: unknown }).pipeline_mappings as unknown[]).length
+      : 0
+    const savedMappingGroupsCount = Array.isArray((savedConfig as ProcessCsvConfiguration & { mapping_groups?: unknown }).mapping_groups)
+      ? ((savedConfig as ProcessCsvConfiguration & { mapping_groups?: unknown }).mapping_groups as unknown[]).length
+      : 0
+
+    const formulaMismatch = savedFormula !== expectedFormula
+    const roundingMismatch = savedRoundingEnabled !== expectedRoundingEnabled || savedRoundingOffset !== expectedRoundingOffset
+    const adjustersMismatch = savedAdjustersCount !== expectedAdjustersCount
+    const rulesMismatch = savedRulesCount !== expectedRulesCount
+    const pipelineMappingsMismatch = savedPipelineMappingsCount !== expectedPipelineMappingsCount
+    const mappingGroupsMismatch = savedMappingGroupsCount !== expectedMappingGroupsCount
+
+    if (formulaMismatch || roundingMismatch || adjustersMismatch || rulesMismatch || pipelineMappingsMismatch || mappingGroupsMismatch) {
+      throw new Error("Configuration saved but verification failed: one or more fields (formula/rounding/adjusters/mappings) were not persisted exactly.")
+    }
 
     if (!options?.silent) {
       toast.success("Process CSV configuration saved.")
@@ -3447,7 +3496,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                 onChange={handleCsvFileSelected}
               />
               <div className="flex items-center gap-2">
-                {reviewData ? (
+                {true ? (
                   <Dialog open={standardRateOpen} onOpenChange={setStandardRateOpen}>
                     <DialogTrigger asChild>
                       <Button type="button" variant="outline" size="sm">
