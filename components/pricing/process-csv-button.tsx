@@ -2276,25 +2276,42 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     setMappingGroups(loadedGroups)
   }
 
-  const handleLoadProcessCsvConfig = async () => {
-    setIsLoadingProcessConfig(true)
-    try {
-      const scopedResponse = await listProcessCsvConfigurations(snapshotId)
-      let configurations = Array.isArray(scopedResponse?.configurations) ? scopedResponse.configurations : []
+  useEffect(() => {
+    if (!loadConfigOpen) return
 
-      if (configurations.length === 0) {
-        const allResponse = await listProcessCsvConfigurations()
-        configurations = Array.isArray(allResponse?.configurations) ? allResponse.configurations : []
+    let cancelled = false
+
+    const loadConfigurations = async () => {
+      setIsLoadingProcessConfig(true)
+      try {
+        const scopedResponse = await listProcessCsvConfigurations(snapshotId)
+        let configurations = Array.isArray(scopedResponse?.configurations) ? scopedResponse.configurations : []
+
+        if (configurations.length === 0) {
+          const allResponse = await listProcessCsvConfigurations()
+          configurations = Array.isArray(allResponse?.configurations) ? allResponse.configurations : []
+        }
+
+        if (!cancelled) {
+          setAvailableProcessConfigs(configurations)
+        }
+      } catch (error) {
+        if (!cancelled) {
+          toast.error(error instanceof Error ? error.message : "Failed to load Process CSV configurations")
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingProcessConfig(false)
+        }
       }
-
-      setAvailableProcessConfigs(configurations)
-      setLoadConfigOpen(true)
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to load Process CSV configurations")
-    } finally {
-      setIsLoadingProcessConfig(false)
     }
-  }
+
+    void loadConfigurations()
+
+    return () => {
+      cancelled = true
+    }
+  }, [loadConfigOpen, snapshotId])
 
   const handleSelectProcessCsvConfig = (selected: ProcessCsvConfiguration) => {
     applyLoadedProcessCsvConfig(selected)
@@ -2901,7 +2918,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
               <Button type="button" variant="outline" size="sm" onClick={() => setAllApprovals(false)}>Reject all</Button>
               <Button type="button" variant="outline" size="sm" onClick={() => { setReviewData(null); setApprovedChanges({}); setTraceDialogRow(null) }}>Choose another CSV</Button>
             </div>
-            <div className="overflow-auto rounded-md border" style={{ maxHeight: "calc(100vh - 420px)" }}>
+            <div className="overflow-auto rounded-md border" style={{ maxHeight: "calc(100vh - 360px)" }}>
               {reviewData.reviewRows.length === 0 ? (
                 <div className="p-4 text-sm text-muted-foreground">No changes were produced by pricing algorithms. You can still download the processed CSV.</div>
               ) : (
@@ -3368,7 +3385,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
             Effect Pricing
           </Button>
         </DialogTrigger>
-        <DialogContent className={reviewData ? "sm:max-w-[1000px] max-h-[85vh] overflow-hidden" : "sm:max-w-[425px]"}>
+        <DialogContent className={reviewData ? "sm:max-w-[1000px] max-h-[90vh] overflow-hidden" : "sm:max-w-[425px]"}>
         <DialogHeader>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="space-y-1.5">
@@ -3855,7 +3872,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
               </Button>
             </div>
 
-            <div className="max-h-[48vh] overflow-auto rounded-md border">
+            <div className="max-h-[56vh] overflow-auto rounded-md border">
               {reviewData.reviewRows.length === 0 ? (
                 <div className="p-4 text-sm text-muted-foreground">
                   No changes were produced by pricing algorithms. You can still download the processed CSV.
