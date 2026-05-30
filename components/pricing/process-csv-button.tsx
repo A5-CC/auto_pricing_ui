@@ -55,7 +55,7 @@ import type { Adjuster, CompetitivePriceAdjuster, FunctionBasedAdjuster, Tempora
 import { evaluateSafeFunction } from "@/lib/adjusters";
 import { deleteProcessCsvConfiguration, listProcessCsvConfigurations, saveProcessCsvConfiguration, type ProcessCsvConfiguration } from "@/lib/api/client/pricing";
 import type { E1DataRow } from "@/lib/api/types";
-import { ArrowDown, ArrowUp, ArrowUpDown, FileSpreadsheet, Info, Layers3, Loader2, Save } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, FileSpreadsheet, Info, Layers3, Loader2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { toast } from "sonner";
 
@@ -2648,13 +2648,14 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
         <div className="flex flex-wrap items-center gap-2 justify-end">
           <Button
             type="button"
-            size="icon"
             variant="outline"
-            onClick={handleSaveProcessCsvConfig}
+            size="sm"
+            onClick={() => setLoadConfigOpen(true)}
             disabled={isSavingProcessConfig || isLoadingProcessConfig || deletingProcessConfigId !== null}
-            title="Save configuration"
+            title="Open configuration settings"
           >
-            {isSavingProcessConfig ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+            <Layers3 className="mr-2 h-4 w-4" />
+            Config Settings
           </Button>
           <Button
             type="button"
@@ -3038,6 +3039,15 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
               <DialogDescription>Load, save, or clear your Process CSV configuration.</DialogDescription>
             </DialogHeader>
             <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="default"
+                onClick={handleSaveProcessCsvConfig}
+                disabled={isSavingProcessConfig || isLoadingProcessConfig || deletingProcessConfigId !== null}
+              >
+                {isSavingProcessConfig ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
+                Save New Config
+              </Button>
               <Button type="button" variant="outline" onClick={handleClearProcessCsvConfig}>
                 Clear Current Config
               </Button>
@@ -3703,13 +3713,14 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                 ) : null}
                 <Button
                   type="button"
-                  size="icon"
                   variant="outline"
-                  onClick={handleSaveProcessCsvConfig}
+                  size="sm"
+                  onClick={() => setLoadConfigOpen(true)}
                   disabled={isSavingProcessConfig || isLoadingProcessConfig || deletingProcessConfigId !== null}
-                  title="Save configuration"
+                  title="Open configuration settings"
                 >
-                  {isSavingProcessConfig ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                  <Layers3 className="mr-2 h-4 w-4" />
+                  Config Settings
                 </Button>
                 <Button
                   type="button"
@@ -4087,6 +4098,15 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
             <DialogDescription>Load, save, or clear your Process CSV configuration.</DialogDescription>
           </DialogHeader>
           <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="default"
+              onClick={handleSaveProcessCsvConfig}
+              disabled={isSavingProcessConfig || isLoadingProcessConfig || deletingProcessConfigId !== null}
+            >
+              {isSavingProcessConfig ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
+              Save New Config
+            </Button>
             <Button type="button" variant="outline" onClick={handleClearProcessCsvConfig}>
               Clear Current Config
             </Button>
