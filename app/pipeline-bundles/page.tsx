@@ -368,27 +368,29 @@ export default function PipelineBundlesPage() {
         />
       </div>
       <div className="mb-2 overflow-x-auto snap-x snap-mandatory">
-        <div className="flex gap-6">
-          <section className="w-full min-w-full max-w-full shrink-0 snap-start space-y-3">
+        <div className="flex min-h-[calc(100dvh-16rem)] gap-6">
+          <section className="flex w-full min-w-full max-w-full shrink-0 snap-start flex-col space-y-3">
             <SectionLabel text="Effect Pricing" />
-            <ProcessCsvButton
-              inline
-              snapshotId={selectedSnapshot}
-              filters={{ competitors: [], locations: [], unit_dimensions: [], unitCategories: [] }}
-              rounding={{ enabled: false, offset: 0 }}
-              calculatedRowsBundle={selectedPipelineContexts.map((ctx) => ({
-                pipelineName: ctx.pipeline.name,
-                rows: ctx.calculatedRowsForCsv,
-              }))}
-              pricingContext={{
-                competitorData: dataResponse?.data ?? [],
-                clientAvailableUnits: clientDataResponse?.data.length || 0,
-                currentDate,
-                filters: {},
-                combinatoricFlags: selectedPipelineContexts[0]?.mergedCombinatoricFlags ?? {},
-                availableVariables,
-              }}
-            />
+            <div className="min-h-0 flex-1">
+              <ProcessCsvButton
+                inline
+                snapshotId={selectedSnapshot}
+                filters={{ competitors: [], locations: [], unit_dimensions: [], unitCategories: [] }}
+                rounding={{ enabled: false, offset: 0 }}
+                calculatedRowsBundle={selectedPipelineContexts.map((ctx) => ({
+                  pipelineName: ctx.pipeline.name,
+                  rows: ctx.calculatedRowsForCsv,
+                }))}
+                pricingContext={{
+                  competitorData: dataResponse?.data ?? [],
+                  clientAvailableUnits: clientDataResponse?.data.length || 0,
+                  currentDate,
+                  filters: {},
+                  combinatoricFlags: selectedPipelineContexts[0]?.mergedCombinatoricFlags ?? {},
+                  availableVariables,
+                }}
+              />
+            </div>
           </section>
         </div>
       </div>
