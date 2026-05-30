@@ -2656,25 +2656,6 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
           >
             {isSavingProcessConfig ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
           </Button>
-          <div className="flex flex-col gap-1">
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => setStandardRateOpen(true)}
-            >
-              Standard Rate Function
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => setShowMapping(true)}
-              disabled={mappingPipelineNames.length === 0}
-            >
-              Mapping
-            </Button>
-          </div>
           <Button
             type="button"
             size="sm"
@@ -2825,6 +2806,14 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
               <span className="text-sm font-medium">Adjusters</span>
               <Button type="button" size="sm" variant="outline" onClick={functionDialog.handleOpen}>Competitive</Button>
               <Button type="button" size="sm" variant="outline" onClick={() => setShowLevels(true)}>Levels</Button>
+              <div className="flex flex-col gap-1">
+                <Button type="button" size="sm" variant="outline" onClick={() => setStandardRateOpen(true)}>
+                  Standard Rate Function
+                </Button>
+                <Button type="button" size="sm" variant="outline" onClick={() => setShowMapping(true)} disabled={mappingPipelineNames.length === 0}>
+                  Mapping
+                </Button>
+              </div>
             </div>
             <div className="rounded-md border p-3 space-y-3">
               {popupAdjusters.length === 0 ? (
@@ -2877,6 +2866,14 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
               <span className="text-sm font-medium">Adjusters</span>
               <Button type="button" size="sm" variant="outline" onClick={functionDialog.handleOpen}>Competitive</Button>
               <Button type="button" size="sm" variant="outline" onClick={() => setShowLevels(true)}>Levels</Button>
+              <div className="flex flex-col gap-1">
+                <Button type="button" size="sm" variant="outline" onClick={() => setStandardRateOpen(true)}>
+                  Standard Rate Function
+                </Button>
+                <Button type="button" size="sm" variant="outline" onClick={() => setShowMapping(true)} disabled={mappingPipelineNames.length === 0}>
+                  Mapping
+                </Button>
+              </div>
             </div>
             <div className="rounded-md border p-3 space-y-3">
               {popupAdjusters.length === 0 ? (
@@ -3019,7 +3016,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
               className="w-full"
             >
               {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isProcessing ? "Applying…" : "Apply Pricing Algorithms"}
+              {isProcessing ? "Applying…" : "Apply Pricing"}
             </Button>
           ) : (
             <>
@@ -3714,25 +3711,6 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                 >
                   {isSavingProcessConfig ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
                 </Button>
-                <div className="flex flex-col gap-1">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setStandardRateOpen(true)}
-                  >
-                    Standard Rate Function
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setShowMapping(true)}
-                    disabled={mappingPipelineNames.length === 0}
-                  >
-                    Mapping
-                  </Button>
-                </div>
                 <Button
                   type="button"
                   size="sm"
@@ -3761,6 +3739,14 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
               >
                 Levels
               </Button>
+              <div className="flex flex-col gap-1">
+                <Button type="button" size="sm" variant="outline" onClick={() => setStandardRateOpen(true)}>
+                  Standard Rate Function
+                </Button>
+                <Button type="button" size="sm" variant="outline" onClick={() => setShowMapping(true)} disabled={mappingPipelineNames.length === 0}>
+                  Mapping
+                </Button>
+              </div>
             </div>
 
             <div className="rounded-md border p-3 space-y-3">
@@ -3823,6 +3809,14 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
               >
                 Levels
               </Button>
+              <div className="flex flex-col gap-1">
+                <Button type="button" size="sm" variant="outline" onClick={() => setStandardRateOpen(true)}>
+                  Standard Rate Function
+                </Button>
+                <Button type="button" size="sm" variant="outline" onClick={() => setShowMapping(true)} disabled={mappingPipelineNames.length === 0}>
+                  Mapping
+                </Button>
+              </div>
             </div>
 
             <div className="rounded-md border p-3 space-y-3">
