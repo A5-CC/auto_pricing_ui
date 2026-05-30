@@ -2730,11 +2730,6 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
           </div>
             {true ? (
             <Dialog open={standardRateOpen} onOpenChange={setStandardRateOpen}>
-              <DialogTrigger asChild>
-                <Button type="button" variant="outline" size="sm">
-                  Standard Rate Function
-                </Button>
-              </DialogTrigger>
               <DialogContent className="sm:max-w-[900px]">
                 <DialogHeader>
                   <DialogTitle>Standard rate function</DialogTitle>
@@ -3498,11 +3493,6 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
               <div className="flex items-center gap-2">
                 {true ? (
                   <Dialog open={standardRateOpen} onOpenChange={setStandardRateOpen}>
-                    <DialogTrigger asChild>
-                      <Button type="button" variant="outline" size="sm">
-                        Standard Rate Function
-                      </Button>
-                    </DialogTrigger>
                 <DialogContent className="sm:max-w-[900px]">
                   <DialogHeader>
                     <DialogTitle>Standard rate function</DialogTitle>
