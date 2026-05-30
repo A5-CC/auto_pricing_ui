@@ -2802,11 +2802,11 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
         {/* Panel body */}
         {!reviewData ? (
           <div className="space-y-3 flex-1 min-h-0 overflow-hidden">
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex w-full flex-wrap items-start gap-2">
               <span className="text-sm font-medium">Adjusters</span>
               <Button type="button" size="sm" variant="outline" onClick={functionDialog.handleOpen}>Competitive</Button>
               <Button type="button" size="sm" variant="outline" onClick={() => setShowLevels(true)}>Levels</Button>
-              <div className="ml-auto flex flex-col gap-1 self-start">
+              <div className="ml-auto flex shrink-0 flex-col items-end gap-1 self-start">
                 <Button type="button" size="sm" className="h-8" variant="outline" onClick={() => setStandardRateOpen(true)}>
                   Standard Rate Function
                 </Button>
@@ -2862,11 +2862,11 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
           </div>
         ) : (
           <div className="space-y-3 flex-1 min-h-0 overflow-hidden">
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex w-full flex-wrap items-start gap-2">
               <span className="text-sm font-medium">Adjusters</span>
               <Button type="button" size="sm" variant="outline" onClick={functionDialog.handleOpen}>Competitive</Button>
               <Button type="button" size="sm" variant="outline" onClick={() => setShowLevels(true)}>Levels</Button>
-              <div className="ml-auto flex flex-col gap-1 self-start">
+              <div className="ml-auto flex shrink-0 flex-col items-end gap-1 self-start">
                 <Button type="button" size="sm" className="h-8" variant="outline" onClick={() => setStandardRateOpen(true)}>
                   Standard Rate Function
                 </Button>
@@ -3391,8 +3391,8 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
             Effect Pricing
           </Button>
         </DialogTrigger>
-        <DialogContent className="w-[98vw] sm:max-w-[1280px] h-[98vh] max-h-[98vh] overflow-hidden">
-        <DialogHeader>
+        <DialogContent className="w-[99vw] max-w-[99vw] h-[99vh] max-h-[99vh] overflow-hidden flex flex-col">
+        <DialogHeader className="shrink-0">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="space-y-1.5">
               <DialogTitle>{reviewData ? "Review CSV Changes" : "Apply pricing algorithms"}</DialogTitle>
@@ -3726,7 +3726,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
 
         {!reviewData ? (
           <div className="space-y-3 flex-1 min-h-0 overflow-auto pr-1">
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex w-full flex-wrap items-start gap-2">
               <span className="text-sm font-medium">Adjusters</span>
               <Button type="button" size="sm" variant="outline" onClick={functionDialog.handleOpen}>
                 Competitive
@@ -3739,7 +3739,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
               >
                 Levels
               </Button>
-              <div className="ml-auto flex flex-col gap-1 self-start">
+              <div className="ml-auto flex shrink-0 flex-col items-end gap-1 self-start">
                 <Button type="button" size="sm" className="h-8" variant="outline" onClick={() => setStandardRateOpen(true)}>
                   Standard Rate Function
                 </Button>
@@ -3796,7 +3796,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
           </div>
         ) : (
           <div className="space-y-3 flex-1 min-h-0 overflow-auto pr-1">
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex w-full flex-wrap items-start gap-2">
               <span className="text-sm font-medium">Adjusters</span>
               <Button type="button" size="sm" variant="outline" onClick={functionDialog.handleOpen}>
                 Competitive
@@ -3809,7 +3809,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
               >
                 Levels
               </Button>
-              <div className="ml-auto flex flex-col gap-1 self-start">
+              <div className="ml-auto flex shrink-0 flex-col items-end gap-1 self-start">
                 <Button type="button" size="sm" className="h-8" variant="outline" onClick={() => setStandardRateOpen(true)}>
                   Standard Rate Function
                 </Button>
@@ -4002,7 +4002,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
           </div>
         )}
 
-        <DialogFooter>
+        <DialogFooter className="shrink-0">
           {!reviewData ? (
             <Button onClick={handleProcess} disabled={!file || isProcessing}>
               {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
