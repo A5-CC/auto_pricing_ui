@@ -1119,8 +1119,8 @@ function applyCalculatedPricesToCsv(
       throw new Error(`Mapping for pipeline \"${pipelineName}\" must define a Location column.`)
     }
     if (hasUnitAreaRowsPre) {
-      if (!cfg.csvAreaColumn.trim()) {
-        throw new Error(`Mapping for pipeline \"${pipelineName}\" must define an Area column.`)
+      if (!cfg.csvAreaColumn.trim() && !cfg.csvDimensionColumn.trim()) {
+        throw new Error(`Mapping for pipeline \"${pipelineName}\" must define an Area or Dimension column.`)
       }
     } else if (!cfg.csvDimensionColumn.trim()) {
       throw new Error(`Mapping for pipeline \"${pipelineName}\" must define a Dimension column.`)
@@ -1154,8 +1154,9 @@ function applyCalculatedPricesToCsv(
       }
       if (hasUnitAreaRowsPre) {
         const areaMapping = findGroupColumnMapping(group, "unit_area")
-        if (!areaMapping?.csvColumn.trim()) {
-          throw new Error(`Mapping group "${group.name || "Unnamed group"}" must map a CSV column to unit_area.`)
+        const dimensionMapping = findGroupColumnMapping(group, "unit_dimensions")
+        if (!areaMapping?.csvColumn.trim() && !dimensionMapping?.csvColumn.trim()) {
+          throw new Error(`Mapping group "${group.name || "Unnamed group"}" must map a CSV column to unit_area or unit_dimensions.`)
         }
       } else {
         const dimensionMapping = findGroupColumnMapping(group, "unit_dimensions")
@@ -1200,8 +1201,8 @@ function applyCalculatedPricesToCsv(
     throw new Error("CSV must include a facility/location column to map frontend pricing.")
   }
 
-  if (!usingGroups && hasUnitAreaRowsPre && defaultAreaIndex < 0) {
-    throw new Error("CSV must include an Area column to match unit_area pipelines.")
+  if (!usingGroups && hasUnitAreaRowsPre && defaultAreaIndex < 0 && defaultUnitSizeIndex < 0) {
+    throw new Error("CSV must include an Area or Size column to match unit_area pipelines.")
   }
 
   if (!usingGroups && !hasUnitAreaRowsPre && defaultUnitSizeIndex < 0) {
@@ -1405,11 +1406,13 @@ function applyCalculatedPricesToCsv(
       const dimensionToken = candidate.unitSizeIndex >= 0
         ? getDimensionLookupTokenByMode(getCellValue(row, candidate.unitSizeIndex), candidate.dimensionMode)
         : ""
-      const areaToken = candidate.areaIndex >= 0 ? getAreaLookupToken(getCellValue(row, candidate.areaIndex)) : ""
+      const areaToken = candidate.areaIndex >= 0
+        ? getAreaLookupToken(getCellValue(row, candidate.areaIndex))
+        : (candidate.unitSizeIndex >= 0 ? getAreaLookupToken(getCellValue(row, candidate.unitSizeIndex)) : "")
       const amenitySubsets = candidate.unitAmenitiesIndex >= 0
         ? buildCsvAmenityTokenSubsets(getCellValue(row, candidate.unitAmenitiesIndex))
         : [""]
-      const allowDimensionMatching = !hasUnitAreaRows
+      const allowDimensionMatching = true
 
       let candidateMatch =
         (areaToken ? findLookupByAmenitySubsets(priceLookup, location, areaToken, amenitySubsets, candidate.pipelineName) : undefined) ??
