@@ -2427,7 +2427,6 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     }
 
     setShowMapping(false)
-    setLoadConfigOpen(true)
   }, [])
 
   const handleCsvFileSelected = (event: ChangeEvent<HTMLInputElement>) => {
@@ -3271,7 +3270,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => handleMappingDialogOpenChange(false)}>
-                Back
+                Done
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -4323,7 +4322,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => handleMappingDialogOpenChange(false)}>
-              Back
+              Done
             </Button>
           </DialogFooter>
         </DialogContent>
