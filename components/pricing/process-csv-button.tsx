@@ -1269,7 +1269,6 @@ function applyCalculatedPricesToCsv(
     price: string
     comboMapEntries: Array<{ key: string; value: string }>
   }> = {}
-  let hasUnitAreaRows = false
 
   const areaBucketKey = (place: string) => place
   const appendLookup = (
@@ -1303,7 +1302,6 @@ function applyCalculatedPricesToCsv(
     const cityKey = normalizeLocationKey(city)
     const dimensionToken = getDimensionLookupToken(calculatedRow.comboMap.unit_dimensions)
     const areaToken = getAreaLookupToken(calculatedRow.comboMap.unit_area)
-    if (areaToken) hasUnitAreaRows = true
     const amenityRequirementToken = buildCalculatedAmenityRequirementToken(calculatedRow.comboMap as Record<string, unknown>)
     if (!location || (!dimensionToken && !areaToken)) continue
     const webPrice = applyConfiguredRounding(calculatedRow.price, webRounding)
