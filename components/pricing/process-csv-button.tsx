@@ -2222,7 +2222,8 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
       economy: toEntry(levels?.economy),
     })
 
-    const loadedRulesRaw = (config as ProcessCsvConfiguration & { mapping_rules?: unknown }).mapping_rules
+    const loadedRulesRaw = (config as ProcessCsvConfiguration & { mapping_rules?: unknown; mapping?: { mapping_rules?: unknown } }).mapping_rules
+      ?? (config as ProcessCsvConfiguration & { mapping?: { mapping_rules?: unknown } }).mapping?.mapping_rules
     const loadedRules = Array.isArray(loadedRulesRaw)
       ? loadedRulesRaw
           .map((item) => item as Partial<PipelineMappingRule>)
@@ -2237,7 +2238,8 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
       : []
     setMappingRules(loadedRules)
 
-    const loadedPipelineMappingsRaw = (config as ProcessCsvConfiguration & { pipeline_mappings?: unknown }).pipeline_mappings
+    const loadedPipelineMappingsRaw = (config as ProcessCsvConfiguration & { pipeline_mappings?: unknown; mapping?: { pipeline_mappings?: unknown } }).pipeline_mappings
+      ?? (config as ProcessCsvConfiguration & { mapping?: { pipeline_mappings?: unknown } }).mapping?.pipeline_mappings
     if (Array.isArray(loadedPipelineMappingsRaw)) {
       const normalized = loadedPipelineMappingsRaw
         .map((item) => item as Partial<PipelineMappingConfig>)
@@ -2265,7 +2267,8 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
       setPipelineMappingConfigs(mappingPipelineNames.map((name) => createDefaultPipelineMappingConfig(name)))
     }
 
-    const loadedGroupsRaw = (config as ProcessCsvConfiguration & { mapping_groups?: unknown }).mapping_groups
+    const loadedGroupsRaw = (config as ProcessCsvConfiguration & { mapping_groups?: unknown; mapping?: { mapping_groups?: unknown } }).mapping_groups
+      ?? (config as ProcessCsvConfiguration & { mapping?: { mapping_groups?: unknown } }).mapping?.mapping_groups
     const loadedGroups = Array.isArray(loadedGroupsRaw)
         ? loadedGroupsRaw
           .map((item) => item as unknown as Partial<MappingGroup>)
@@ -2417,6 +2420,11 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
       mapping_rules: mappingRules,
       pipeline_mappings: pipelineMappingConfigs,
       mapping_groups: mappingGroups,
+      mapping: {
+        mapping_rules: mappingRules,
+        pipeline_mappings: pipelineMappingConfigs,
+        mapping_groups: mappingGroups,
+      },
     })
 
     const refreshed = await listProcessCsvConfigurations(snapshotId)
@@ -2442,14 +2450,21 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
       ? Math.min(1, Math.max(0, savedOffsetRaw))
       : 0
     const savedAdjustersCount = Array.isArray(savedConfig.competitive_adjusters) ? savedConfig.competitive_adjusters.length : 0
-    const savedRulesCount = Array.isArray((savedConfig as ProcessCsvConfiguration & { mapping_rules?: unknown }).mapping_rules)
-      ? ((savedConfig as ProcessCsvConfiguration & { mapping_rules?: unknown }).mapping_rules as unknown[]).length
+    const savedRulesRaw = (savedConfig as ProcessCsvConfiguration & { mapping_rules?: unknown; mapping?: { mapping_rules?: unknown } }).mapping_rules
+      ?? (savedConfig as ProcessCsvConfiguration & { mapping?: { mapping_rules?: unknown } }).mapping?.mapping_rules
+    const savedPipelineMappingsRaw = (savedConfig as ProcessCsvConfiguration & { pipeline_mappings?: unknown; mapping?: { pipeline_mappings?: unknown } }).pipeline_mappings
+      ?? (savedConfig as ProcessCsvConfiguration & { mapping?: { pipeline_mappings?: unknown } }).mapping?.pipeline_mappings
+    const savedMappingGroupsRaw = (savedConfig as ProcessCsvConfiguration & { mapping_groups?: unknown; mapping?: { mapping_groups?: unknown } }).mapping_groups
+      ?? (savedConfig as ProcessCsvConfiguration & { mapping?: { mapping_groups?: unknown } }).mapping?.mapping_groups
+
+    const savedRulesCount = Array.isArray(savedRulesRaw)
+      ? (savedRulesRaw as unknown[]).length
       : 0
-    const savedPipelineMappingsCount = Array.isArray((savedConfig as ProcessCsvConfiguration & { pipeline_mappings?: unknown }).pipeline_mappings)
-      ? ((savedConfig as ProcessCsvConfiguration & { pipeline_mappings?: unknown }).pipeline_mappings as unknown[]).length
+    const savedPipelineMappingsCount = Array.isArray(savedPipelineMappingsRaw)
+      ? (savedPipelineMappingsRaw as unknown[]).length
       : 0
-    const savedMappingGroupsCount = Array.isArray((savedConfig as ProcessCsvConfiguration & { mapping_groups?: unknown }).mapping_groups)
-      ? ((savedConfig as ProcessCsvConfiguration & { mapping_groups?: unknown }).mapping_groups as unknown[]).length
+    const savedMappingGroupsCount = Array.isArray(savedMappingGroupsRaw)
+      ? (savedMappingGroupsRaw as unknown[]).length
       : 0
 
     const formulaMismatch = savedFormula !== expectedFormula

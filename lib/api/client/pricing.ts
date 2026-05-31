@@ -65,6 +65,11 @@ export interface ProcessCsvConfigurationPayload {
       }>
     }>
   }>
+  mapping?: {
+    mapping_rules?: ProcessCsvConfigurationPayload["mapping_rules"]
+    pipeline_mappings?: ProcessCsvConfigurationPayload["pipeline_mappings"]
+    mapping_groups?: ProcessCsvConfigurationPayload["mapping_groups"]
+  }
 }
 
 export interface ProcessCsvConfiguration extends ProcessCsvConfigurationPayload {
@@ -234,18 +239,32 @@ export async function processClientCSV(
 export async function saveProcessCsvConfiguration(
   payload: ProcessCsvConfigurationPayload
 ): Promise<{ success: boolean; id?: string; name?: string }> {
+  const normalizedMapping = payload.mapping ?? {
+    mapping_rules: payload.mapping_rules ?? [],
+    pipeline_mappings: payload.pipeline_mappings ?? [],
+    mapping_groups: payload.mapping_groups ?? [],
+  }
+  const wrappedPayload = {
+    ...payload,
+    mapping: normalizedMapping,
+    payload: {
+      ...payload,
+      mapping: normalizedMapping,
+    },
+  }
+
   try {
     const response = await fetchWithError(`${API_BASE_URL}/client-data/process-csv-configurations`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(wrappedPayload),
     })
     return response.json()
   } catch {
     const fallback = await fetchWithError(`${API_BASE_URL}/client-data/process-csv-configurations`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...payload, payload }),
+      body: JSON.stringify(payload),
     })
     return fallback.json()
   }
@@ -278,9 +297,23 @@ export async function listProcessCsvConfigurations(
     })()
 
     const topLevel = item as Partial<ProcessCsvConfiguration>
-    const mappingRules = (payload.mapping_rules ?? topLevel.mapping_rules ?? []) as ProcessCsvConfigurationPayload["mapping_rules"]
-    const pipelineMappings = (payload.pipeline_mappings ?? topLevel.pipeline_mappings ?? []) as ProcessCsvConfigurationPayload["pipeline_mappings"]
-    const mappingGroups = (payload.mapping_groups ?? topLevel.mapping_groups ?? []) as ProcessCsvConfigurationPayload["mapping_groups"]
+    const payloadMapping = (payload.mapping ?? {}) as NonNullable<ProcessCsvConfigurationPayload["mapping"]>
+    const topLevelMapping = ((topLevel as ProcessCsvConfigurationPayload).mapping ?? {}) as NonNullable<ProcessCsvConfigurationPayload["mapping"]>
+    const mappingRules = (payload.mapping_rules
+      ?? payloadMapping.mapping_rules
+      ?? topLevel.mapping_rules
+      ?? topLevelMapping.mapping_rules
+      ?? []) as ProcessCsvConfigurationPayload["mapping_rules"]
+    const pipelineMappings = (payload.pipeline_mappings
+      ?? payloadMapping.pipeline_mappings
+      ?? topLevel.pipeline_mappings
+      ?? topLevelMapping.pipeline_mappings
+      ?? []) as ProcessCsvConfigurationPayload["pipeline_mappings"]
+    const mappingGroups = (payload.mapping_groups
+      ?? payloadMapping.mapping_groups
+      ?? topLevel.mapping_groups
+      ?? topLevelMapping.mapping_groups
+      ?? []) as ProcessCsvConfigurationPayload["mapping_groups"]
 
     return {
       ...(payload as ProcessCsvConfigurationPayload),
@@ -297,6 +330,11 @@ export async function listProcessCsvConfigurations(
       mapping_rules: Array.isArray(mappingRules) ? mappingRules : [],
       pipeline_mappings: Array.isArray(pipelineMappings) ? pipelineMappings : [],
       mapping_groups: Array.isArray(mappingGroups) ? mappingGroups : [],
+      mapping: {
+        mapping_rules: Array.isArray(mappingRules) ? mappingRules : [],
+        pipeline_mappings: Array.isArray(pipelineMappings) ? pipelineMappings : [],
+        mapping_groups: Array.isArray(mappingGroups) ? mappingGroups : [],
+      },
     }
   }
 
