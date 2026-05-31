@@ -1144,23 +1144,39 @@ function applyCalculatedPricesToCsv(
       return false
     }
 
+    const hasMappedCsvColumnInChain = (group: MappingGroup, competitorColumns: string[]): boolean => {
+      const targets = competitorColumns.map((col) => normalizeColumnKey(col)).filter(Boolean)
+      const visited = new Set<string>()
+      let cursor: MappingGroup | undefined = group
+
+      while (cursor && !visited.has(cursor.id)) {
+        visited.add(cursor.id)
+        for (const target of targets) {
+          const mapping = findGroupColumnMapping(cursor, target)
+          if (mapping?.csvColumn.trim()) return true
+        }
+        cursor = cursor.fallbackGroupId ? getGroupById(cursor.fallbackGroupId) : undefined
+      }
+
+      return false
+    }
+
     for (const group of mappingGroups) {
       if (!group.pipelineName.trim()) {
         throw new Error(`Mapping group "${group.name || "Unnamed group"}" must define a pipeline.`)
       }
-      const locationMapping = findGroupColumnMapping(group, "client_location")
-      if (!locationMapping?.csvColumn.trim()) {
+      const hasLocationMapping = hasMappedCsvColumnInChain(group, ["client_location"])
+      if (!hasLocationMapping) {
         throw new Error(`Mapping group "${group.name || "Unnamed group"}" must map a CSV column to client_location.`)
       }
       if (hasUnitAreaRowsPre) {
-        const areaMapping = findGroupColumnMapping(group, "unit_area")
-        const dimensionMapping = findGroupColumnMapping(group, "unit_dimensions")
-        if (!areaMapping?.csvColumn.trim() && !dimensionMapping?.csvColumn.trim()) {
+        const hasAreaOrDimensionMapping = hasMappedCsvColumnInChain(group, ["unit_area", "unit_dimensions"])
+        if (!hasAreaOrDimensionMapping) {
           throw new Error(`Mapping group "${group.name || "Unnamed group"}" must map a CSV column to unit_area or unit_dimensions.`)
         }
       } else {
-        const dimensionMapping = findGroupColumnMapping(group, "unit_dimensions")
-        if (!dimensionMapping?.csvColumn.trim()) {
+        const hasDimensionMapping = hasMappedCsvColumnInChain(group, ["unit_dimensions"])
+        if (!hasDimensionMapping) {
           throw new Error(`Mapping group "${group.name || "Unnamed group"}" must map a CSV column to unit_dimensions.`)
         }
       }
