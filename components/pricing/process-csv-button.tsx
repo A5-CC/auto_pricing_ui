@@ -666,7 +666,14 @@ function findGroupColumnMapping(
   competitorColumn: string
 ): MappingGroupColumnMapping | undefined {
   const normalizedTarget = normalizeColumnKey(competitorColumn)
-  return group.columnMappings.find((mapping) => normalizeColumnKey(mapping.competitorColumn) === normalizedTarget)
+  const aliasesByTarget: Record<string, string[]> = {
+    clientlocation: ["clientlocation", "facilitylocationcity", "location", "city"],
+    unitdimensions: ["unitdimensions", "dimensions", "unitsize", "size"],
+    unitarea: ["unitarea", "area", "sqft", "squarefeet", "square_feet"],
+    unitamenities: ["unitamenities", "amenities", "unit_amenities"],
+  }
+  const accepted = new Set((aliasesByTarget[normalizedTarget] ?? [normalizedTarget]).map((v) => normalizeColumnKey(v)))
+  return group.columnMappings.find((mapping) => accepted.has(normalizeColumnKey(mapping.competitorColumn)))
 }
 
 function getComboMapValueByColumn(comboMap: Record<string, unknown>, column: string): string {
@@ -2150,6 +2157,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
 
   useEffect(() => {
     if (!originalParsed) return
+    if (showMapping) return
     if (lastAutoRebuildKeyRef.current === autoRebuildKey) return
     lastAutoRebuildKeyRef.current = autoRebuildKey
     try {
@@ -2157,7 +2165,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to apply adjustments")
     }
-  }, [autoRebuildKey, originalParsed, popupAdjusters, rebuildReviewFromOriginal])
+  }, [autoRebuildKey, originalParsed, popupAdjusters, rebuildReviewFromOriginal, showMapping])
 
   const handleStandardRateDragStart = (x: number, y: number) => {
     standardRateDragRef.current = { x, y }
