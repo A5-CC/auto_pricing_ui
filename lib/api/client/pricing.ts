@@ -104,6 +104,16 @@ const PROCESS_CSV_MAPPING_SHADOW_KEY = "__apu_process_csv_mapping_shadow_v1"
 const PROCESS_CSV_LAST_SAVE_REQUEST_KEY = "__apu_process_csv_last_save_request_v1"
 const PROCESS_CSV_LAST_SAVE_RESULT_KEY = "__apu_process_csv_last_save_result_v1"
 
+function logProcessCsvSaveDebug(label: string, details: unknown): void {
+  if (typeof window === "undefined") return
+  try {
+    // Intentional runtime logging for debugging outbound payload shape.
+    console.info(`[Process CSV Save] ${label}`, details)
+  } catch {
+    // ignore
+  }
+}
+
 function persistProcessCsvDebugSnapshot(key: string, value: unknown): void {
   if (typeof window === "undefined") return
   try {
@@ -444,16 +454,23 @@ export async function saveProcessCsvConfiguration(
     },
     attempts,
   })
+  logProcessCsvSaveDebug("Prepared outbound save attempts", {
+    endpoint: `${API_BASE_URL}/client-data/process-csv-configurations`,
+    attempts,
+  })
 
   let lastError: unknown = null
-  for (const body of attempts) {
+  for (let attemptIndex = 0; attemptIndex < attempts.length; attemptIndex += 1) {
+    const body = attempts[attemptIndex]
     try {
+      logProcessCsvSaveDebug(`Attempt ${attemptIndex + 1} request body`, body)
       const response = await fetchWithError(`${API_BASE_URL}/client-data/process-csv-configurations`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       })
       const result = await response.json() as { success: boolean; id?: string; name?: string }
+      logProcessCsvSaveDebug(`Attempt ${attemptIndex + 1} response`, result)
       persistMappingShadow(mappingSnapshot, {
         snapshotId: payload.snapshot_id,
         name: result?.name ?? payload.name,
@@ -468,6 +485,7 @@ export async function saveProcessCsvConfiguration(
       return result
     } catch (error) {
       lastError = error
+      logProcessCsvSaveDebug(`Attempt ${attemptIndex + 1} error`, error instanceof Error ? error.message : String(error))
       persistProcessCsvDebugSnapshot(PROCESS_CSV_LAST_SAVE_RESULT_KEY, {
         at: new Date().toISOString(),
         success: false,
