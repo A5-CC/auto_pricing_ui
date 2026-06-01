@@ -1611,6 +1611,50 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     pipelineMappingConfigs: [],
     mappingGroups: [],
   })
+  const configMappingShadowStorageKey = useCallback((configName: string) => {
+    const snapshotKey = String(snapshotId || "default").trim()
+    const nameKey = String(configName || "unnamed").trim() || "unnamed"
+    return `process-csv-config-mapping:${snapshotKey}:${nameKey}`
+  }, [snapshotId])
+
+  const persistConfigMappingShadow = useCallback((configName: string, snapshot: {
+    mappingRules: PipelineMappingRule[]
+    pipelineMappingConfigs: PipelineMappingConfig[]
+    mappingGroups: MappingGroup[]
+  }) => {
+    try {
+      window.localStorage.setItem(
+        configMappingShadowStorageKey(configName),
+        JSON.stringify({
+          updated_at: new Date().toISOString(),
+          mapping_rules: snapshot.mappingRules,
+          pipeline_mappings: snapshot.pipelineMappingConfigs,
+          mapping_groups: snapshot.mappingGroups,
+        })
+      )
+    } catch {
+      // ignore
+    }
+  }, [configMappingShadowStorageKey])
+
+  const readConfigMappingShadow = useCallback((configName: string) => {
+    try {
+      const raw = window.localStorage.getItem(configMappingShadowStorageKey(configName))
+      if (!raw) return null
+      const parsed = JSON.parse(raw) as {
+        mapping_rules?: unknown
+        pipeline_mappings?: unknown
+        mapping_groups?: unknown
+      }
+      return {
+        mapping_rules: Array.isArray(parsed?.mapping_rules) ? parsed.mapping_rules : [],
+        pipeline_mappings: Array.isArray(parsed?.pipeline_mappings) ? parsed.pipeline_mappings : [],
+        mapping_groups: Array.isArray(parsed?.mapping_groups) ? parsed.mapping_groups : [],
+      }
+    } catch {
+      return null
+    }
+  }, [configMappingShadowStorageKey])
 
   const persistMappingDraft = useCallback((snapshot: {
     mappingRules: PipelineMappingRule[]
@@ -2271,6 +2315,8 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
 
     const loadedRulesRaw = (config as ProcessCsvConfiguration & { mapping_rules?: unknown; mapping?: { mapping_rules?: unknown } }).mapping_rules
       ?? (config as ProcessCsvConfiguration & { mapping?: { mapping_rules?: unknown } }).mapping?.mapping_rules
+    const fallbackMappingShadow = readConfigMappingShadow(String(config.name ?? ""))
+
     const loadedRules = Array.isArray(loadedRulesRaw)
       ? loadedRulesRaw
           .map((item) => item as Partial<PipelineMappingRule>)
@@ -2282,13 +2328,27 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
             operator: (String(item.operator ?? "contains") as MappingOperator),
             value: String(item.value ?? ""),
           }))
-      : []
+      : (Array.isArray(fallbackMappingShadow?.mapping_rules)
+          ? fallbackMappingShadow.mapping_rules
+              .map((item) => item as Partial<PipelineMappingRule>)
+              .filter((item) => item && typeof item.pipelineName === "string")
+              .map((item) => ({
+                id: String(item.id ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`),
+                pipelineName: String(item.pipelineName ?? ""),
+                column: String(item.column ?? ""),
+                operator: (String(item.operator ?? "contains") as MappingOperator),
+                value: String(item.value ?? ""),
+              }))
+          : [])
     setMappingRules(loadedRules)
 
     const loadedPipelineMappingsRaw = (config as ProcessCsvConfiguration & { pipeline_mappings?: unknown; mapping?: { pipeline_mappings?: unknown } }).pipeline_mappings
       ?? (config as ProcessCsvConfiguration & { mapping?: { pipeline_mappings?: unknown } }).mapping?.pipeline_mappings
-    if (Array.isArray(loadedPipelineMappingsRaw)) {
-      const normalized = loadedPipelineMappingsRaw
+    if (Array.isArray(loadedPipelineMappingsRaw) || Array.isArray(fallbackMappingShadow?.pipeline_mappings)) {
+      const source = Array.isArray(loadedPipelineMappingsRaw)
+        ? loadedPipelineMappingsRaw
+        : (fallbackMappingShadow?.pipeline_mappings ?? [])
+      const normalized = source
         .map((item) => item as Partial<PipelineMappingConfig>)
         .filter((item) => item && typeof item.pipelineName === "string")
         .map((item) => ({
@@ -2317,7 +2377,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     const loadedGroupsRaw = (config as ProcessCsvConfiguration & { mapping_groups?: unknown; mapping?: { mapping_groups?: unknown } }).mapping_groups
       ?? (config as ProcessCsvConfiguration & { mapping?: { mapping_groups?: unknown } }).mapping?.mapping_groups
     const loadedGroups = Array.isArray(loadedGroupsRaw)
-        ? loadedGroupsRaw
+      ? loadedGroupsRaw
           .map((item) => item as unknown as Partial<MappingGroup>)
           .filter((item) => item && typeof item.id === "string")
           .map((item) => ({
@@ -2347,7 +2407,38 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                   }))
               : [],
           }))
-      : []
+      : (Array.isArray(fallbackMappingShadow?.mapping_groups)
+          ? fallbackMappingShadow.mapping_groups
+              .map((item) => item as unknown as Partial<MappingGroup>)
+              .filter((item) => item && typeof item.id === "string")
+              .map((item) => ({
+                id: String(item.id ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`),
+                name: String(item.name ?? ""),
+                pipelineName: String((item as Record<string, unknown>).pipelineName ?? (item as Record<string, unknown>).pipeline ?? mappingPipelineNames[0] ?? ""),
+                fallbackGroupId: String(item.fallbackGroupId ?? ""),
+                dimensionMode: (item.dimensionMode === "full" ? "full" : "first_two") as "full" | "first_two",
+                columnMappings: Array.isArray(item.columnMappings)
+                  ? item.columnMappings
+                      .map((mapping) => mapping as Partial<MappingGroupColumnMapping> & { pairs?: unknown })
+                      .map((mapping) => ({
+                        id: String(mapping.id ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`),
+                        csvColumn: String(mapping.csvColumn ?? ""),
+                        competitorColumn: String(mapping.competitorColumn ?? "") as MappingGroupCompetitorColumn,
+                        pairs: Array.isArray(mapping.pairs)
+                          ? mapping.pairs
+                              .map((pair) => pair as Partial<MappingGroupPair>)
+                              .map((pair) => ({
+                                id: String(pair.id ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`),
+                                csvValue: String(pair.csvValue ?? ""),
+                                pipelineValue: String(pair.pipelineValue ?? ""),
+                                exactMatch: Boolean(pair.exactMatch),
+                                csvFirstTwoDimensions: Boolean(pair.csvFirstTwoDimensions),
+                              }))
+                          : [],
+                      }))
+                  : [],
+              }))
+          : [])
     setMappingGroups(loadedGroups)
   }
 
@@ -2451,6 +2542,12 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     const currentPipelineMappings = Array.isArray(currentMapping.pipelineMappingConfigs) ? currentMapping.pipelineMappingConfigs : []
     const currentMappingGroups = Array.isArray(currentMapping.mappingGroups) ? currentMapping.mappingGroups : []
 
+    persistConfigMappingShadow(name, {
+      mappingRules: currentMappingRules,
+      pipelineMappingConfigs: currentPipelineMappings,
+      mappingGroups: currentMappingGroups,
+    })
+
     const standardOffsetRaw = Number(standardRateRoundingOffset)
     const standardOffset = Number.isFinite(standardOffsetRaw)
       ? Math.min(1, Math.max(0, standardOffsetRaw))
@@ -2549,7 +2646,9 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     pipelineMappingConfigs,
     mappingDraftStorageKey,
     popupAdjusters,
+    persistConfigMappingShadow,
     persistMappingDraft,
+    readConfigMappingShadow,
     resolvedAmenityAdjuster,
     snapshotId,
     standardRateFunction,
