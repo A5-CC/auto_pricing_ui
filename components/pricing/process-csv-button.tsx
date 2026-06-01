@@ -1598,6 +1598,48 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
   const [pipelineMappingConfigs, setPipelineMappingConfigs] = useState<PipelineMappingConfig[]>([])
   const [mappingGroups, setMappingGroups] = useState<MappingGroup[]>([])
   const [selectedMappingGroupId, setSelectedMappingGroupId] = useState("")
+  const mappingDraftStorageKey = useMemo(
+    () => `process-csv-mapping-draft:${snapshotId || "default"}`,
+    [snapshotId]
+  )
+  const mappingSnapshotRef = useRef<{
+    mappingRules: PipelineMappingRule[]
+    pipelineMappingConfigs: PipelineMappingConfig[]
+    mappingGroups: MappingGroup[]
+  }>({
+    mappingRules: [],
+    pipelineMappingConfigs: [],
+    mappingGroups: [],
+  })
+
+  const persistMappingDraft = useCallback((snapshot: {
+    mappingRules: PipelineMappingRule[]
+    pipelineMappingConfigs: PipelineMappingConfig[]
+    mappingGroups: MappingGroup[]
+  }) => {
+    mappingSnapshotRef.current = snapshot
+    try {
+      window.localStorage.setItem(
+        mappingDraftStorageKey,
+        JSON.stringify({
+          updated_at: new Date().toISOString(),
+          mapping_rules: snapshot.mappingRules,
+          pipeline_mappings: snapshot.pipelineMappingConfigs,
+          mapping_groups: snapshot.mappingGroups,
+        })
+      )
+    } catch {
+      // ignore persistence failures
+    }
+  }, [mappingDraftStorageKey])
+
+  useEffect(() => {
+    persistMappingDraft({
+      mappingRules,
+      pipelineMappingConfigs,
+      mappingGroups,
+    })
+  }, [mappingRules, pipelineMappingConfigs, mappingGroups, persistMappingDraft])
 
   const functionDialog = useAdjusterDialog()
   const showLevelsAdjusterPreview = useMemo(() => hasConfiguredLevelsAdjuster(amenityAdjuster), [amenityAdjuster])
@@ -2080,6 +2122,11 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     setMappingRules([])
     setMappingGroups([])
     setPipelineMappingConfigs(mappingPipelineNames.map((name) => createDefaultPipelineMappingConfig(name)))
+    try {
+      window.localStorage.removeItem(mappingDraftStorageKey)
+    } catch {
+      // ignore
+    }
     setStandardRateFunction(DEFAULT_STANDARD_RATE_FUNCTION)
     setStandardRateRoundingEnabled(false)
     setStandardRateRoundingOffset(0)
@@ -2393,6 +2440,17 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
   }
 
   const saveProcessCsvConfigurationByName = useCallback(async (name: string, options?: { silent?: boolean }) => {
+    persistMappingDraft({
+      mappingRules,
+      pipelineMappingConfigs,
+      mappingGroups,
+    })
+
+    const currentMapping = mappingSnapshotRef.current
+    const currentMappingRules = Array.isArray(currentMapping.mappingRules) ? currentMapping.mappingRules : []
+    const currentPipelineMappings = Array.isArray(currentMapping.pipelineMappingConfigs) ? currentMapping.pipelineMappingConfigs : []
+    const currentMappingGroups = Array.isArray(currentMapping.mappingGroups) ? currentMapping.mappingGroups : []
+
     const standardOffsetRaw = Number(standardRateRoundingOffset)
     const standardOffset = Number.isFinite(standardOffsetRaw)
       ? Math.min(1, Math.max(0, standardOffsetRaw))
@@ -2402,9 +2460,9 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     const expectedRoundingEnabled = Boolean(standardRateRoundingEnabled)
     const expectedRoundingOffset = standardOffset
     const expectedAdjustersCount = Array.isArray(popupAdjusters) ? popupAdjusters.length : 0
-    const expectedRulesCount = Array.isArray(mappingRules) ? mappingRules.length : 0
-    const expectedPipelineMappingsCount = Array.isArray(pipelineMappingConfigs) ? pipelineMappingConfigs.length : 0
-    const expectedMappingGroupsCount = Array.isArray(mappingGroups) ? mappingGroups.length : 0
+    const expectedRulesCount = currentMappingRules.length
+    const expectedPipelineMappingsCount = currentPipelineMappings.length
+    const expectedMappingGroupsCount = currentMappingGroups.length
 
     await saveProcessCsvConfiguration({
       name,
@@ -2421,13 +2479,13 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
         standard: resolvedAmenityAdjuster.standard,
         economy: resolvedAmenityAdjuster.economy,
       },
-      mapping_rules: mappingRules,
-      pipeline_mappings: pipelineMappingConfigs,
-      mapping_groups: mappingGroups,
+      mapping_rules: currentMappingRules,
+      pipeline_mappings: currentPipelineMappings,
+      mapping_groups: currentMappingGroups,
       mapping: {
-        mapping_rules: mappingRules,
-        pipeline_mappings: pipelineMappingConfigs,
-        mapping_groups: mappingGroups,
+        mapping_rules: currentMappingRules,
+        pipeline_mappings: currentPipelineMappings,
+        mapping_groups: currentMappingGroups,
       },
     })
 
@@ -2489,7 +2547,9 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     mappingGroups,
     mappingRules,
     pipelineMappingConfigs,
+    mappingDraftStorageKey,
     popupAdjusters,
+    persistMappingDraft,
     resolvedAmenityAdjuster,
     snapshotId,
     standardRateFunction,
