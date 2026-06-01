@@ -262,9 +262,12 @@ function serializeMappingRulesForSave(
   rules: PipelineMappingRule[]
 ): ProcessCsvConfigurationPayload["mapping_rules"] {
   return rules.map((rule) => ({
-    ...rule,
+    id: rule.id,
     pipeline_name: rule.pipelineName,
-  })) as ProcessCsvConfigurationPayload["mapping_rules"]
+    column: rule.column,
+    operator: rule.operator,
+    value: rule.value,
+  })) as unknown as ProcessCsvConfigurationPayload["mapping_rules"]
 }
 
 function serializePipelineMappingsForSave(
@@ -332,44 +335,31 @@ function serializePipelineMappingsForSave(
       })
 
       return ({
-    pipelineName: cfg.pipelineName,
     pipeline_name: cfg.pipelineName,
-    csvLocationColumn: cfg.csvLocationColumn,
     csv_location_column: cfg.csvLocationColumn,
-    csvDimensionColumn: cfg.csvDimensionColumn,
     csv_dimension_column: cfg.csvDimensionColumn,
-    csvAreaColumn: cfg.csvAreaColumn,
     csv_area_column: cfg.csvAreaColumn,
-    csvAmenitiesColumn: cfg.csvAmenitiesColumn,
     csv_amenities_column: cfg.csvAmenitiesColumn,
-    dimensionMode: cfg.dimensionMode,
     dimension_mode: cfg.dimensionMode,
     ...(fallbackPipelineName
       ? {
-          fallbackPipelineName,
           fallback_pipeline_name: fallbackPipelineName,
         }
       : {}),
-    csvColumnMappings,
     csv_column_mappings: csvColumnMappings,
-    columnMappings: csvColumnMappings,
     column_mappings: csvColumnMappings,
     locationMappings: normalizedLocationMappings.map((mapping) => ({
       id: mapping.id,
-      csvValue: mapping.csvValue,
       csv_value: mapping.csvValue,
-      pipelineValue: mapping.pipelineValue,
       pipeline_value: mapping.pipelineValue,
     })),
     location_mappings: normalizedLocationMappings.map((mapping) => ({
       id: mapping.id,
-      csvValue: mapping.csvValue,
       csv_value: mapping.csvValue,
-      pipelineValue: mapping.pipelineValue,
       pipeline_value: mapping.pipelineValue,
     })),
     })
-    }) as ProcessCsvConfigurationPayload["pipeline_mappings"]
+    }) as unknown as ProcessCsvConfigurationPayload["pipeline_mappings"]
 }
 
 function serializeMappingGroupsForSave(
@@ -431,16 +421,13 @@ function serializeMappingGroupsForSave(
         pipeline_name: group.pipelineName,
         ...(fallbackGroupId
           ? {
-              fallbackGroupId,
               fallback_group_id: fallbackGroupId,
             }
           : {}),
-        dimensionMode: group.dimensionMode,
         dimension_mode: group.dimensionMode,
-        columnMappings: normalizedColumnMappings,
         column_mappings: normalizedColumnMappings,
       }
-    }) as ProcessCsvConfigurationPayload["mapping_groups"]
+    }) as unknown as ProcessCsvConfigurationPayload["mapping_groups"]
 }
 
 function createDefaultAmenityAdjusterState(): AmenityAdjusterState {
