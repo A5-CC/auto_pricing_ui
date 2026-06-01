@@ -2,37 +2,51 @@
 
 
 import { useMemo } from "react"
+import { normalizeFilterValue, toFilterDisplayValue } from "@/lib/pricing/filter-value-normalization"
 
 export function useUniversalFilter<T extends Record<string, unknown>>(
   rows: T[],
   columnKey: string
 ) {
   const allValues = useMemo(() => {
-    const s = new Set<string>()
+    const canonicalByNormalized = new Map<string, string>()
     if (!rows || !columnKey) return [] as string[]
+
+    const addValue = (candidate: unknown) => {
+      const display = toFilterDisplayValue(candidate)
+      if (!display) return
+      const normalized = normalizeFilterValue(display)
+      if (!normalized) return
+      if (!canonicalByNormalized.has(normalized)) {
+        canonicalByNormalized.set(normalized, display)
+      }
+    }
+
     for (const r of rows) {
       const v = r[columnKey as keyof T]
       if (v === null || v === undefined) continue
       if (Array.isArray(v)) {
-        for (const x of v) if (typeof x === "string" && x.length) s.add(x)
+        for (const x of v) addValue(x)
       } else {
-        const str = typeof v === "string" ? v : String(v)
-        if (str.length) s.add(str)
+        addValue(v)
       }
     }
-    return Array.from(s).sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }))
+
+    return Array.from(canonicalByNormalized.values()).sort((a, b) =>
+      a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" })
+    )
   }, [rows, columnKey])
 
   const filterRows = (rowsToFilter: T[], selectedValues: string[]) => {
     if (!selectedValues || selectedValues.length === 0) return rowsToFilter
-    const sel = new Set(selectedValues)
+    const sel = new Set(selectedValues.map(normalizeFilterValue).filter(Boolean))
     return rowsToFilter.filter((r) => {
       const v = r[columnKey as keyof T]
       if (v === null || v === undefined) return false
       if (Array.isArray(v)) {
-        return v.some((x) => sel.has(String(x)))
+        return v.some((x) => sel.has(normalizeFilterValue(x)))
       }
-      return sel.has(String(v))
+      return sel.has(normalizeFilterValue(v))
     })
   }
 

@@ -20,6 +20,7 @@ import {
   getE1Client,
 } from "@/lib/api/client/pipelines";
 import { getColumnStatistics, getPricingData, getPricingSchemas, getPricingSnapshots } from "@/lib/api/client/pricing";
+import { normalizeFilterValue } from "@/lib/pricing/filter-value-normalization";
 import type {
   ColumnStatistics,
   Pipeline,
@@ -427,12 +428,12 @@ export default function PipelinesPage() {
       if (!Array.isArray(vals) || vals.length === 0) continue
 
       const resolvedColumn = FILTER_KEY_TO_COLUMN[col] ?? col
-      const sel = new Set(vals.map((v) => String(v)))
+      const sel = new Set(vals.map((v) => normalizeFilterValue(v)).filter(Boolean))
       rows = rows.filter((r) => {
         const v = r[resolvedColumn]
         if (v === null || v === undefined) return false
-        if (Array.isArray(v)) return (v as unknown[]).some((x) => sel.has(String(x)))
-        return sel.has(String(v))
+        if (Array.isArray(v)) return (v as unknown[]).some((x) => sel.has(normalizeFilterValue(x)))
+        return sel.has(normalizeFilterValue(v))
       })
     }
     return rows as unknown as PricingDataResponse["data"]

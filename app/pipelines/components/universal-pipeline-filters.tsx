@@ -13,6 +13,7 @@ import { SectionLabel } from "@/components/ui/section-label"
 import { useUniversalFilter } from "@/hooks/useUniversalFilter"
 import type { E1DataRow, PricingSchemas } from "@/lib/api/types"
 import { getCanonicalLabel } from "@/lib/pricing/column-labels"
+import { normalizeFilterValue } from "@/lib/pricing/filter-value-normalization"
 import { useEffect, useMemo, useState, type ChangeEvent, type MouseEvent } from "react"
 
 interface UniversalPipelineFiltersProps {
@@ -155,13 +156,13 @@ function FilterRow({ columnKey, rows, schemaCols, values, combinatoric, onChange
     const canonicalByKey = new Map<string, string>()
     for (const v of allValues) {
       const s = String(v)
-      canonicalByKey.set(s.trim().toLowerCase(), s)
+      canonicalByKey.set(normalizeFilterValue(s), s)
     }
 
     const next: string[] = []
     const seen = new Set<string>()
     for (const raw of values) {
-      const key = String(raw).trim().toLowerCase()
+      const key = normalizeFilterValue(raw)
       const canonical = canonicalByKey.get(key)
       if (!canonical) continue
       if (seen.has(canonical)) continue

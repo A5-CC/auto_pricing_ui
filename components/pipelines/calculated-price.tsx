@@ -2,6 +2,7 @@ import type { Adjuster } from '@/lib/adjusters'
 import { calculatePrice } from '@/lib/adjusters'
 import type { E1DataRow } from '@/lib/api/types'
 import { getColumnLabel } from '@/lib/pricing/column-labels'
+import { normalizeFilterValue } from '@/lib/pricing/filter-value-normalization'
 import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
@@ -29,8 +30,10 @@ export interface CalculatedPriceTableResult {
 
 function rowMatchesValue(cell: unknown, selected: FilterValue): boolean {
   if (cell === null || cell === undefined) return false
-  if (Array.isArray(cell)) return cell.some((item) => String(item) === String(selected))
-  return String(cell) === String(selected)
+  const target = normalizeFilterValue(selected)
+  if (!target) return false
+  if (Array.isArray(cell)) return cell.some((item) => normalizeFilterValue(item) === target)
+  return normalizeFilterValue(cell) === target
 }
 
 function cartesianProduct<T>(arrays: T[][]): T[][] {
@@ -103,12 +106,12 @@ export function calculatePriceTable({
     if (preFilters.length === 0) return inputRows
     let pool = inputRows
     for (const pf of preFilters) {
-      const set = new Set(pf.values.map(String))
+      const set = new Set(pf.values.map((value) => normalizeFilterValue(value)).filter(Boolean))
       pool = pool.filter((row) => {
         const val = (row as Record<string, unknown>)[pf.column]
         if (val === null || val === undefined) return false
-        if (Array.isArray(val)) return val.some((item) => set.has(String(item)))
-        return set.has(String(val))
+        if (Array.isArray(val)) return val.some((item) => set.has(normalizeFilterValue(item)))
+        return set.has(normalizeFilterValue(val))
       })
     }
     return pool
