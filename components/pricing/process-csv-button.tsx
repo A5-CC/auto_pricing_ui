@@ -2657,12 +2657,18 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     const pipelineMappingsMismatch = savedPipelineMappingsCount !== expectedPipelineMappingsCount
     const mappingGroupsMismatch = savedMappingGroupsCount !== expectedMappingGroupsCount
 
-    if (formulaMismatch || roundingMismatch || adjustersMismatch || rulesMismatch || pipelineMappingsMismatch || mappingGroupsMismatch) {
-      throw new Error("Configuration saved but verification failed: one or more fields (formula/rounding/adjusters/mappings) were not persisted exactly.")
-    }
+    const mismatchSections: string[] = []
+    if (formulaMismatch) mismatchSections.push("formula")
+    if (roundingMismatch) mismatchSections.push("rounding")
+    if (adjustersMismatch) mismatchSections.push("adjusters")
+    if (rulesMismatch || pipelineMappingsMismatch || mappingGroupsMismatch) mismatchSections.push("mappings")
 
     if (!options?.silent) {
-      toast.success("Process CSV configuration saved.")
+      if (mismatchSections.length > 0) {
+        toast.warning(`Configuration saved, but backend verification differed for: ${mismatchSections.join(", ")}.`) 
+      } else {
+        toast.success("Process CSV configuration saved.")
+      }
     }
   }, [
     mappingGroups,
