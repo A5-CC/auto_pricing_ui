@@ -82,6 +82,109 @@ type ProcessCsvConfigurationResponseItem = Partial<ProcessCsvConfiguration> & {
   payload?: Partial<ProcessCsvConfigurationPayload> | string
 }
 
+type ProcessCsvMappingShadow = {
+  mapping_rules: NonNullable<ProcessCsvConfigurationPayload["mapping_rules"]>
+  pipeline_mappings: NonNullable<ProcessCsvConfigurationPayload["pipeline_mappings"]>
+  mapping_groups: NonNullable<ProcessCsvConfigurationPayload["mapping_groups"]>
+  updated_at: string
+}
+
+const PROCESS_CSV_MAPPING_SHADOW_KEY = "__apu_process_csv_mapping_shadow_v1"
+
+function getMappingSnapshot(payload: Partial<ProcessCsvConfigurationPayload>): ProcessCsvMappingShadow {
+  const nested = (payload.mapping ?? {}) as NonNullable<ProcessCsvConfigurationPayload["mapping"]>
+  const mapping_rules = (payload.mapping_rules ?? nested.mapping_rules ?? []) as NonNullable<ProcessCsvConfigurationPayload["mapping_rules"]>
+  const pipeline_mappings = (payload.pipeline_mappings ?? nested.pipeline_mappings ?? []) as NonNullable<ProcessCsvConfigurationPayload["pipeline_mappings"]>
+  const mapping_groups = (payload.mapping_groups ?? nested.mapping_groups ?? []) as NonNullable<ProcessCsvConfigurationPayload["mapping_groups"]>
+
+  return {
+    mapping_rules: Array.isArray(mapping_rules) ? mapping_rules : [],
+    pipeline_mappings: Array.isArray(pipeline_mappings) ? pipeline_mappings : [],
+    mapping_groups: Array.isArray(mapping_groups) ? mapping_groups : [],
+    updated_at: new Date().toISOString(),
+  }
+}
+
+function hasAnyMapping(snapshot: ProcessCsvMappingShadow): boolean {
+  return snapshot.mapping_rules.length > 0 || snapshot.pipeline_mappings.length > 0 || snapshot.mapping_groups.length > 0
+}
+
+function readMappingShadowStore(): Record<string, ProcessCsvMappingShadow> {
+  if (typeof window === "undefined") return {}
+  try {
+    const raw = window.localStorage.getItem(PROCESS_CSV_MAPPING_SHADOW_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw) as unknown
+    if (!parsed || typeof parsed !== "object") return {}
+    return parsed as Record<string, ProcessCsvMappingShadow>
+  } catch {
+    return {}
+  }
+}
+
+function writeMappingShadowStore(store: Record<string, ProcessCsvMappingShadow>): void {
+  if (typeof window === "undefined") return
+  try {
+    window.localStorage.setItem(PROCESS_CSV_MAPPING_SHADOW_KEY, JSON.stringify(store))
+  } catch {
+    // ignore
+  }
+}
+
+function buildMappingShadowNameKey(snapshotId: string, name: string): string {
+  return `name:${snapshotId}:${name}`
+}
+
+function buildMappingShadowIdKey(id: string): string {
+  return `id:${id}`
+}
+
+function persistMappingShadow(
+  mapping: ProcessCsvMappingShadow,
+  options: {
+    snapshotId?: string
+    name?: string
+    id?: string
+  }
+): void {
+  if (!hasAnyMapping(mapping)) return
+  const store = readMappingShadowStore()
+  const snapshotId = String(options.snapshotId ?? "").trim()
+  const name = String(options.name ?? "").trim()
+  const id = String(options.id ?? "").trim()
+
+  if (snapshotId && name) {
+    store[buildMappingShadowNameKey(snapshotId, name)] = mapping
+  }
+  if (id) {
+    store[buildMappingShadowIdKey(id)] = mapping
+  }
+
+  writeMappingShadowStore(store)
+}
+
+function readPersistedMappingShadow(options: {
+  snapshotId?: string
+  name?: string
+  id?: string
+}): ProcessCsvMappingShadow | null {
+  const store = readMappingShadowStore()
+  const id = String(options.id ?? "").trim()
+  if (id) {
+    const byId = store[buildMappingShadowIdKey(id)]
+    if (byId) return byId
+  }
+
+  const snapshotId = String(options.snapshotId ?? "").trim()
+  const name = String(options.name ?? "").trim()
+  if (snapshotId && name) {
+    const byName = store[buildMappingShadowNameKey(snapshotId, name)]
+    if (byName) return byName
+  }
+
+  return null
+}
+
 export async function getPricingSchemas(): Promise<PricingSchemas> {
   return cachedFetch(
     'pricing-schemas',
@@ -253,20 +356,38 @@ export async function saveProcessCsvConfiguration(
     },
   }
 
+  const mappingSnapshot = getMappingSnapshot(wrappedPayload.payload as Partial<ProcessCsvConfigurationPayload>)
+  persistMappingShadow(mappingSnapshot, {
+    snapshotId: payload.snapshot_id,
+    name: payload.name,
+  })
+
   try {
     const response = await fetchWithError(`${API_BASE_URL}/client-data/process-csv-configurations`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(wrappedPayload),
     })
-    return response.json()
+    const result = await response.json() as { success: boolean; id?: string; name?: string }
+    persistMappingShadow(mappingSnapshot, {
+      snapshotId: payload.snapshot_id,
+      name: result?.name ?? payload.name,
+      id: result?.id,
+    })
+    return result
   } catch {
     const fallback = await fetchWithError(`${API_BASE_URL}/client-data/process-csv-configurations`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     })
-    return fallback.json()
+    const result = await fallback.json() as { success: boolean; id?: string; name?: string }
+    persistMappingShadow(mappingSnapshot, {
+      snapshotId: payload.snapshot_id,
+      name: result?.name ?? payload.name,
+      id: result?.id,
+    })
+    return result
   }
 }
 
@@ -315,6 +436,26 @@ export async function listProcessCsvConfigurations(
       ?? topLevelMapping.mapping_groups
       ?? []) as ProcessCsvConfigurationPayload["mapping_groups"]
 
+    const normalizedMappingRules = Array.isArray(mappingRules) ? mappingRules : []
+    const normalizedPipelineMappings = Array.isArray(pipelineMappings) ? pipelineMappings : []
+    const normalizedMappingGroups = Array.isArray(mappingGroups) ? mappingGroups : []
+
+    const mappingFallback = readPersistedMappingShadow({
+      id: String(item?.id ?? ""),
+      snapshotId: String((payload as ProcessCsvConfigurationPayload).snapshot_id ?? item?.snapshot_id ?? ""),
+      name: String((payload as ProcessCsvConfigurationPayload).name ?? item?.name ?? ""),
+    })
+
+    const effectiveMappingRules = normalizedMappingRules.length > 0
+      ? normalizedMappingRules
+      : (mappingFallback?.mapping_rules ?? [])
+    const effectivePipelineMappings = normalizedPipelineMappings.length > 0
+      ? normalizedPipelineMappings
+      : (mappingFallback?.pipeline_mappings ?? [])
+    const effectiveMappingGroups = normalizedMappingGroups.length > 0
+      ? normalizedMappingGroups
+      : (mappingFallback?.mapping_groups ?? [])
+
     return {
       ...(payload as ProcessCsvConfigurationPayload),
       ...(item as Partial<ProcessCsvConfiguration>),
@@ -327,13 +468,13 @@ export async function listProcessCsvConfigurations(
       standard_rate_rounding: ((payload as ProcessCsvConfigurationPayload).standard_rate_rounding ?? item?.standard_rate_rounding ?? { enabled: false, offset: 0 }) as ProcessCsvConfigurationPayload["standard_rate_rounding"],
       competitive_adjusters: (((payload as ProcessCsvConfigurationPayload).competitive_adjusters ?? item?.competitive_adjusters ?? []) as Adjuster[]),
       levels_adjuster: (((payload as ProcessCsvConfigurationPayload).levels_adjuster ?? item?.levels_adjuster ?? { apply_to_web: true }) as ProcessCsvConfigurationPayload["levels_adjuster"]),
-      mapping_rules: Array.isArray(mappingRules) ? mappingRules : [],
-      pipeline_mappings: Array.isArray(pipelineMappings) ? pipelineMappings : [],
-      mapping_groups: Array.isArray(mappingGroups) ? mappingGroups : [],
+      mapping_rules: effectiveMappingRules,
+      pipeline_mappings: effectivePipelineMappings,
+      mapping_groups: effectiveMappingGroups,
       mapping: {
-        mapping_rules: Array.isArray(mappingRules) ? mappingRules : [],
-        pipeline_mappings: Array.isArray(pipelineMappings) ? pipelineMappings : [],
-        mapping_groups: Array.isArray(mappingGroups) ? mappingGroups : [],
+        mapping_rules: effectiveMappingRules,
+        pipeline_mappings: effectivePipelineMappings,
+        mapping_groups: effectiveMappingGroups,
       },
     }
   }
