@@ -232,23 +232,6 @@ export default function PipelineBundlesPage() {
       const roundingEnabled = Boolean(rounding.enabled);
       const roundingOffset = Number(rounding.offset ?? 0);
 
-      const calculatedRows = calculatePriceTable({
-        competitorData: subsetFilteredRows as PricingDataResponse["data"],
-        clientAvailableUnits: clientDataResponse?.data.length || 0,
-        adjusters,
-        currentDate,
-        filters,
-        combinatoricFlags: mergedCombinatoricFlags,
-      }).rows;
-
-      const roundedCalculatedRows = calculatedRows.map((row) => {
-        if (typeof row.price !== "number" || Number.isNaN(row.price)) return row;
-        return {
-          ...row,
-          price: applyConfiguredRounding(row.price, rounding),
-        };
-      });
-
       const getDistinctValues = (rows: Array<Record<string, unknown>>, key: string): string[] => {
         const set = new Set<string>();
         for (const row of rows) {
@@ -322,6 +305,7 @@ export default function PipelineBundlesPage() {
         currentDate,
         filters: csvFilters,
         combinatoricFlags: csvCombinatoricFlags,
+        existingCombinationsOnly: true,
       }).rows;
 
       const roundedCalculatedRowsForCsv = calculatedRowsForCsv.map((row) => {
@@ -340,7 +324,6 @@ export default function PipelineBundlesPage() {
         mergedCombinatoricFlags,
         roundingEnabled,
         roundingOffset,
-        calculatedRows: roundedCalculatedRows,
         calculatedRowsForCsv: roundedCalculatedRowsForCsv,
       };
     });

@@ -21,6 +21,7 @@ export interface CalculatePriceTableParams {
   currentDate: Date
   filters?: Record<string, FilterSelection>
   combinatoricFlags?: Record<string, boolean>
+  existingCombinationsOnly?: boolean
 }
 
 export interface CalculatedPriceTableResult {
@@ -69,6 +70,7 @@ export function calculatePriceTable({
   currentDate,
   filters = {},
   combinatoricFlags = {},
+  existingCombinationsOnly = false,
 }: CalculatePriceTableParams): CalculatedPriceTableResult {
   if (!adjusters || adjusters.length === 0) {
     return { rows: [], headers: ['Price'] }
@@ -151,7 +153,49 @@ export function calculatePriceTable({
     }
   }
 
-  const combinations = cartesianProduct<FilterValue>(arrays)
+  const combinations = (() => {
+    if (!existingCombinationsOnly) {
+      return cartesianProduct<FilterValue>(arrays)
+    }
+
+    const pool = applyPreFilters(competitorData)
+    const selectedSets = arrays.map((vals) => new Set(vals.map((v) => normalizeFilterValue(v)).filter(Boolean)))
+    const seen = new Set<string>()
+    const observed: FilterValue[][] = []
+
+    const valuesFromCell = (cell: unknown, selectedSet: Set<string>): FilterValue[] => {
+      if (cell === null || cell === undefined) return []
+      const raw = Array.isArray(cell) ? cell : [cell]
+      const next: FilterValue[] = []
+      const localSeen = new Set<string>()
+      for (const candidate of raw) {
+        const norm = normalizeFilterValue(candidate)
+        if (!norm || !selectedSet.has(norm) || localSeen.has(norm)) continue
+        localSeen.add(norm)
+        next.push(candidate as FilterValue)
+      }
+      return next
+    }
+
+    for (const row of pool) {
+      const perColumnValues = columnNames.map((col, i) => {
+        const cell = (row as Record<string, unknown>)[col]
+        return valuesFromCell(cell, selectedSets[i])
+      })
+
+      if (perColumnValues.some((vals) => vals.length === 0)) continue
+
+      const combosForRow = cartesianProduct<FilterValue>(perColumnValues)
+      for (const combo of combosForRow) {
+        const key = combo.map((item) => normalizeFilterValue(item)).join("||")
+        if (!key || seen.has(key)) continue
+        seen.add(key)
+        observed.push(combo)
+      }
+    }
+
+    return observed
+  })()
 
   const resultRows = combinations
     .map((combo): CalculatedPriceRow => {
