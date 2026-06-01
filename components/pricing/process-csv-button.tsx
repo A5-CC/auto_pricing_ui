@@ -322,9 +322,14 @@ function serializePipelineMappingsForSave(
         csvColumn: cfg.csvAmenitiesColumn,
         csv_column: cfg.csvAmenitiesColumn,
       },
-    ]
+    ].filter((mapping) => String(mapping.csvColumn ?? "").trim().length > 0)
 
       const fallbackPipelineName = String(cfg.fallbackPipelineName ?? "").trim()
+      const normalizedLocationMappings = (cfg.locationMappings ?? []).filter((mapping) => {
+        const csvValue = String(mapping.csvValue ?? "").trim()
+        const pipelineValue = String(mapping.pipelineValue ?? "").trim()
+        return csvValue.length > 0 && pipelineValue.length > 0
+      })
 
       return ({
     pipelineName: cfg.pipelineName,
@@ -349,14 +354,14 @@ function serializePipelineMappingsForSave(
     csv_column_mappings: csvColumnMappings,
     columnMappings: csvColumnMappings,
     column_mappings: csvColumnMappings,
-    locationMappings: (cfg.locationMappings ?? []).map((mapping) => ({
+    locationMappings: normalizedLocationMappings.map((mapping) => ({
       id: mapping.id,
       csvValue: mapping.csvValue,
       csv_value: mapping.csvValue,
       pipelineValue: mapping.pipelineValue,
       pipeline_value: mapping.pipelineValue,
     })),
-    location_mappings: (cfg.locationMappings ?? []).map((mapping) => ({
+    location_mappings: normalizedLocationMappings.map((mapping) => ({
       id: mapping.id,
       csvValue: mapping.csvValue,
       csv_value: mapping.csvValue,
@@ -370,60 +375,65 @@ function serializePipelineMappingsForSave(
 function serializeMappingGroupsForSave(
   groups: MappingGroup[]
 ): ProcessCsvConfigurationPayload["mapping_groups"] {
-  return groups.map((group) => ({
-    id: group.id,
-    name: group.name,
-    pipelineName: group.pipelineName,
-    pipeline_name: group.pipelineName,
-    fallbackGroupId: group.fallbackGroupId,
-    fallback_group_id: group.fallbackGroupId,
-    dimensionMode: group.dimensionMode,
-    dimension_mode: group.dimensionMode,
-    columnMappings: (group.columnMappings ?? []).map((mapping) => ({
-      id: mapping.id,
-      csvColumn: mapping.csvColumn,
-      csv_column: mapping.csvColumn,
-      competitorColumn: mapping.competitorColumn,
-      competitor_column: mapping.competitorColumn,
-      pairs: (mapping.pairs ?? []).map((pair) => ({
-        id: pair.id,
-        csvValue: pair.csvValue,
-        csv_value: pair.csvValue,
-        pipelineValue: pair.pipelineValue,
-        pipeline_value: pair.pipelineValue,
-        exactMatch: pair.exactMatch,
-        exact_match: pair.exactMatch,
-        csvFirstTwoDimensions: pair.csvFirstTwoDimensions,
-        csv_first_two_dimensions: pair.csvFirstTwoDimensions,
-        csvContains: pair.csvContains,
-        csv_contains: pair.csvContains,
-        pipelineContains: pair.pipelineContains,
-        pipeline_contains: pair.pipelineContains,
-      })),
-    })),
-    column_mappings: (group.columnMappings ?? []).map((mapping) => ({
-      id: mapping.id,
-      csvColumn: mapping.csvColumn,
-      csv_column: mapping.csvColumn,
-      competitorColumn: mapping.competitorColumn,
-      competitor_column: mapping.competitorColumn,
-      pairs: (mapping.pairs ?? []).map((pair) => ({
-        id: pair.id,
-        csvValue: pair.csvValue,
-        csv_value: pair.csvValue,
-        pipelineValue: pair.pipelineValue,
-        pipeline_value: pair.pipelineValue,
-        exactMatch: pair.exactMatch,
-        exact_match: pair.exactMatch,
-        csvFirstTwoDimensions: pair.csvFirstTwoDimensions,
-        csv_first_two_dimensions: pair.csvFirstTwoDimensions,
-        csvContains: pair.csvContains,
-        csv_contains: pair.csvContains,
-        pipelineContains: pair.pipelineContains,
-        pipeline_contains: pair.pipelineContains,
-      })),
-    })),
-  })) as ProcessCsvConfigurationPayload["mapping_groups"]
+  return groups
+    .filter((group) => String(group.pipelineName ?? "").trim().length > 0)
+    .map((group) => {
+      const fallbackGroupId = String(group.fallbackGroupId ?? "").trim()
+      const normalizedColumnMappings = (group.columnMappings ?? [])
+        .filter((mapping) => {
+          const csvColumn = String(mapping.csvColumn ?? "").trim()
+          const pipelineColumn = String(mapping.competitorColumn ?? "").trim()
+          const hasPairs = Array.isArray(mapping.pairs) && mapping.pairs.length > 0
+          return Boolean((csvColumn && pipelineColumn) || hasPairs)
+        })
+        .map((mapping) => ({
+          id: mapping.id,
+          csvColumn: mapping.csvColumn,
+          csv_column: mapping.csvColumn,
+          competitorColumn: mapping.competitorColumn,
+          competitor_column: mapping.competitorColumn,
+          pipelineColumn: mapping.competitorColumn,
+          pipeline_column: mapping.competitorColumn,
+          pairs: (mapping.pairs ?? [])
+            .filter((pair) => {
+              const csvValue = String(pair.csvValue ?? "").trim()
+              const pipelineValue = String(pair.pipelineValue ?? "").trim()
+              return csvValue.length > 0 || pipelineValue.length > 0
+            })
+            .map((pair) => ({
+            id: pair.id,
+            csvValue: pair.csvValue,
+            csv_value: pair.csvValue,
+            pipelineValue: pair.pipelineValue,
+            pipeline_value: pair.pipelineValue,
+            exactMatch: pair.exactMatch,
+            exact_match: pair.exactMatch,
+            csvFirstTwoDimensions: pair.csvFirstTwoDimensions,
+            csv_first_two_dimensions: pair.csvFirstTwoDimensions,
+            csvContains: pair.csvContains,
+            csv_contains: pair.csvContains,
+            pipelineContains: pair.pipelineContains,
+            pipeline_contains: pair.pipelineContains,
+          })),
+        }))
+
+      return {
+        id: group.id,
+        name: group.name,
+        pipelineName: group.pipelineName,
+        pipeline_name: group.pipelineName,
+        ...(fallbackGroupId
+          ? {
+              fallbackGroupId,
+              fallback_group_id: fallbackGroupId,
+            }
+          : {}),
+        dimensionMode: group.dimensionMode,
+        dimension_mode: group.dimensionMode,
+        columnMappings: normalizedColumnMappings,
+        column_mappings: normalizedColumnMappings,
+      }
+    }) as ProcessCsvConfigurationPayload["mapping_groups"]
 }
 
 function createDefaultAmenityAdjusterState(): AmenityAdjusterState {
