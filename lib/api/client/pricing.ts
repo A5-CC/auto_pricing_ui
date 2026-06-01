@@ -91,13 +91,41 @@ type ProcessCsvMappingShadow = {
   updated_at: string
 }
 
+type MappingEnvelopeLike = {
+  mapping_rules?: unknown
+  mappingRules?: unknown
+  pipeline_mappings?: unknown
+  pipelineMappings?: unknown
+  mapping_groups?: unknown
+  mappingGroups?: unknown
+}
+
 const PROCESS_CSV_MAPPING_SHADOW_KEY = "__apu_process_csv_mapping_shadow_v1"
 
 function getMappingSnapshot(payload: Partial<ProcessCsvConfigurationPayload>): ProcessCsvMappingShadow {
-  const nested = (payload.mapping ?? {}) as NonNullable<ProcessCsvConfigurationPayload["mapping"]>
-  const mapping_rules = (payload.mapping_rules ?? nested.mapping_rules ?? []) as NonNullable<ProcessCsvConfigurationPayload["mapping_rules"]>
-  const pipeline_mappings = (payload.pipeline_mappings ?? nested.pipeline_mappings ?? []) as NonNullable<ProcessCsvConfigurationPayload["pipeline_mappings"]>
-  const mapping_groups = (payload.mapping_groups ?? nested.mapping_groups ?? []) as NonNullable<ProcessCsvConfigurationPayload["mapping_groups"]>
+  const payloadRecord = payload as Record<string, unknown>
+  const nested = (payload.mapping ?? payloadRecord.mappings ?? {}) as NonNullable<ProcessCsvConfigurationPayload["mapping"]> & MappingEnvelopeLike
+  const mapping_rules = (
+    payload.mapping_rules
+    ?? payloadRecord.mappingRules
+    ?? nested.mapping_rules
+    ?? nested.mappingRules
+    ?? []
+  ) as NonNullable<ProcessCsvConfigurationPayload["mapping_rules"]>
+  const pipeline_mappings = (
+    payload.pipeline_mappings
+    ?? payloadRecord.pipelineMappings
+    ?? nested.pipeline_mappings
+    ?? nested.pipelineMappings
+    ?? []
+  ) as NonNullable<ProcessCsvConfigurationPayload["pipeline_mappings"]>
+  const mapping_groups = (
+    payload.mapping_groups
+    ?? payloadRecord.mappingGroups
+    ?? nested.mapping_groups
+    ?? nested.mappingGroups
+    ?? []
+  ) as NonNullable<ProcessCsvConfigurationPayload["mapping_groups"]>
 
   return {
     mapping_rules: Array.isArray(mapping_rules) ? mapping_rules : [],
@@ -344,18 +372,34 @@ export async function processClientCSV(
 export async function saveProcessCsvConfiguration(
   payload: ProcessCsvConfigurationPayload
 ): Promise<{ success: boolean; id?: string; name?: string }> {
-  const normalizedMapping = payload.mapping ?? {
-    mapping_rules: payload.mapping_rules ?? [],
-    pipeline_mappings: payload.pipeline_mappings ?? [],
-    mapping_groups: payload.mapping_groups ?? [],
+  const mappingRules = Array.isArray(payload.mapping_rules) ? payload.mapping_rules : []
+  const pipelineMappings = Array.isArray(payload.pipeline_mappings) ? payload.pipeline_mappings : []
+  const mappingGroups = Array.isArray(payload.mapping_groups) ? payload.mapping_groups : []
+
+  const normalizedMapping = {
+    mapping_rules: mappingRules,
+    mappingRules,
+    pipeline_mappings: pipelineMappings,
+    pipelineMappings,
+    mapping_groups: mappingGroups,
+    mappingGroups,
   }
-  const wrappedPayload = {
+
+  const payloadWithMappings = {
     ...payload,
+    mapping_rules: mappingRules,
+    mappingRules,
+    pipeline_mappings: pipelineMappings,
+    pipelineMappings,
+    mapping_groups: mappingGroups,
+    mappingGroups,
     mapping: normalizedMapping,
-    payload: {
-      ...payload,
-      mapping: normalizedMapping,
-    },
+    mappings: normalizedMapping,
+  }
+
+  const wrappedPayload = {
+    ...payloadWithMappings,
+    payload: payloadWithMappings,
   }
 
   const mappingSnapshot = getMappingSnapshot(wrappedPayload.payload as Partial<ProcessCsvConfigurationPayload>)
@@ -419,23 +463,44 @@ export async function listProcessCsvConfigurations(
       return {}
     })()
 
-    const topLevel = item as Partial<ProcessCsvConfiguration>
-    const payloadMapping = (payload.mapping ?? {}) as NonNullable<ProcessCsvConfigurationPayload["mapping"]>
-    const topLevelMapping = ((topLevel as ProcessCsvConfigurationPayload).mapping ?? {}) as NonNullable<ProcessCsvConfigurationPayload["mapping"]>
+    const topLevel = item as Partial<ProcessCsvConfiguration> & Record<string, unknown>
+    const payloadRecord = payload as Record<string, unknown>
+    const payloadMapping = (
+      payload.mapping
+      ?? payloadRecord.mappings
+      ?? {}
+    ) as NonNullable<ProcessCsvConfigurationPayload["mapping"]> & MappingEnvelopeLike
+    const topLevelMapping = (
+      (topLevel as ProcessCsvConfigurationPayload).mapping
+      ?? topLevel.mappings
+      ?? {}
+    ) as NonNullable<ProcessCsvConfigurationPayload["mapping"]> & MappingEnvelopeLike
     const mappingRules = (payload.mapping_rules
+      ?? payloadRecord.mappingRules
       ?? payloadMapping.mapping_rules
+      ?? payloadMapping.mappingRules
       ?? topLevel.mapping_rules
+      ?? topLevel.mappingRules
       ?? topLevelMapping.mapping_rules
+      ?? topLevelMapping.mappingRules
       ?? []) as ProcessCsvConfigurationPayload["mapping_rules"]
     const pipelineMappings = (payload.pipeline_mappings
+      ?? payloadRecord.pipelineMappings
       ?? payloadMapping.pipeline_mappings
+      ?? payloadMapping.pipelineMappings
       ?? topLevel.pipeline_mappings
+      ?? topLevel.pipelineMappings
       ?? topLevelMapping.pipeline_mappings
+      ?? topLevelMapping.pipelineMappings
       ?? []) as ProcessCsvConfigurationPayload["pipeline_mappings"]
     const mappingGroups = (payload.mapping_groups
+      ?? payloadRecord.mappingGroups
       ?? payloadMapping.mapping_groups
+      ?? payloadMapping.mappingGroups
       ?? topLevel.mapping_groups
+      ?? topLevel.mappingGroups
       ?? topLevelMapping.mapping_groups
+      ?? topLevelMapping.mappingGroups
       ?? []) as ProcessCsvConfigurationPayload["mapping_groups"]
 
     const normalizedMappingRules = Array.isArray(mappingRules) ? mappingRules : []

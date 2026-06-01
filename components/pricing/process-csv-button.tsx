@@ -2847,12 +2847,48 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
       ? Math.min(1, Math.max(0, savedOffsetRaw))
       : 0
     const savedAdjustersCount = Array.isArray(savedConfig.competitive_adjusters) ? savedConfig.competitive_adjusters.length : 0
-    const savedRulesRaw = (savedConfig as ProcessCsvConfiguration & { mapping_rules?: unknown; mapping?: { mapping_rules?: unknown } }).mapping_rules
-      ?? (savedConfig as ProcessCsvConfiguration & { mapping?: { mapping_rules?: unknown } }).mapping?.mapping_rules
-    const savedPipelineMappingsRaw = (savedConfig as ProcessCsvConfiguration & { pipeline_mappings?: unknown; mapping?: { pipeline_mappings?: unknown } }).pipeline_mappings
-      ?? (savedConfig as ProcessCsvConfiguration & { mapping?: { pipeline_mappings?: unknown } }).mapping?.pipeline_mappings
-    const savedMappingGroupsRaw = (savedConfig as ProcessCsvConfiguration & { mapping_groups?: unknown; mapping?: { mapping_groups?: unknown } }).mapping_groups
-      ?? (savedConfig as ProcessCsvConfiguration & { mapping?: { mapping_groups?: unknown } }).mapping?.mapping_groups
+    const savedConfigAny = savedConfig as ProcessCsvConfiguration & {
+      mapping_rules?: unknown
+      mappingRules?: unknown
+      pipeline_mappings?: unknown
+      pipelineMappings?: unknown
+      mapping_groups?: unknown
+      mappingGroups?: unknown
+      mappings?: {
+        mapping_rules?: unknown
+        mappingRules?: unknown
+        pipeline_mappings?: unknown
+        pipelineMappings?: unknown
+        mapping_groups?: unknown
+        mappingGroups?: unknown
+      }
+      mapping?: {
+        mapping_rules?: unknown
+        mappingRules?: unknown
+        pipeline_mappings?: unknown
+        pipelineMappings?: unknown
+        mapping_groups?: unknown
+        mappingGroups?: unknown
+      }
+    }
+    const savedRulesRaw = savedConfigAny.mapping_rules
+      ?? savedConfigAny.mappingRules
+      ?? savedConfigAny.mapping?.mapping_rules
+      ?? savedConfigAny.mapping?.mappingRules
+      ?? savedConfigAny.mappings?.mapping_rules
+      ?? savedConfigAny.mappings?.mappingRules
+    const savedPipelineMappingsRaw = savedConfigAny.pipeline_mappings
+      ?? savedConfigAny.pipelineMappings
+      ?? savedConfigAny.mapping?.pipeline_mappings
+      ?? savedConfigAny.mapping?.pipelineMappings
+      ?? savedConfigAny.mappings?.pipeline_mappings
+      ?? savedConfigAny.mappings?.pipelineMappings
+    const savedMappingGroupsRaw = savedConfigAny.mapping_groups
+      ?? savedConfigAny.mappingGroups
+      ?? savedConfigAny.mapping?.mapping_groups
+      ?? savedConfigAny.mapping?.mappingGroups
+      ?? savedConfigAny.mappings?.mapping_groups
+      ?? savedConfigAny.mappings?.mappingGroups
 
     const savedRulesCount = Array.isArray(savedRulesRaw)
       ? (savedRulesRaw as unknown[]).length
