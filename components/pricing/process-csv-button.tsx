@@ -460,13 +460,16 @@ function findLookupByAmenitySubsets(
   amenitySubsets: string[],
   selectedPipelineName?: string
 ): { price: number; calculatedRowIndex: number } | undefined {
+  const normalizedSelectedPipeline = String(selectedPipelineName ?? "").trim().toLowerCase()
+
   for (const subset of amenitySubsets) {
     const key = buildPriceLookupKey(place, dimensionOrAreaToken, subset || undefined)
     const matches = map.get(key)
     if (!matches || matches.length === 0) continue
-    if (selectedPipelineName) {
-      const scoped = matches.find((candidate) => candidate.pipelineName === selectedPipelineName)
+    if (normalizedSelectedPipeline) {
+      const scoped = matches.find((candidate) => String(candidate.pipelineName ?? "").trim().toLowerCase() === normalizedSelectedPipeline)
       if (scoped) return scoped
+      continue
     }
     return matches[0]
   }
@@ -1287,6 +1290,15 @@ function applyCalculatedPricesToCsv(
     areaLookup.set(bucket, next)
   }
 
+  const pipelineColumnsByName = new Map<string, string[]>()
+  for (const row of calculatedRows) {
+    const pipelineName = String((row as Record<string, unknown>).__pipelineName ?? "").trim()
+    if (!pipelineName) continue
+    const existing = new Set(pipelineColumnsByName.get(pipelineName) ?? [])
+    for (const key of Object.keys(row.comboMap ?? {})) existing.add(key)
+    pipelineColumnsByName.set(pipelineName, Array.from(existing).sort())
+  }
+
   for (let calculatedRowIndex = 0; calculatedRowIndex < calculatedRows.length; calculatedRowIndex++) {
     const calculatedRow = calculatedRows[calculatedRowIndex]
     if (typeof calculatedRow.price !== "number" || Number.isNaN(calculatedRow.price)) continue
@@ -1357,7 +1369,15 @@ function applyCalculatedPricesToCsv(
     const candidates: CandidateMapping[] = []
 
     if (usingGroups) {
-      for (const primaryGroup of mappingGroups) {
+      const fallbackTargetIds = new Set(
+        mappingGroups
+          .map((group) => String(group.fallbackGroupId || "").trim())
+          .filter(Boolean)
+      )
+      const rootGroups = mappingGroups.filter((group) => !fallbackTargetIds.has(group.id))
+      const groupsToTraverse = rootGroups.length > 0 ? rootGroups : mappingGroups
+
+      for (const primaryGroup of groupsToTraverse) {
         const visitedGroupIds = new Set<string>()
         let activeGroup: MappingGroup | undefined = primaryGroup
         while (activeGroup && !visitedGroupIds.has(activeGroup.id)) {
@@ -1537,13 +1557,17 @@ function applyCalculatedPricesToCsv(
     const tracedRow = calculatedRows[mappedMatch.calculatedRowIndex]
     if (tracedRow) {
       const tracedPipelineName = String((tracedRow as Record<string, unknown>).__pipelineName ?? "").trim() || "Unknown pipeline"
-      const comboMapEntries = Object.entries((tracedRow.comboMap ?? {}) as Record<string, unknown>)
-        .map(([key, value]) => ({
+      const comboMap = (tracedRow.comboMap ?? {}) as Record<string, unknown>
+      const pipelineColumns = pipelineColumnsByName.get(tracedPipelineName) ?? Object.keys(comboMap)
+      const comboMapEntries = pipelineColumns.map((key) => {
+        const value = comboMap[key]
+        return {
           key,
           value: Array.isArray(value)
             ? value.map((item) => String(item)).join(", ")
             : String(value ?? ""),
-        }))
+        }
+      })
       traceDetailsByCsvRowIndex[csvRowIndex] = {
         pipelineName: tracedPipelineName,
         price: formatCurrency(Number(tracedRow.price)),
