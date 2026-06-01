@@ -439,7 +439,11 @@ function buildCsvAmenityTokenSubsets(value: unknown): string[] {
   if (hasFirstFloorAmenity(value)) presentParts.push("1st-floor")
 
   const uniq = Array.from(new Set(presentParts)).sort()
-  const subsets: string[] = [""]
+  if (uniq.length === 0) {
+    return [""]
+  }
+
+  const subsets: string[] = []
   const total = 1 << uniq.length
   for (let mask = 1; mask < total; mask++) {
     const subset: string[] = []
@@ -3525,7 +3529,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                             />
                             <Input
                               className="h-9"
-                              placeholder="Pipeline column"
+                              placeholder="Pipeline Reference"
                               value={mapping.competitorColumn}
                               onChange={(e) => selectedMappingGroup && updateGroupColumnMapping(selectedMappingGroup.id, mapping.id, { competitorColumn: e.target.value as MappingGroupCompetitorColumn })}
                             />
@@ -4429,7 +4433,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                   <table className="w-full text-sm">
                     <thead className="sticky top-0 bg-background border-b">
                       <tr>
-                        <th className="px-3 py-2 text-left font-medium">Competitor column</th>
+                        <th className="px-3 py-2 text-left font-medium">Competitor Pricing Reference</th>
                         <th className="px-3 py-2 text-left font-medium">Value</th>
                       </tr>
                     </thead>
