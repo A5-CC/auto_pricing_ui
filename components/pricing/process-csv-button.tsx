@@ -2871,9 +2871,11 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     const expectedRoundingEnabled = Boolean(standardRateRoundingEnabled)
     const expectedRoundingOffset = standardOffset
     const expectedAdjustersCount = Array.isArray(popupAdjusters) ? popupAdjusters.length : 0
-    const expectedRulesCount = currentMappingRules.length
-    const expectedPipelineMappingsCount = currentPipelineMappings.length
-    const expectedMappingGroupsCount = currentMappingGroups.length
+    // Compare against the normalized/serialized payload that is actually posted,
+    // not raw draft UI rows (which may include incomplete rows filtered out on save).
+    const expectedRulesCount = Array.isArray(serializedMappingRules) ? serializedMappingRules.length : 0
+    const expectedPipelineMappingsCount = Array.isArray(serializedPipelineMappings) ? serializedPipelineMappings.length : 0
+    const expectedMappingGroupsCount = Array.isArray(serializedMappingGroups) ? serializedMappingGroups.length : 0
 
     const saveResult = await saveProcessCsvConfiguration({
       name,
