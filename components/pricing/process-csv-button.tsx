@@ -2549,6 +2549,34 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     standardRateDragRef.current = null
   }
 
+  const dedupeProcessCsvConfigs = useCallback((configs: ProcessCsvConfiguration[]) => {
+    const latestByKey = new Map<string, ProcessCsvConfiguration>()
+    for (const cfg of configs) {
+      const nameKey = String(cfg.name ?? "").trim().toLowerCase()
+      const snapshotKey = String(cfg.snapshot_id ?? "").trim().toLowerCase()
+      const dedupeKey = `${snapshotKey}::${nameKey}`
+      const prev = latestByKey.get(dedupeKey)
+      if (!prev) {
+        latestByKey.set(dedupeKey, cfg)
+        continue
+      }
+
+      const prevTs = Date.parse(String(prev.updated_at ?? prev.created_at ?? ""))
+      const nextTs = Date.parse(String(cfg.updated_at ?? cfg.created_at ?? ""))
+      const prevTime = Number.isFinite(prevTs) ? prevTs : 0
+      const nextTime = Number.isFinite(nextTs) ? nextTs : 0
+      if (nextTime >= prevTime) {
+        latestByKey.set(dedupeKey, cfg)
+      }
+    }
+
+    return Array.from(latestByKey.values()).sort((a, b) => {
+      const aTs = Date.parse(String(a.updated_at ?? a.created_at ?? ""))
+      const bTs = Date.parse(String(b.updated_at ?? b.created_at ?? ""))
+      return (Number.isFinite(bTs) ? bTs : 0) - (Number.isFinite(aTs) ? aTs : 0)
+    })
+  }, [])
+
   const applyLoadedProcessCsvConfig = (config: ProcessCsvConfiguration) => {
     const formula = String(config.standard_rate_formula ?? "").trim()
     const roundingEnabled = Boolean(config.standard_rate_rounding?.enabled)
@@ -2663,7 +2691,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
         }
 
         if (!cancelled) {
-          setAvailableProcessConfigs(configurations)
+          setAvailableProcessConfigs(dedupeProcessCsvConfigs(configurations))
         }
       } catch (error) {
         if (!cancelled) {
@@ -2682,7 +2710,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
       cancelled = true
       setIsLoadingProcessConfig(false)
     }
-  }, [loadConfigOpen, snapshotId])
+  }, [dedupeProcessCsvConfigs, loadConfigOpen, snapshotId])
 
   const handleSelectProcessCsvConfig = (selected: ProcessCsvConfiguration) => {
     applyLoadedProcessCsvConfig(selected)
@@ -2766,7 +2794,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     const expectedPipelineMappingsCount = currentPipelineMappings.length
     const expectedMappingGroupsCount = currentMappingGroups.length
 
-    await saveProcessCsvConfiguration({
+    const saveResult = await saveProcessCsvConfiguration({
       name,
       snapshot_id: snapshotId,
       standard_rate_formula: expectedFormula,
@@ -2792,16 +2820,21 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     })
 
     const refreshed = await listProcessCsvConfigurations(snapshotId)
-    const refreshedConfigs = Array.isArray(refreshed?.configurations) ? refreshed.configurations : []
+    const refreshedConfigs = dedupeProcessCsvConfigs(
+      Array.isArray(refreshed?.configurations) ? refreshed.configurations : []
+    )
     setAvailableProcessConfigs(refreshedConfigs)
 
-    const savedConfig = refreshedConfigs
-      .filter((cfg) => String(cfg.name ?? "").trim() === String(name).trim())
-      .sort((a, b) => {
-        const aTs = Date.parse(String(a.updated_at ?? a.created_at ?? ""))
-        const bTs = Date.parse(String(b.updated_at ?? b.created_at ?? ""))
-        return (Number.isFinite(bTs) ? bTs : 0) - (Number.isFinite(aTs) ? aTs : 0)
-      })[0]
+    const savedId = String(saveResult?.id ?? "").trim()
+    const savedConfig = (
+      (savedId
+        ? refreshedConfigs.find((cfg) => String(cfg.id ?? "").trim() === savedId)
+        : undefined) ??
+      refreshedConfigs.find((cfg) => (
+        String(cfg.name ?? "").trim() === String(name).trim() &&
+        String(cfg.snapshot_id ?? "").trim() === String(snapshotId ?? "").trim()
+      ))
+    )
 
     if (!savedConfig) {
       throw new Error("Configuration save could not be verified after write.")
@@ -2852,6 +2885,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
       }
     }
   }, [
+    dedupeProcessCsvConfigs,
     mappingGroups,
     mappingRules,
     pipelineMappingConfigs,
