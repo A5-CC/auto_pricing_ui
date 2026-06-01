@@ -137,6 +137,8 @@ type MappingGroupPair = {
   pipelineValue: string
   exactMatch: boolean
   csvFirstTwoDimensions: boolean
+  csvContains: boolean
+  pipelineContains: boolean
 }
 
 type MappingGroupColumnMapping = {
@@ -723,8 +725,19 @@ function doesGroupMappingPairMatch(
     return normalizeMatchValue(csvRaw) === normalizeMatchValue(pipelineRaw)
   }
 
-  return normalizeMatchValue(csvRaw) === normalizeMatchValue(pair.csvValue)
-    && normalizeMatchValue(pipelineRaw) === normalizeMatchValue(pair.pipelineValue)
+  const csvLeft = normalizeMatchValue(csvRaw)
+  const pipelineLeft = normalizeMatchValue(pipelineRaw)
+  const csvRight = normalizeMatchValue(pair.csvValue)
+  const pipelineRight = normalizeMatchValue(pair.pipelineValue)
+
+  const csvMatches = pair.csvContains
+    ? (csvRight.length > 0 && csvLeft.includes(csvRight))
+    : csvLeft === csvRight
+  const pipelineMatches = pair.pipelineContains
+    ? (pipelineRight.length > 0 && pipelineLeft.includes(pipelineRight))
+    : pipelineLeft === pipelineRight
+
+  return csvMatches && pipelineMatches
 }
 
 function applyPopupAdjustersToWebRate(
@@ -1873,6 +1886,8 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                 pipelineValue: "",
                 exactMatch: false,
                 csvFirstTwoDimensions: false,
+                csvContains: false,
+                pipelineContains: false,
               },
             ],
           }
@@ -2251,7 +2266,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
         group.fallbackGroupId,
         group.dimensionMode,
         group.columnMappings
-          .map((mapping) => `${mapping.csvColumn}|${mapping.competitorColumn}|${mapping.pairs.map((pair) => `${pair.csvValue}=>${pair.pipelineValue}|${pair.exactMatch ? "1" : "0"}|${pair.csvFirstTwoDimensions ? "1" : "0"}`).join("##")}`)
+          .map((mapping) => `${mapping.csvColumn}|${mapping.competitorColumn}|${mapping.pairs.map((pair) => `${pair.csvValue}=>${pair.pipelineValue}|${pair.exactMatch ? "1" : "0"}|${pair.csvFirstTwoDimensions ? "1" : "0"}|${pair.csvContains ? "1" : "0"}|${pair.pipelineContains ? "1" : "0"}`).join("##")}`)
           .join("@@"),
       ].join("|"))
       .join("||")
@@ -2450,6 +2465,8 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                             pipelineValue: String(pair.pipelineValue ?? ""),
                             exactMatch: Boolean(pair.exactMatch),
                             csvFirstTwoDimensions: Boolean(pair.csvFirstTwoDimensions),
+                            csvContains: Boolean((pair as Partial<MappingGroupPair>).csvContains),
+                            pipelineContains: Boolean((pair as Partial<MappingGroupPair>).pipelineContains),
                           }))
                       : [],
                   }))
@@ -2481,6 +2498,8 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                                 pipelineValue: String(pair.pipelineValue ?? ""),
                                 exactMatch: Boolean(pair.exactMatch),
                                 csvFirstTwoDimensions: Boolean(pair.csvFirstTwoDimensions),
+                                csvContains: Boolean((pair as Partial<MappingGroupPair>).csvContains),
+                                pipelineContains: Boolean((pair as Partial<MappingGroupPair>).pipelineContains),
                               }))
                           : [],
                       }))
@@ -3542,7 +3561,10 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                                   <input
                                     type="checkbox"
                                     checked={pair.exactMatch}
-                                    onChange={(e) => selectedMappingGroup && updateGroupColumnMappingPair(selectedMappingGroup.id, mapping.id, pair.id, { exactMatch: e.target.checked })}
+                                    onChange={(e) => selectedMappingGroup && updateGroupColumnMappingPair(selectedMappingGroup.id, mapping.id, pair.id, {
+                                      exactMatch: e.target.checked,
+                                      ...(e.target.checked ? { csvContains: false, pipelineContains: false } : {}),
+                                    })}
                                   />
                                   <span>Exact Match</span>
                                 </label>
@@ -3550,9 +3572,30 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                                   <input
                                     type="checkbox"
                                     checked={pair.csvFirstTwoDimensions}
-                                    onChange={(e) => selectedMappingGroup && updateGroupColumnMappingPair(selectedMappingGroup.id, mapping.id, pair.id, { csvFirstTwoDimensions: e.target.checked })}
+                                    onChange={(e) => selectedMappingGroup && updateGroupColumnMappingPair(selectedMappingGroup.id, mapping.id, pair.id, {
+                                      csvFirstTwoDimensions: e.target.checked,
+                                      ...(e.target.checked ? { csvContains: false, pipelineContains: false } : {}),
+                                    })}
                                   />
                                   <span>Dimensions Operator</span>
+                                </label>
+                                <label className="inline-flex items-center gap-1">
+                                  <input
+                                    type="checkbox"
+                                    checked={pair.csvContains}
+                                    disabled={pair.exactMatch || pair.csvFirstTwoDimensions}
+                                    onChange={(e) => selectedMappingGroup && updateGroupColumnMappingPair(selectedMappingGroup.id, mapping.id, pair.id, { csvContains: e.target.checked })}
+                                  />
+                                  <span>CSV contains</span>
+                                </label>
+                                <label className="inline-flex items-center gap-1">
+                                  <input
+                                    type="checkbox"
+                                    checked={pair.pipelineContains}
+                                    disabled={pair.exactMatch || pair.csvFirstTwoDimensions}
+                                    onChange={(e) => selectedMappingGroup && updateGroupColumnMappingPair(selectedMappingGroup.id, mapping.id, pair.id, { pipelineContains: e.target.checked })}
+                                  />
+                                  <span>Pipeline contains</span>
                                 </label>
                                 <Button type="button" size="sm" variant="outline" onClick={() => selectedMappingGroup && removeGroupColumnMappingPair(selectedMappingGroup.id, mapping.id, pair.id)}>
                                   Remove Pair
@@ -4623,7 +4666,10 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                                 <input
                                   type="checkbox"
                                   checked={pair.exactMatch}
-                                  onChange={(e) => selectedMappingGroup && updateGroupColumnMappingPair(selectedMappingGroup.id, mapping.id, pair.id, { exactMatch: e.target.checked })}
+                                  onChange={(e) => selectedMappingGroup && updateGroupColumnMappingPair(selectedMappingGroup.id, mapping.id, pair.id, {
+                                    exactMatch: e.target.checked,
+                                    ...(e.target.checked ? { csvContains: false, pipelineContains: false } : {}),
+                                  })}
                                 />
                                 <span>Exact match between CSV and pipeline columns</span>
                               </label>
@@ -4631,9 +4677,30 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                                 <input
                                   type="checkbox"
                                   checked={pair.csvFirstTwoDimensions}
-                                  onChange={(e) => selectedMappingGroup && updateGroupColumnMappingPair(selectedMappingGroup.id, mapping.id, pair.id, { csvFirstTwoDimensions: e.target.checked })}
+                                  onChange={(e) => selectedMappingGroup && updateGroupColumnMappingPair(selectedMappingGroup.id, mapping.id, pair.id, {
+                                    csvFirstTwoDimensions: e.target.checked,
+                                    ...(e.target.checked ? { csvContains: false, pipelineContains: false } : {}),
+                                  })}
                                 />
                                 <span>CSV first two dimensions only</span>
+                              </label>
+                              <label className="inline-flex items-center gap-1">
+                                <input
+                                  type="checkbox"
+                                  checked={pair.csvContains}
+                                  disabled={pair.exactMatch || pair.csvFirstTwoDimensions}
+                                  onChange={(e) => selectedMappingGroup && updateGroupColumnMappingPair(selectedMappingGroup.id, mapping.id, pair.id, { csvContains: e.target.checked })}
+                                />
+                                <span>CSV contains</span>
+                              </label>
+                              <label className="inline-flex items-center gap-1">
+                                <input
+                                  type="checkbox"
+                                  checked={pair.pipelineContains}
+                                  disabled={pair.exactMatch || pair.csvFirstTwoDimensions}
+                                  onChange={(e) => selectedMappingGroup && updateGroupColumnMappingPair(selectedMappingGroup.id, mapping.id, pair.id, { pipelineContains: e.target.checked })}
+                                />
+                                <span>Pipeline contains</span>
                               </label>
                               <Button type="button" size="sm" variant="outline" onClick={() => selectedMappingGroup && removeGroupColumnMappingPair(selectedMappingGroup.id, mapping.id, pair.id)}>
                                 Remove Pair

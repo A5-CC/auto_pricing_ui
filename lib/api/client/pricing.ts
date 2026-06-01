@@ -62,6 +62,8 @@ export interface ProcessCsvConfigurationPayload {
         pipelineValue: string
         exactMatch: boolean
         csvFirstTwoDimensions: boolean
+        csvContains?: boolean
+        pipelineContains?: boolean
       }>
     }>
   }>
