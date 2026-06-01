@@ -183,6 +183,7 @@ type ReviewRow = {
   traceDetails: {
     pipelineName: string
     price: string
+    pipelineRowEntries: Array<{ key: string; value: string }>
     comboMapEntries: Array<{ key: string; value: string }>
   } | null
   facilityName: string
@@ -241,6 +242,7 @@ type ProcessedCsvResult = ParsedCsv & {
   traceDetailsByCsvRowIndex: Record<number, {
     pipelineName: string
     price: string
+    pipelineRowEntries: Array<{ key: string; value: string }>
     comboMapEntries: Array<{ key: string; value: string }>
   }>
 }
@@ -988,6 +990,7 @@ function buildReviewRows(
   traceDetailsByCsvRowIndex?: Record<number, {
     pipelineName: string
     price: string
+    pipelineRowEntries: Array<{ key: string; value: string }>
     comboMapEntries: Array<{ key: string; value: string }>
   }>
 ): ReviewRow[] {
@@ -1270,6 +1273,7 @@ function applyCalculatedPricesToCsv(
   const traceDetailsByCsvRowIndex: Record<number, {
     pipelineName: string
     price: string
+    pipelineRowEntries: Array<{ key: string; value: string }>
     comboMapEntries: Array<{ key: string; value: string }>
   }> = {}
 
@@ -1571,9 +1575,26 @@ function applyCalculatedPricesToCsv(
             : String(value ?? ""),
         }
       })
+
+      const pipelineRowEntries = [
+        ...Object.keys(comboMap)
+          .sort()
+          .map((key) => {
+            const value = comboMap[key]
+            return {
+              key,
+              value: Array.isArray(value)
+                ? value.map((item) => String(item)).join(", ")
+                : String(value ?? ""),
+            }
+          }),
+        { key: "price", value: formatCurrency(Number(tracedRow.price)) },
+      ]
+
       traceDetailsByCsvRowIndex[csvRowIndex] = {
         pipelineName: tracedPipelineName,
         price: formatCurrency(Number(tracedRow.price)),
+        pipelineRowEntries,
         comboMapEntries,
       }
     }
@@ -3585,9 +3606,23 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
             <div className="space-y-3">
               {traceDialogRow?.traceDetails ? (
                 <>
-                  <div className="text-sm">
-                    <span className="font-medium">Traced price: </span>
-                    <span>{traceDialogRow.traceDetails.price || "—"}</span>
+                  <div className="max-h-[220px] overflow-auto rounded-md border">
+                    <table className="w-full text-sm">
+                      <thead className="sticky top-0 bg-background border-b">
+                        <tr>
+                          <th className="px-3 py-2 text-left font-medium">Pipeline column</th>
+                          <th className="px-3 py-2 text-left font-medium">Value</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {traceDialogRow.traceDetails.pipelineRowEntries.map((entry) => (
+                          <tr key={`pipeline-${entry.key}`} className="border-b last:border-b-0">
+                            <td className="px-3 py-2 align-top font-mono text-xs">{entry.key}</td>
+                            <td className="px-3 py-2 align-top">{entry.value || "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                   <div className="max-h-[360px] overflow-auto rounded-md border">
                     <table className="w-full text-sm">
@@ -4329,9 +4364,23 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
           <div className="space-y-3">
             {traceDialogRow?.traceDetails ? (
               <>
-                <div className="text-sm">
-                  <span className="font-medium">Traced price: </span>
-                  <span>{traceDialogRow.traceDetails.price || "—"}</span>
+                <div className="max-h-[220px] overflow-auto rounded-md border">
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0 bg-background border-b">
+                      <tr>
+                        <th className="px-3 py-2 text-left font-medium">Pipeline column</th>
+                        <th className="px-3 py-2 text-left font-medium">Value</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {traceDialogRow.traceDetails.pipelineRowEntries.map((entry) => (
+                        <tr key={`pipeline-${entry.key}`} className="border-b last:border-b-0">
+                          <td className="px-3 py-2 align-top font-mono text-xs">{entry.key}</td>
+                          <td className="px-3 py-2 align-top">{entry.value || "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
                 <div className="max-h-[360px] overflow-auto rounded-md border">
                   <table className="w-full text-sm">
