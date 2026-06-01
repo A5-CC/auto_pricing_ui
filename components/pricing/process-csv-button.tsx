@@ -2104,6 +2104,37 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     )
   }, [])
 
+  const duplicateMappingGroup = useCallback((groupId: string) => {
+    const source = mappingGroups.find((group) => group.id === groupId)
+    if (!source) return
+
+    const newGroupId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    const clonedGroup: MappingGroup = {
+      ...source,
+      id: newGroupId,
+      name: source.name ? `${source.name} Copy` : "Group Copy",
+      fallbackGroupId: "",
+      columnMappings: (source.columnMappings ?? []).map((mapping) => ({
+        ...mapping,
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        pairs: (mapping.pairs ?? []).map((pair) => ({
+          ...pair,
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        })),
+      })),
+    }
+
+    setMappingGroups((prev) => {
+      const index = prev.findIndex((group) => group.id === groupId)
+      if (index < 0) return [...prev, clonedGroup]
+      const next = [...prev]
+      next.splice(index + 1, 0, clonedGroup)
+      return next
+    })
+
+    setSelectedMappingGroupId(newGroupId)
+  }, [mappingGroups])
+
   const updateMappingGroup = useCallback((groupId: string, patch: Partial<MappingGroup>) => {
     setMappingGroups((prev) => prev.map((group) => (group.id === groupId ? { ...group, ...patch } : group)))
   }, [])
@@ -3888,7 +3919,10 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                       ))}
                     </div>
 
-                    <div className="flex justify-end">
+                    <div className="flex justify-end gap-2">
+                      <Button type="button" size="sm" variant="outline" onClick={() => selectedMappingGroup && duplicateMappingGroup(selectedMappingGroup.id)}>
+                        Duplicate Group
+                      </Button>
                       <Button type="button" size="sm" variant="destructive" onClick={() => selectedMappingGroup && removeMappingGroup(selectedMappingGroup.id)}>
                         Delete Group
                       </Button>
@@ -4959,7 +4993,10 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                     ))}
                   </div>
 
-                  <div className="flex justify-end">
+                  <div className="flex justify-end gap-2">
+                    <Button type="button" size="sm" variant="outline" onClick={() => selectedMappingGroup && duplicateMappingGroup(selectedMappingGroup.id)}>
+                      Duplicate Group
+                    </Button>
                     <Button type="button" size="sm" variant="destructive" onClick={() => selectedMappingGroup && removeMappingGroup(selectedMappingGroup.id)}>
                       Delete Group
                     </Button>
