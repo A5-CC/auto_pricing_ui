@@ -53,7 +53,7 @@ import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { Adjuster, CompetitivePriceAdjuster, FunctionBasedAdjuster, TemporalAdjuster } from '@/lib/adjusters';
 import { evaluateSafeFunction } from "@/lib/adjusters";
-import { deleteProcessCsvConfiguration, listProcessCsvConfigurations, saveProcessCsvConfiguration, type ProcessCsvConfiguration } from "@/lib/api/client/pricing";
+import { deleteProcessCsvConfiguration, listProcessCsvConfigurations, saveProcessCsvConfiguration, type ProcessCsvConfiguration, type ProcessCsvConfigurationPayload } from "@/lib/api/client/pricing";
 import type { E1DataRow } from "@/lib/api/types";
 import { ArrowDown, ArrowUp, ArrowUpDown, FileSpreadsheet, Info, Layers3, Loader2, Save } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
@@ -155,6 +155,210 @@ type MappingGroup = {
   fallbackGroupId: string
   dimensionMode: "full" | "first_two"
   columnMappings: MappingGroupColumnMapping[]
+}
+
+function toObjectRecord(value: unknown): Record<string, unknown> {
+  if (value && typeof value === "object") return value as Record<string, unknown>
+  return {}
+}
+
+function readStringFromKeys(source: unknown, ...keys: string[]): string {
+  const rec = toObjectRecord(source)
+  for (const key of keys) {
+    const raw = rec[key]
+    if (raw === null || raw === undefined) continue
+    return String(raw)
+  }
+  return ""
+}
+
+function readBooleanFromKeys(source: unknown, ...keys: string[]): boolean {
+  const rec = toObjectRecord(source)
+  for (const key of keys) {
+    const raw = rec[key]
+    if (raw === null || raw === undefined) continue
+    return Boolean(raw)
+  }
+  return false
+}
+
+function normalizeLocationMappingsFromUnknown(source: unknown): LocationStringMapping[] {
+  if (!Array.isArray(source)) return []
+  return source.map((item) => ({
+    id: readStringFromKeys(item, "id") || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    csvValue: readStringFromKeys(item, "csvValue", "csv_value"),
+    pipelineValue: readStringFromKeys(item, "pipelineValue", "pipeline_value"),
+  }))
+}
+
+function normalizePipelineMappingConfigsFromUnknown(source: unknown): PipelineMappingConfig[] {
+  if (!Array.isArray(source)) return []
+  return source
+    .map((item) => {
+      const pipelineName = readStringFromKeys(item, "pipelineName", "pipeline_name")
+      if (!pipelineName) return null
+      return {
+        pipelineName,
+        csvLocationColumn: readStringFromKeys(item, "csvLocationColumn", "csv_location_column"),
+        csvDimensionColumn: readStringFromKeys(item, "csvDimensionColumn", "csv_dimension_column"),
+        csvAreaColumn: readStringFromKeys(item, "csvAreaColumn", "csv_area_column"),
+        csvAmenitiesColumn: readStringFromKeys(item, "csvAmenitiesColumn", "csv_amenities_column"),
+        dimensionMode: readStringFromKeys(item, "dimensionMode", "dimension_mode") === "full" ? "full" as const : "first_two" as const,
+        fallbackPipelineName: readStringFromKeys(item, "fallbackPipelineName", "fallback_pipeline_name"),
+        locationMappings: normalizeLocationMappingsFromUnknown(
+          toObjectRecord(item).locationMappings ?? toObjectRecord(item).location_mappings
+        ),
+      }
+    })
+    .filter((item): item is PipelineMappingConfig => item !== null)
+}
+
+function normalizeMappingGroupsFromUnknown(source: unknown, defaultPipelineName = ""): MappingGroup[] {
+  if (!Array.isArray(source)) return []
+  return source
+    .map((item) => {
+      const groupId = readStringFromKeys(item, "id") || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+      const groupRecord = toObjectRecord(item)
+      const columnMappingsRaw = groupRecord.columnMappings ?? groupRecord.column_mappings
+
+      const columnMappings: MappingGroupColumnMapping[] = Array.isArray(columnMappingsRaw)
+        ? columnMappingsRaw.map((mapping) => {
+            const mappingRecord = toObjectRecord(mapping)
+            const pairsRaw = mappingRecord.pairs
+            const pairs: MappingGroupPair[] = Array.isArray(pairsRaw)
+              ? pairsRaw.map((pair) => ({
+                  id: readStringFromKeys(pair, "id") || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                  csvValue: readStringFromKeys(pair, "csvValue", "csv_value"),
+                  pipelineValue: readStringFromKeys(pair, "pipelineValue", "pipeline_value"),
+                  exactMatch: readBooleanFromKeys(pair, "exactMatch", "exact_match"),
+                  csvFirstTwoDimensions: readBooleanFromKeys(pair, "csvFirstTwoDimensions", "csv_first_two_dimensions"),
+                  csvContains: readBooleanFromKeys(pair, "csvContains", "csv_contains"),
+                  pipelineContains: readBooleanFromKeys(pair, "pipelineContains", "pipeline_contains"),
+                }))
+              : []
+
+            return {
+              id: readStringFromKeys(mapping, "id") || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+              csvColumn: readStringFromKeys(mapping, "csvColumn", "csv_column"),
+              competitorColumn: readStringFromKeys(mapping, "competitorColumn", "competitor_column") as MappingGroupCompetitorColumn,
+              pairs,
+            }
+          })
+        : []
+
+      return {
+        id: groupId,
+        name: readStringFromKeys(item, "name"),
+        pipelineName: readStringFromKeys(item, "pipelineName", "pipeline_name", "pipeline") || defaultPipelineName,
+        fallbackGroupId: readStringFromKeys(item, "fallbackGroupId", "fallback_group_id"),
+        dimensionMode: readStringFromKeys(item, "dimensionMode", "dimension_mode") === "full" ? "full" as const : "first_two" as const,
+        columnMappings,
+      }
+    })
+    .filter((item) => Boolean(item.id))
+}
+
+function serializeMappingRulesForSave(
+  rules: PipelineMappingRule[]
+): ProcessCsvConfigurationPayload["mapping_rules"] {
+  return rules.map((rule) => ({
+    ...rule,
+    pipeline_name: rule.pipelineName,
+  })) as ProcessCsvConfigurationPayload["mapping_rules"]
+}
+
+function serializePipelineMappingsForSave(
+  configs: PipelineMappingConfig[]
+): ProcessCsvConfigurationPayload["pipeline_mappings"] {
+  return configs.map((cfg) => ({
+    pipelineName: cfg.pipelineName,
+    pipeline_name: cfg.pipelineName,
+    csvLocationColumn: cfg.csvLocationColumn,
+    csv_location_column: cfg.csvLocationColumn,
+    csvDimensionColumn: cfg.csvDimensionColumn,
+    csv_dimension_column: cfg.csvDimensionColumn,
+    csvAreaColumn: cfg.csvAreaColumn,
+    csv_area_column: cfg.csvAreaColumn,
+    csvAmenitiesColumn: cfg.csvAmenitiesColumn,
+    csv_amenities_column: cfg.csvAmenitiesColumn,
+    dimensionMode: cfg.dimensionMode,
+    dimension_mode: cfg.dimensionMode,
+    fallbackPipelineName: cfg.fallbackPipelineName,
+    fallback_pipeline_name: cfg.fallbackPipelineName,
+    locationMappings: (cfg.locationMappings ?? []).map((mapping) => ({
+      id: mapping.id,
+      csvValue: mapping.csvValue,
+      csv_value: mapping.csvValue,
+      pipelineValue: mapping.pipelineValue,
+      pipeline_value: mapping.pipelineValue,
+    })),
+    location_mappings: (cfg.locationMappings ?? []).map((mapping) => ({
+      id: mapping.id,
+      csvValue: mapping.csvValue,
+      csv_value: mapping.csvValue,
+      pipelineValue: mapping.pipelineValue,
+      pipeline_value: mapping.pipelineValue,
+    })),
+  })) as ProcessCsvConfigurationPayload["pipeline_mappings"]
+}
+
+function serializeMappingGroupsForSave(
+  groups: MappingGroup[]
+): ProcessCsvConfigurationPayload["mapping_groups"] {
+  return groups.map((group) => ({
+    id: group.id,
+    name: group.name,
+    pipelineName: group.pipelineName,
+    pipeline_name: group.pipelineName,
+    fallbackGroupId: group.fallbackGroupId,
+    fallback_group_id: group.fallbackGroupId,
+    dimensionMode: group.dimensionMode,
+    dimension_mode: group.dimensionMode,
+    columnMappings: (group.columnMappings ?? []).map((mapping) => ({
+      id: mapping.id,
+      csvColumn: mapping.csvColumn,
+      csv_column: mapping.csvColumn,
+      competitorColumn: mapping.competitorColumn,
+      competitor_column: mapping.competitorColumn,
+      pairs: (mapping.pairs ?? []).map((pair) => ({
+        id: pair.id,
+        csvValue: pair.csvValue,
+        csv_value: pair.csvValue,
+        pipelineValue: pair.pipelineValue,
+        pipeline_value: pair.pipelineValue,
+        exactMatch: pair.exactMatch,
+        exact_match: pair.exactMatch,
+        csvFirstTwoDimensions: pair.csvFirstTwoDimensions,
+        csv_first_two_dimensions: pair.csvFirstTwoDimensions,
+        csvContains: pair.csvContains,
+        csv_contains: pair.csvContains,
+        pipelineContains: pair.pipelineContains,
+        pipeline_contains: pair.pipelineContains,
+      })),
+    })),
+    column_mappings: (group.columnMappings ?? []).map((mapping) => ({
+      id: mapping.id,
+      csvColumn: mapping.csvColumn,
+      csv_column: mapping.csvColumn,
+      competitorColumn: mapping.competitorColumn,
+      competitor_column: mapping.competitorColumn,
+      pairs: (mapping.pairs ?? []).map((pair) => ({
+        id: pair.id,
+        csvValue: pair.csvValue,
+        csv_value: pair.csvValue,
+        pipelineValue: pair.pipelineValue,
+        pipeline_value: pair.pipelineValue,
+        exactMatch: pair.exactMatch,
+        exact_match: pair.exactMatch,
+        csvFirstTwoDimensions: pair.csvFirstTwoDimensions,
+        csv_first_two_dimensions: pair.csvFirstTwoDimensions,
+        csvContains: pair.csvContains,
+        csv_contains: pair.csvContains,
+        pipelineContains: pair.pipelineContains,
+        pipeline_contains: pair.pipelineContains,
+      })),
+    })),
+  })) as ProcessCsvConfigurationPayload["mapping_groups"]
 }
 
 function createDefaultAmenityAdjusterState(): AmenityAdjusterState {
@@ -2384,133 +2588,59 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
       ?? (config as ProcessCsvConfiguration & { mapping?: { mapping_rules?: unknown } }).mapping?.mapping_rules
     const fallbackMappingShadow = readConfigMappingShadow(String(config.name ?? ""))
 
-    const loadedRules = Array.isArray(loadedRulesRaw)
-      ? loadedRulesRaw
-          .map((item) => item as Partial<PipelineMappingRule>)
-          .filter((item) => item && typeof item.pipelineName === "string")
-          .map((item) => ({
-            id: String(item.id ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`),
-            pipelineName: String(item.pipelineName ?? ""),
-            column: String(item.column ?? ""),
-            operator: (String(item.operator ?? "contains") as MappingOperator),
-            value: String(item.value ?? ""),
-          }))
-      : (Array.isArray(fallbackMappingShadow?.mapping_rules)
-          ? fallbackMappingShadow.mapping_rules
-              .map((item) => item as Partial<PipelineMappingRule>)
-              .filter((item) => item && typeof item.pipelineName === "string")
-              .map((item) => ({
-                id: String(item.id ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`),
-                pipelineName: String(item.pipelineName ?? ""),
-                column: String(item.column ?? ""),
-                operator: (String(item.operator ?? "contains") as MappingOperator),
-                value: String(item.value ?? ""),
-              }))
-          : [])
+    const normalizeRulesFromUnknown = (source: unknown): PipelineMappingRule[] => {
+      if (!Array.isArray(source)) return []
+      return source
+        .map((item) => {
+          const pipelineName = readStringFromKeys(item, "pipelineName", "pipeline_name")
+          if (!pipelineName) return null
+          return {
+            id: readStringFromKeys(item, "id") || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            pipelineName,
+            column: readStringFromKeys(item, "column"),
+            operator: (String(readStringFromKeys(item, "operator") || "contains") as MappingOperator),
+            value: readStringFromKeys(item, "value"),
+          }
+        })
+        .filter((item): item is PipelineMappingRule => item !== null)
+    }
+
+    const loadedRules = normalizeRulesFromUnknown(
+      Array.isArray(loadedRulesRaw)
+        ? loadedRulesRaw
+        : (Array.isArray(fallbackMappingShadow?.mapping_rules) ? fallbackMappingShadow.mapping_rules : [])
+    )
     setMappingRules(loadedRules)
 
     const loadedPipelineMappingsRaw = (config as ProcessCsvConfiguration & { pipeline_mappings?: unknown; mapping?: { pipeline_mappings?: unknown } }).pipeline_mappings
       ?? (config as ProcessCsvConfiguration & { mapping?: { pipeline_mappings?: unknown } }).mapping?.pipeline_mappings
+    let normalizedPipelineMappings: PipelineMappingConfig[] = []
     if (Array.isArray(loadedPipelineMappingsRaw) || Array.isArray(fallbackMappingShadow?.pipeline_mappings)) {
       const source = Array.isArray(loadedPipelineMappingsRaw)
         ? loadedPipelineMappingsRaw
         : (fallbackMappingShadow?.pipeline_mappings ?? [])
-      const normalized = source
-        .map((item) => item as Partial<PipelineMappingConfig>)
-        .filter((item) => item && typeof item.pipelineName === "string")
-        .map((item) => ({
-          pipelineName: String(item.pipelineName ?? ""),
-          csvLocationColumn: String(item.csvLocationColumn ?? ""),
-          csvDimensionColumn: String(item.csvDimensionColumn ?? ""),
-          csvAreaColumn: String(item.csvAreaColumn ?? ""),
-          csvAmenitiesColumn: String(item.csvAmenitiesColumn ?? ""),
-          dimensionMode: (item.dimensionMode === "full" ? "full" : "first_two") as "full" | "first_two",
-          fallbackPipelineName: String(item.fallbackPipelineName ?? ""),
-          locationMappings: Array.isArray(item.locationMappings)
-            ? item.locationMappings
-                .map((lm) => lm as Partial<LocationStringMapping>)
-                .map((lm) => ({
-                  id: String(lm.id ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`),
-                  csvValue: String(lm.csvValue ?? ""),
-                  pipelineValue: String(lm.pipelineValue ?? ""),
-                }))
-            : [],
-        }))
-      setPipelineMappingConfigs(normalized)
+      normalizedPipelineMappings = normalizePipelineMappingConfigsFromUnknown(source)
+      setPipelineMappingConfigs(normalizedPipelineMappings)
     } else {
-      setPipelineMappingConfigs(mappingPipelineNames.map((name) => createDefaultPipelineMappingConfig(name)))
+      normalizedPipelineMappings = mappingPipelineNames.map((name) => createDefaultPipelineMappingConfig(name))
+      setPipelineMappingConfigs(normalizedPipelineMappings)
     }
 
     const loadedGroupsRaw = (config as ProcessCsvConfiguration & { mapping_groups?: unknown; mapping?: { mapping_groups?: unknown } }).mapping_groups
       ?? (config as ProcessCsvConfiguration & { mapping?: { mapping_groups?: unknown } }).mapping?.mapping_groups
-    const loadedGroups = Array.isArray(loadedGroupsRaw)
-      ? loadedGroupsRaw
-          .map((item) => item as unknown as Partial<MappingGroup>)
-          .filter((item) => item && typeof item.id === "string")
-          .map((item) => ({
-            id: String(item.id ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`),
-            name: String(item.name ?? ""),
-            pipelineName: String((item as Record<string, unknown>).pipelineName ?? (item as Record<string, unknown>).pipeline ?? mappingPipelineNames[0] ?? ""),
-            fallbackGroupId: String(item.fallbackGroupId ?? ""),
-            dimensionMode: (item.dimensionMode === "full" ? "full" : "first_two") as "full" | "first_two",
-            columnMappings: Array.isArray(item.columnMappings)
-              ? item.columnMappings
-                  .map((mapping) => mapping as Partial<MappingGroupColumnMapping> & { pairs?: unknown })
-                  .map((mapping) => ({
-                    id: String(mapping.id ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`),
-                    csvColumn: String(mapping.csvColumn ?? ""),
-                    competitorColumn: String(mapping.competitorColumn ?? "") as MappingGroupCompetitorColumn,
-                    pairs: Array.isArray(mapping.pairs)
-                      ? mapping.pairs
-                          .map((pair) => pair as Partial<MappingGroupPair>)
-                          .map((pair) => ({
-                            id: String(pair.id ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`),
-                            csvValue: String(pair.csvValue ?? ""),
-                            pipelineValue: String(pair.pipelineValue ?? ""),
-                            exactMatch: Boolean(pair.exactMatch),
-                            csvFirstTwoDimensions: Boolean(pair.csvFirstTwoDimensions),
-                            csvContains: Boolean((pair as Partial<MappingGroupPair>).csvContains),
-                            pipelineContains: Boolean((pair as Partial<MappingGroupPair>).pipelineContains),
-                          }))
-                      : [],
-                  }))
-              : [],
-          }))
-      : (Array.isArray(fallbackMappingShadow?.mapping_groups)
-          ? fallbackMappingShadow.mapping_groups
-              .map((item) => item as unknown as Partial<MappingGroup>)
-              .filter((item) => item && typeof item.id === "string")
-              .map((item) => ({
-                id: String(item.id ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`),
-                name: String(item.name ?? ""),
-                pipelineName: String((item as Record<string, unknown>).pipelineName ?? (item as Record<string, unknown>).pipeline ?? mappingPipelineNames[0] ?? ""),
-                fallbackGroupId: String(item.fallbackGroupId ?? ""),
-                dimensionMode: (item.dimensionMode === "full" ? "full" : "first_two") as "full" | "first_two",
-                columnMappings: Array.isArray(item.columnMappings)
-                  ? item.columnMappings
-                      .map((mapping) => mapping as Partial<MappingGroupColumnMapping> & { pairs?: unknown })
-                      .map((mapping) => ({
-                        id: String(mapping.id ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`),
-                        csvColumn: String(mapping.csvColumn ?? ""),
-                        competitorColumn: String(mapping.competitorColumn ?? "") as MappingGroupCompetitorColumn,
-                        pairs: Array.isArray(mapping.pairs)
-                          ? mapping.pairs
-                              .map((pair) => pair as Partial<MappingGroupPair>)
-                              .map((pair) => ({
-                                id: String(pair.id ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`),
-                                csvValue: String(pair.csvValue ?? ""),
-                                pipelineValue: String(pair.pipelineValue ?? ""),
-                                exactMatch: Boolean(pair.exactMatch),
-                                csvFirstTwoDimensions: Boolean(pair.csvFirstTwoDimensions),
-                                csvContains: Boolean((pair as Partial<MappingGroupPair>).csvContains),
-                                pipelineContains: Boolean((pair as Partial<MappingGroupPair>).pipelineContains),
-                              }))
-                          : [],
-                      }))
-                  : [],
-              }))
-          : [])
+    const loadedGroups = normalizeMappingGroupsFromUnknown(
+      Array.isArray(loadedGroupsRaw)
+        ? loadedGroupsRaw
+        : (Array.isArray(fallbackMappingShadow?.mapping_groups) ? fallbackMappingShadow.mapping_groups : []),
+      mappingPipelineNames[0] ?? ""
+    )
     setMappingGroups(loadedGroups)
+
+    persistMappingDraft({
+      mappingRules: loadedRules,
+      pipelineMappingConfigs: normalizedPipelineMappings,
+      mappingGroups: loadedGroups,
+    })
   }
 
   useEffect(() => {
@@ -2613,6 +2743,10 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     const currentPipelineMappings = Array.isArray(currentMapping.pipelineMappingConfigs) ? currentMapping.pipelineMappingConfigs : []
     const currentMappingGroups = Array.isArray(currentMapping.mappingGroups) ? currentMapping.mappingGroups : []
 
+    const serializedMappingRules = serializeMappingRulesForSave(currentMappingRules)
+    const serializedPipelineMappings = serializePipelineMappingsForSave(currentPipelineMappings)
+    const serializedMappingGroups = serializeMappingGroupsForSave(currentMappingGroups)
+
     persistConfigMappingShadow(name, {
       mappingRules: currentMappingRules,
       pipelineMappingConfigs: currentPipelineMappings,
@@ -2647,13 +2781,13 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
         standard: resolvedAmenityAdjuster.standard,
         economy: resolvedAmenityAdjuster.economy,
       },
-      mapping_rules: currentMappingRules,
-      pipeline_mappings: currentPipelineMappings,
-      mapping_groups: currentMappingGroups,
+      mapping_rules: serializedMappingRules,
+      pipeline_mappings: serializedPipelineMappings,
+      mapping_groups: serializedMappingGroups,
       mapping: {
-        mapping_rules: currentMappingRules,
-        pipeline_mappings: currentPipelineMappings,
-        mapping_groups: currentMappingGroups,
+        mapping_rules: serializedMappingRules,
+        pipeline_mappings: serializedPipelineMappings,
+        mapping_groups: serializedMappingGroups,
       },
     })
 
@@ -2755,8 +2889,14 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
       return
     }
 
+    persistMappingDraft({
+      mappingRules,
+      pipelineMappingConfigs,
+      mappingGroups,
+    })
+
     setShowMapping(false)
-  }, [])
+  }, [mappingGroups, mappingRules, pipelineMappingConfigs, persistMappingDraft])
 
   const handleCsvFileSelected = (event: ChangeEvent<HTMLInputElement>) => {
     const nextFile = event.target.files?.[0] || null
