@@ -3671,24 +3671,6 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                       </tbody>
                     </table>
                   </div>
-                  <div className="max-h-[360px] overflow-auto rounded-md border">
-                    <table className="w-full text-sm">
-                      <thead className="sticky top-0 bg-background border-b">
-                        <tr>
-                          <th className="px-3 py-2 text-left font-medium">Competitor column</th>
-                          <th className="px-3 py-2 text-left font-medium">Value</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {traceDialogRow.traceDetails.comboMapEntries.map((entry) => (
-                          <tr key={entry.key} className="border-b last:border-b-0">
-                            <td className="px-3 py-2 align-top font-mono text-xs">{entry.key}</td>
-                            <td className="px-3 py-2 align-top">{entry.value || "—"}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
                 </>
               ) : (
                 <p className="text-sm text-muted-foreground">No trace details available for this row.</p>
@@ -4422,24 +4404,6 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                     <tbody>
                       {traceDialogRow.traceDetails.pipelineRowEntries.map((entry) => (
                         <tr key={`pipeline-${entry.key}`} className="border-b last:border-b-0">
-                          <td className="px-3 py-2 align-top font-mono text-xs">{entry.key}</td>
-                          <td className="px-3 py-2 align-top">{entry.value || "—"}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <div className="max-h-[360px] overflow-auto rounded-md border">
-                  <table className="w-full text-sm">
-                    <thead className="sticky top-0 bg-background border-b">
-                      <tr>
-                        <th className="px-3 py-2 text-left font-medium">Competitor Pricing Reference</th>
-                        <th className="px-3 py-2 text-left font-medium">Value</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {traceDialogRow.traceDetails.comboMapEntries.map((entry) => (
-                        <tr key={entry.key} className="border-b last:border-b-0">
                           <td className="px-3 py-2 align-top font-mono text-xs">{entry.key}</td>
                           <td className="px-3 py-2 align-top">{entry.value || "—"}</td>
                         </tr>

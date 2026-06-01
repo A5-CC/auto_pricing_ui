@@ -14,7 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { SectionLabel } from "@/components/ui/section-label";
 import type { Adjuster } from "@/lib/adjusters";
-import { getPriceDiagnostics, hasValidCompetitorPrices } from "@/lib/adjusters";
+import { DEFAULT_PRICE_FALLBACK_CHAIN, getPriceDiagnostics, hasValidCompetitorPrices } from "@/lib/adjusters";
 import { getCachedValue } from "@/lib/api/cache";
 import {
   getE1Client,
@@ -355,6 +355,22 @@ export default function PipelinesPage() {
 
     return Array.from(new Set([...numericFromStats, ...inferredNumeric])).sort();
   }, [columnsStats, baseRows]);
+
+  const availablePriceColumns = useMemo(() => {
+    const isPriceLikeColumn = (column: string) => /price|rate|rent|monthly|web|standard|promo|starting|store|instore/i.test(column)
+
+    const preferredDetected = availableVariables.filter(isPriceLikeColumn)
+    const schemaColumns = (dataResponse?.columns ?? []).filter(isPriceLikeColumn)
+
+    const prioritized = [
+      ...DEFAULT_PRICE_FALLBACK_CHAIN,
+      ...preferredDetected,
+      ...schemaColumns,
+      ...availableVariables,
+    ]
+
+    return Array.from(new Set(prioritized.filter(Boolean)))
+  }, [availableVariables, dataResponse?.columns])
 
   /* ---------------- Note ----------------
      Unlike the legacy pipelines page, we do not maintain a separate sortable/grid view.
@@ -757,6 +773,7 @@ export default function PipelinesPage() {
           open={competitiveDialog.open}
           onOpenChange={competitiveDialog.setOpen}
           onAdd={handleAddAdjuster}
+          availablePriceColumns={availablePriceColumns}
         />
         <AddFunctionAdjusterDialog
           open={functionDialog.open}
