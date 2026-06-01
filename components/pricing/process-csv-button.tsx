@@ -270,7 +270,21 @@ function serializeMappingRulesForSave(
 function serializePipelineMappingsForSave(
   configs: PipelineMappingConfig[]
 ): ProcessCsvConfigurationPayload["pipeline_mappings"] {
-  return configs.map((cfg) => {
+  return configs
+    .filter((cfg) => {
+      const pipelineName = String(cfg.pipelineName ?? "").trim()
+      if (!pipelineName) return false
+      const hasAnyCsvColumn = Boolean(
+        String(cfg.csvLocationColumn ?? "").trim() ||
+        String(cfg.csvDimensionColumn ?? "").trim() ||
+        String(cfg.csvAreaColumn ?? "").trim() ||
+        String(cfg.csvAmenitiesColumn ?? "").trim()
+      )
+      const hasAnyLocationMapping = Array.isArray(cfg.locationMappings) && cfg.locationMappings.length > 0
+      const hasFallback = Boolean(String(cfg.fallbackPipelineName ?? "").trim())
+      return hasAnyCsvColumn || hasAnyLocationMapping || hasFallback
+    })
+    .map((cfg) => {
     const csvColumnMappings = [
       {
         id: "client_location",
@@ -310,7 +324,9 @@ function serializePipelineMappingsForSave(
       },
     ]
 
-    return ({
+      const fallbackPipelineName = String(cfg.fallbackPipelineName ?? "").trim()
+
+      return ({
     pipelineName: cfg.pipelineName,
     pipeline_name: cfg.pipelineName,
     csvLocationColumn: cfg.csvLocationColumn,
@@ -323,8 +339,12 @@ function serializePipelineMappingsForSave(
     csv_amenities_column: cfg.csvAmenitiesColumn,
     dimensionMode: cfg.dimensionMode,
     dimension_mode: cfg.dimensionMode,
-    fallbackPipelineName: cfg.fallbackPipelineName,
-    fallback_pipeline_name: cfg.fallbackPipelineName,
+    ...(fallbackPipelineName
+      ? {
+          fallbackPipelineName,
+          fallback_pipeline_name: fallbackPipelineName,
+        }
+      : {}),
     csvColumnMappings,
     csv_column_mappings: csvColumnMappings,
     columnMappings: csvColumnMappings,
@@ -343,8 +363,8 @@ function serializePipelineMappingsForSave(
       pipelineValue: mapping.pipelineValue,
       pipeline_value: mapping.pipelineValue,
     })),
-  })
-  }) as ProcessCsvConfigurationPayload["pipeline_mappings"]
+    })
+    }) as ProcessCsvConfigurationPayload["pipeline_mappings"]
 }
 
 function serializeMappingGroupsForSave(

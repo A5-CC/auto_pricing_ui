@@ -423,12 +423,6 @@ export async function saveProcessCsvConfiguration(
     payload: payloadWithMappings,
   }
 
-  const payloadOnlyEnvelope = {
-    name: payload.name,
-    snapshot_id: payload.snapshot_id,
-    payload: payloadWithMappings,
-  }
-
   const mappingSnapshot = getMappingSnapshot(wrappedPayload.payload as Partial<ProcessCsvConfigurationPayload>)
   persistMappingShadow(mappingSnapshot, {
     snapshotId: payload.snapshot_id,
@@ -440,8 +434,6 @@ export async function saveProcessCsvConfiguration(
     wrappedPayload,
     // Compatibility: top-level only shape with explicit mapping fields.
     payloadWithMappings,
-    // Legacy: payload envelope only.
-    payloadOnlyEnvelope,
   ]
 
   persistProcessCsvDebugSnapshot(PROCESS_CSV_LAST_SAVE_REQUEST_KEY, {
