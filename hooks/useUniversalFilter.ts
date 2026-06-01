@@ -1,8 +1,8 @@
 "use client"
 
 
-import { useMemo } from "react"
 import { normalizeFilterValue, toFilterDisplayValue } from "@/lib/pricing/filter-value-normalization"
+import { useMemo } from "react"
 
 export function useUniversalFilter<T extends Record<string, unknown>>(
   rows: T[],

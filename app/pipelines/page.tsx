@@ -20,7 +20,6 @@ import {
   getE1Client,
 } from "@/lib/api/client/pipelines";
 import { getColumnStatistics, getPricingData, getPricingSchemas, getPricingSnapshots } from "@/lib/api/client/pricing";
-import { normalizeFilterValue } from "@/lib/pricing/filter-value-normalization";
 import type {
   ColumnStatistics,
   Pipeline,
@@ -28,6 +27,7 @@ import type {
   PricingSchemas,
   PricingSnapshot,
 } from "@/lib/api/types";
+import { normalizeFilterValue } from "@/lib/pricing/filter-value-normalization";
 import { Calculator, Clock, Plus, TrendingDown } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
