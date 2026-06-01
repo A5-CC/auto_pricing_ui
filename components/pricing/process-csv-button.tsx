@@ -383,21 +383,27 @@ function serializeMappingGroupsForSave(
         .filter((mapping) => {
           const csvColumn = String(mapping.csvColumn ?? "").trim()
           const pipelineColumn = String(mapping.competitorColumn ?? "").trim()
-          const hasPairs = Array.isArray(mapping.pairs) && mapping.pairs.length > 0
-          return Boolean((csvColumn && pipelineColumn) || hasPairs)
+          return Boolean(csvColumn && pipelineColumn)
         })
-        .map((mapping) => ({
+        .map((mapping) => {
+          const csvColumn = String(mapping.csvColumn ?? "").trim()
+          const pipelineColumn = String(mapping.competitorColumn ?? "").trim()
+
+          return ({
           id: mapping.id,
-          csvColumn: mapping.csvColumn,
-          csv_column: mapping.csvColumn,
-          competitorColumn: mapping.competitorColumn,
-          competitor_column: mapping.competitorColumn,
-          pipelineColumn: mapping.competitorColumn,
-          pipeline_column: mapping.competitorColumn,
+          csvColumn,
+          csv_column: csvColumn,
+          competitorColumn: pipelineColumn,
+          competitor_column: pipelineColumn,
+          pipelineColumn,
+          pipeline_column: pipelineColumn,
           pairs: (mapping.pairs ?? [])
             .filter((pair) => {
               const csvValue = String(pair.csvValue ?? "").trim()
               const pipelineValue = String(pair.pipelineValue ?? "").trim()
+              if (pair.csvFirstTwoDimensions || pair.exactMatch) {
+                return true
+              }
               return csvValue.length > 0 || pipelineValue.length > 0
             })
             .map((pair) => ({
@@ -415,7 +421,8 @@ function serializeMappingGroupsForSave(
             pipelineContains: pair.pipelineContains,
             pipeline_contains: pair.pipelineContains,
           })),
-        }))
+        })
+        })
 
       return {
         id: group.id,
@@ -3838,11 +3845,31 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                                 />
                                 <Input
                                   className="h-9 rounded-full"
-                                  placeholder="Pipeline value"
+                                  placeholder="Pipeline Value"
                                   value={pair.exactMatch || pair.csvFirstTwoDimensions ? "" : pair.pipelineValue}
                                   disabled={pair.exactMatch || pair.csvFirstTwoDimensions}
                                   onChange={(e) => selectedMappingGroup && updateGroupColumnMappingPair(selectedMappingGroup.id, mapping.id, pair.id, { pipelineValue: e.target.value })}
                                 />
+                              </div>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                                <label className="inline-flex items-center gap-1">
+                                  <input
+                                    type="checkbox"
+                                    checked={pair.csvContains}
+                                    disabled={pair.exactMatch || pair.csvFirstTwoDimensions}
+                                    onChange={(e) => selectedMappingGroup && updateGroupColumnMappingPair(selectedMappingGroup.id, mapping.id, pair.id, { csvContains: e.target.checked })}
+                                  />
+                                  <span>CSV Contains</span>
+                                </label>
+                                <label className="inline-flex items-center gap-1">
+                                  <input
+                                    type="checkbox"
+                                    checked={pair.pipelineContains}
+                                    disabled={pair.exactMatch || pair.csvFirstTwoDimensions}
+                                    onChange={(e) => selectedMappingGroup && updateGroupColumnMappingPair(selectedMappingGroup.id, mapping.id, pair.id, { pipelineContains: e.target.checked })}
+                                  />
+                                  <span>Pipeline Contains</span>
+                                </label>
                               </div>
                               <div className="flex flex-wrap items-center gap-3 text-xs">
                                 <label className="inline-flex items-center gap-1">
@@ -3866,24 +3893,6 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                                     })}
                                   />
                                   <span>Dimensions Operator</span>
-                                </label>
-                                <label className="inline-flex items-center gap-1">
-                                  <input
-                                    type="checkbox"
-                                    checked={pair.csvContains}
-                                    disabled={pair.exactMatch || pair.csvFirstTwoDimensions}
-                                    onChange={(e) => selectedMappingGroup && updateGroupColumnMappingPair(selectedMappingGroup.id, mapping.id, pair.id, { csvContains: e.target.checked })}
-                                  />
-                                  <span>CSV contains</span>
-                                </label>
-                                <label className="inline-flex items-center gap-1">
-                                  <input
-                                    type="checkbox"
-                                    checked={pair.pipelineContains}
-                                    disabled={pair.exactMatch || pair.csvFirstTwoDimensions}
-                                    onChange={(e) => selectedMappingGroup && updateGroupColumnMappingPair(selectedMappingGroup.id, mapping.id, pair.id, { pipelineContains: e.target.checked })}
-                                  />
-                                  <span>Pipeline contains</span>
                                 </label>
                                 <Button type="button" size="sm" variant="outline" onClick={() => selectedMappingGroup && removeGroupColumnMappingPair(selectedMappingGroup.id, mapping.id, pair.id)}>
                                   Remove Pair
@@ -4913,6 +4922,26 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                                 onChange={(e) => selectedMappingGroup && updateGroupColumnMappingPair(selectedMappingGroup.id, mapping.id, pair.id, { pipelineValue: e.target.value })}
                               />
                             </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                              <label className="inline-flex items-center gap-1">
+                                <input
+                                  type="checkbox"
+                                  checked={pair.csvContains}
+                                  disabled={pair.exactMatch || pair.csvFirstTwoDimensions}
+                                  onChange={(e) => selectedMappingGroup && updateGroupColumnMappingPair(selectedMappingGroup.id, mapping.id, pair.id, { csvContains: e.target.checked })}
+                                />
+                                <span>CSV Contains</span>
+                              </label>
+                              <label className="inline-flex items-center gap-1">
+                                <input
+                                  type="checkbox"
+                                  checked={pair.pipelineContains}
+                                  disabled={pair.exactMatch || pair.csvFirstTwoDimensions}
+                                  onChange={(e) => selectedMappingGroup && updateGroupColumnMappingPair(selectedMappingGroup.id, mapping.id, pair.id, { pipelineContains: e.target.checked })}
+                                />
+                                <span>Pipeline Contains</span>
+                              </label>
+                            </div>
                             <div className="flex flex-wrap items-center gap-3 text-xs">
                               <label className="inline-flex items-center gap-1">
                                 <input
@@ -4935,24 +4964,6 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                                   })}
                                 />
                                 <span>CSV first two dimensions only</span>
-                              </label>
-                              <label className="inline-flex items-center gap-1">
-                                <input
-                                  type="checkbox"
-                                  checked={pair.csvContains}
-                                  disabled={pair.exactMatch || pair.csvFirstTwoDimensions}
-                                  onChange={(e) => selectedMappingGroup && updateGroupColumnMappingPair(selectedMappingGroup.id, mapping.id, pair.id, { csvContains: e.target.checked })}
-                                />
-                                <span>CSV contains</span>
-                              </label>
-                              <label className="inline-flex items-center gap-1">
-                                <input
-                                  type="checkbox"
-                                  checked={pair.pipelineContains}
-                                  disabled={pair.exactMatch || pair.csvFirstTwoDimensions}
-                                  onChange={(e) => selectedMappingGroup && updateGroupColumnMappingPair(selectedMappingGroup.id, mapping.id, pair.id, { pipelineContains: e.target.checked })}
-                                />
-                                <span>Pipeline contains</span>
                               </label>
                               <Button type="button" size="sm" variant="outline" onClick={() => selectedMappingGroup && removeGroupColumnMappingPair(selectedMappingGroup.id, mapping.id, pair.id)}>
                                 Remove Pair
