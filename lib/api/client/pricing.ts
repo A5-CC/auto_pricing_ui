@@ -101,6 +101,17 @@ type MappingEnvelopeLike = {
 }
 
 const PROCESS_CSV_MAPPING_SHADOW_KEY = "__apu_process_csv_mapping_shadow_v1"
+const PROCESS_CSV_LAST_SAVE_REQUEST_KEY = "__apu_process_csv_last_save_request_v1"
+const PROCESS_CSV_LAST_SAVE_RESULT_KEY = "__apu_process_csv_last_save_result_v1"
+
+function persistProcessCsvDebugSnapshot(key: string, value: unknown): void {
+  if (typeof window === "undefined") return
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value))
+  } catch {
+    // ignore
+  }
+}
 
 function getMappingSnapshot(payload: Partial<ProcessCsvConfigurationPayload>): ProcessCsvMappingShadow {
   const payloadRecord = payload as Record<string, unknown>
@@ -423,6 +434,17 @@ export async function saveProcessCsvConfiguration(
     payloadWithMappings,
   ]
 
+  persistProcessCsvDebugSnapshot(PROCESS_CSV_LAST_SAVE_REQUEST_KEY, {
+    at: new Date().toISOString(),
+    endpoint: `${API_BASE_URL}/client-data/process-csv-configurations`,
+    mapping_counts: {
+      mapping_rules: mappingRules.length,
+      pipeline_mappings: pipelineMappings.length,
+      mapping_groups: mappingGroups.length,
+    },
+    attempts,
+  })
+
   let lastError: unknown = null
   for (const body of attempts) {
     try {
@@ -437,9 +459,21 @@ export async function saveProcessCsvConfiguration(
         name: result?.name ?? payload.name,
         id: result?.id,
       })
+      persistProcessCsvDebugSnapshot(PROCESS_CSV_LAST_SAVE_RESULT_KEY, {
+        at: new Date().toISOString(),
+        success: true,
+        request_body: body,
+        response: result,
+      })
       return result
     } catch (error) {
       lastError = error
+      persistProcessCsvDebugSnapshot(PROCESS_CSV_LAST_SAVE_RESULT_KEY, {
+        at: new Date().toISOString(),
+        success: false,
+        request_body: body,
+        error: error instanceof Error ? error.message : String(error),
+      })
     }
   }
 

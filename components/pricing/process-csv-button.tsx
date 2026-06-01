@@ -2766,10 +2766,9 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
       mappingGroups,
     })
 
-    const currentMapping = mappingSnapshotRef.current
-    const currentMappingRules = Array.isArray(currentMapping.mappingRules) ? currentMapping.mappingRules : []
-    const currentPipelineMappings = Array.isArray(currentMapping.pipelineMappingConfigs) ? currentMapping.pipelineMappingConfigs : []
-    const currentMappingGroups = Array.isArray(currentMapping.mappingGroups) ? currentMapping.mappingGroups : []
+    const currentMappingRules = Array.isArray(mappingRules) ? mappingRules : []
+    const currentPipelineMappings = Array.isArray(pipelineMappingConfigs) ? pipelineMappingConfigs : []
+    const currentMappingGroups = Array.isArray(mappingGroups) ? mappingGroups : []
 
     const serializedMappingRules = serializeMappingRulesForSave(currentMappingRules)
     const serializedPipelineMappings = serializePipelineMappingsForSave(currentPipelineMappings)
