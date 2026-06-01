@@ -397,25 +397,11 @@ export async function saveProcessCsvConfiguration(
   const pipelineMappings = Array.isArray(payload.pipeline_mappings) ? payload.pipeline_mappings : []
   const mappingGroups = Array.isArray(payload.mapping_groups) ? payload.mapping_groups : []
 
-  const normalizedMapping = {
-    mapping_rules: mappingRules,
-    mappingRules,
-    pipeline_mappings: pipelineMappings,
-    pipelineMappings,
-    mapping_groups: mappingGroups,
-    mappingGroups,
-  }
-
   const payloadWithMappings = {
     ...payload,
     mapping_rules: mappingRules,
-    mappingRules,
     pipeline_mappings: pipelineMappings,
-    pipelineMappings,
     mapping_groups: mappingGroups,
-    mappingGroups,
-    mapping: normalizedMapping,
-    mappings: normalizedMapping,
   }
 
   const wrappedPayload = {
@@ -423,7 +409,7 @@ export async function saveProcessCsvConfiguration(
     payload: payloadWithMappings,
   }
 
-  const mappingSnapshot = getMappingSnapshot(wrappedPayload.payload as Partial<ProcessCsvConfigurationPayload>)
+  const mappingSnapshot = getMappingSnapshot(payloadWithMappings as Partial<ProcessCsvConfigurationPayload>)
   persistMappingShadow(mappingSnapshot, {
     snapshotId: payload.snapshot_id,
     name: payload.name,

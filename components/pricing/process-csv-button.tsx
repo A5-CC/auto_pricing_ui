@@ -2876,7 +2876,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     const expectedRulesCount = Array.isArray(serializedMappingRules) ? serializedMappingRules.length : 0
     const expectedPipelineMappingsCount = Array.isArray(serializedPipelineMappings) ? serializedPipelineMappings.length : 0
     const expectedMappingGroupsCount = Array.isArray(serializedMappingGroups) ? serializedMappingGroups.length : 0
-
+    
     const saveResult = await saveProcessCsvConfiguration({
       name,
       snapshot_id: snapshotId,
@@ -2895,11 +2895,6 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
       mapping_rules: serializedMappingRules,
       pipeline_mappings: serializedPipelineMappings,
       mapping_groups: serializedMappingGroups,
-      mapping: {
-        mapping_rules: serializedMappingRules,
-        pipeline_mappings: serializedPipelineMappings,
-        mapping_groups: serializedMappingGroups,
-      },
     })
 
     const refreshed = await listProcessCsvConfigurations(snapshotId)
