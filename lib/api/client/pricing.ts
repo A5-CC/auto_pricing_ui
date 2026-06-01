@@ -402,39 +402,50 @@ export async function saveProcessCsvConfiguration(
     payload: payloadWithMappings,
   }
 
+  const payloadOnlyEnvelope = {
+    name: payload.name,
+    snapshot_id: payload.snapshot_id,
+    payload: payloadWithMappings,
+  }
+
   const mappingSnapshot = getMappingSnapshot(wrappedPayload.payload as Partial<ProcessCsvConfigurationPayload>)
   persistMappingShadow(mappingSnapshot, {
     snapshotId: payload.snapshot_id,
     name: payload.name,
   })
 
-  try {
-    const response = await fetchWithError(`${API_BASE_URL}/client-data/process-csv-configurations`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(wrappedPayload),
-    })
-    const result = await response.json() as { success: boolean; id?: string; name?: string }
-    persistMappingShadow(mappingSnapshot, {
-      snapshotId: payload.snapshot_id,
-      name: result?.name ?? payload.name,
-      id: result?.id,
-    })
-    return result
-  } catch {
-    const fallback = await fetchWithError(`${API_BASE_URL}/client-data/process-csv-configurations`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    })
-    const result = await fallback.json() as { success: boolean; id?: string; name?: string }
-    persistMappingShadow(mappingSnapshot, {
-      snapshotId: payload.snapshot_id,
-      name: result?.name ?? payload.name,
-      id: result?.id,
-    })
-    return result
+  const attempts: Array<Record<string, unknown>> = [
+    // Preferred: force backend to store the exact payload object under `payload`
+    payloadOnlyEnvelope,
+    // Compatibility: support backends that read top-level fields
+    wrappedPayload,
+    // Last fallback: still include explicit mapping envelope at top-level
+    payloadWithMappings,
+  ]
+
+  let lastError: unknown = null
+  for (const body of attempts) {
+    try {
+      const response = await fetchWithError(`${API_BASE_URL}/client-data/process-csv-configurations`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      })
+      const result = await response.json() as { success: boolean; id?: string; name?: string }
+      persistMappingShadow(mappingSnapshot, {
+        snapshotId: payload.snapshot_id,
+        name: result?.name ?? payload.name,
+        id: result?.id,
+      })
+      return result
+    } catch (error) {
+      lastError = error
+    }
   }
+
+  throw (lastError instanceof Error
+    ? lastError
+    : new Error("Failed to save Process CSV configuration"))
 }
 
 export async function listProcessCsvConfigurations(
