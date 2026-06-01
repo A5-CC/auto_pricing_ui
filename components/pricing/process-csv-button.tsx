@@ -270,7 +270,47 @@ function serializeMappingRulesForSave(
 function serializePipelineMappingsForSave(
   configs: PipelineMappingConfig[]
 ): ProcessCsvConfigurationPayload["pipeline_mappings"] {
-  return configs.map((cfg) => ({
+  return configs.map((cfg) => {
+    const csvColumnMappings = [
+      {
+        id: "client_location",
+        competitorColumn: "client_location",
+        competitor_column: "client_location",
+        pipelineColumn: "client_location",
+        pipeline_column: "client_location",
+        csvColumn: cfg.csvLocationColumn,
+        csv_column: cfg.csvLocationColumn,
+      },
+      {
+        id: "unit_dimensions",
+        competitorColumn: "unit_dimensions",
+        competitor_column: "unit_dimensions",
+        pipelineColumn: "unit_dimensions",
+        pipeline_column: "unit_dimensions",
+        csvColumn: cfg.csvDimensionColumn,
+        csv_column: cfg.csvDimensionColumn,
+      },
+      {
+        id: "unit_area",
+        competitorColumn: "unit_area",
+        competitor_column: "unit_area",
+        pipelineColumn: "unit_area",
+        pipeline_column: "unit_area",
+        csvColumn: cfg.csvAreaColumn,
+        csv_column: cfg.csvAreaColumn,
+      },
+      {
+        id: "unit_amenities",
+        competitorColumn: "unit_amenities",
+        competitor_column: "unit_amenities",
+        pipelineColumn: "unit_amenities",
+        pipeline_column: "unit_amenities",
+        csvColumn: cfg.csvAmenitiesColumn,
+        csv_column: cfg.csvAmenitiesColumn,
+      },
+    ]
+
+    return ({
     pipelineName: cfg.pipelineName,
     pipeline_name: cfg.pipelineName,
     csvLocationColumn: cfg.csvLocationColumn,
@@ -285,6 +325,10 @@ function serializePipelineMappingsForSave(
     dimension_mode: cfg.dimensionMode,
     fallbackPipelineName: cfg.fallbackPipelineName,
     fallback_pipeline_name: cfg.fallbackPipelineName,
+    csvColumnMappings,
+    csv_column_mappings: csvColumnMappings,
+    columnMappings: csvColumnMappings,
+    column_mappings: csvColumnMappings,
     locationMappings: (cfg.locationMappings ?? []).map((mapping) => ({
       id: mapping.id,
       csvValue: mapping.csvValue,
@@ -299,7 +343,8 @@ function serializePipelineMappingsForSave(
       pipelineValue: mapping.pipelineValue,
       pipeline_value: mapping.pipelineValue,
     })),
-  })) as ProcessCsvConfigurationPayload["pipeline_mappings"]
+  })
+  }) as ProcessCsvConfigurationPayload["pipeline_mappings"]
 }
 
 function serializeMappingGroupsForSave(

@@ -436,12 +436,12 @@ export async function saveProcessCsvConfiguration(
   })
 
   const attempts: Array<Record<string, unknown>> = [
-    // Preferred: force backend to store the exact payload object under `payload`
-    payloadOnlyEnvelope,
-    // Compatibility: support backends that read top-level fields
+    // Preferred: include required top-level fields and payload envelope together.
     wrappedPayload,
-    // Last fallback: still include explicit mapping envelope at top-level
+    // Compatibility: top-level only shape with explicit mapping fields.
     payloadWithMappings,
+    // Legacy: payload envelope only.
+    payloadOnlyEnvelope,
   ]
 
   persistProcessCsvDebugSnapshot(PROCESS_CSV_LAST_SAVE_REQUEST_KEY, {
