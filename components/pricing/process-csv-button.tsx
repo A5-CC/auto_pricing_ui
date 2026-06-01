@@ -2305,7 +2305,10 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
   }
 
   useEffect(() => {
-    if (!loadConfigOpen) return
+    if (!loadConfigOpen) {
+      setIsLoadingProcessConfig(false)
+      return
+    }
 
     let cancelled = false
 
@@ -2338,6 +2341,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
 
     return () => {
       cancelled = true
+      setIsLoadingProcessConfig(false)
     }
   }, [loadConfigOpen, snapshotId])
 
