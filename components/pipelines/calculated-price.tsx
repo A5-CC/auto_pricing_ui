@@ -10,6 +10,7 @@ type FilterValue = string | number | boolean
 export type CalculatedPriceRow = {
   comboMap: Record<string, FilterValue>
   price: number | null
+  traceRow?: Record<string, unknown>
 }
 
 export interface CalculatePriceTableParams {
@@ -142,7 +143,7 @@ export function calculatePriceTable({
     }
 
     return {
-      rows: [{ comboMap: {}, price }],
+      rows: [{ comboMap: {}, price, traceRow: (pool[0] as Record<string, unknown> | undefined) }],
       headers: ['Price'],
     }
   }
@@ -180,7 +181,7 @@ export function calculatePriceTable({
         console.error('[CalculatedPrice] Error for combo:', combo, e)
       }
 
-      return { comboMap, price }
+      return { comboMap, price, traceRow: (subset[0] as Record<string, unknown> | undefined) }
     })
     .filter((r) => r.price !== null)
 

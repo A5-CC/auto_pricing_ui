@@ -1558,9 +1558,12 @@ function applyCalculatedPricesToCsv(
     if (tracedRow) {
       const tracedPipelineName = String((tracedRow as Record<string, unknown>).__pipelineName ?? "").trim() || "Unknown pipeline"
       const comboMap = (tracedRow.comboMap ?? {}) as Record<string, unknown>
-      const pipelineColumns = pipelineColumnsByName.get(tracedPipelineName) ?? Object.keys(comboMap)
+      const tracedSourceRow = ((tracedRow as unknown as { traceRow?: Record<string, unknown> }).traceRow ?? null) as Record<string, unknown> | null
+      const pipelineColumns = tracedSourceRow
+        ? Object.keys(tracedSourceRow).sort()
+        : (pipelineColumnsByName.get(tracedPipelineName) ?? Object.keys(comboMap))
       const comboMapEntries = pipelineColumns.map((key) => {
-        const value = comboMap[key]
+        const value = tracedSourceRow ? tracedSourceRow[key] : comboMap[key]
         return {
           key,
           value: Array.isArray(value)
