@@ -1847,17 +1847,41 @@ function applyCalculatedPricesToCsv(
           || key === "storageleveldescription"
       }))
 
+      const groupAmenityCsvIndex = (() => {
+        if (!Array.isArray(candidate.groupColumnMappings) || candidate.groupColumnMappings.length === 0) return -1
+        for (const mapping of candidate.groupColumnMappings) {
+          const key = normalizeColumnKey(mapping.competitorColumn)
+          const isAmenityTarget = key === "unitamenities"
+            || key === "isclimatecontrolled"
+            || key === "haselevatoraccess"
+            || key === "hasdriveupaccess"
+            || key === "storagelevel"
+            || key === "storageleveldescription"
+          if (!isAmenityTarget) continue
+          const idx = findColumnIndexByHeaderName(headers, mapping.csvColumn)
+          if (idx >= 0) return idx
+        }
+        return -1
+      })()
+
+      const amenitySourceIndex = candidate.unitAmenitiesIndex >= 0
+        ? candidate.unitAmenitiesIndex
+        : groupAmenityCsvIndex
+      const amenitySourceValue = amenitySourceIndex >= 0
+        ? getCellValue(row, amenitySourceIndex)
+        : ""
+
       // If group pair mappings are present for amenities, do not pre-filter lookup
       // too aggressively by one token; try derived subsets first, then empty fallback.
       const amenitySubsets = hasGroupAmenityPairMapping
         ? Array.from(new Set([
-            ...(candidate.unitAmenitiesIndex >= 0
-              ? buildCsvAmenityTokenSubsets(getCellValue(row, candidate.unitAmenitiesIndex))
+            ...(amenitySourceValue
+              ? buildCsvAmenityTokenSubsets(amenitySourceValue)
               : [""]),
             "",
           ]))
-        : (candidate.unitAmenitiesIndex >= 0
-          ? buildCsvAmenityTokenSubsets(getCellValue(row, candidate.unitAmenitiesIndex))
+        : (amenitySourceValue
+          ? buildCsvAmenityTokenSubsets(amenitySourceValue)
           : [""])
       const allowDimensionMatching = true
 
