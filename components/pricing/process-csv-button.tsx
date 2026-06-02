@@ -1912,6 +1912,16 @@ function applyCalculatedPricesToCsv(
           const tracedCandidateRow = calculatedRows[candidateMatch.calculatedRowIndex]
           const comboMap = (tracedCandidateRow?.comboMap ?? {}) as Record<string, unknown>
 
+          const hasSpecificGroupDisambiguation = candidate.groupColumnMappings.some((mapping) => {
+            const pairs = Array.isArray(mapping.pairs) ? mapping.pairs : []
+            return pairs.some((pair) => {
+              if (pair.csvFirstTwoDimensions || pair.exactMatch) return true
+              const csvValue = normalizeMatchValue(pair.csvValue)
+              const pipelineValue = normalizeMatchValue(pair.pipelineValue)
+              return csvValue.length > 0 || pipelineValue.length > 0
+            })
+          })
+
           const mappingPairsPass = candidate.groupColumnMappings.every((mapping) => {
             if (!Array.isArray(mapping.pairs) || mapping.pairs.length === 0) return true
             const csvRaw = String(getCsvValueByColumn(csvRow, mapping.csvColumn) ?? "")
@@ -1920,7 +1930,11 @@ function applyCalculatedPricesToCsv(
           })
 
           if (!mappingPairsPass) {
-            continue
+            // If the user did not provide specific disambiguation, prefer the first
+            // candidate found by lookup instead of failing the row.
+            if (hasSpecificGroupDisambiguation) {
+              continue
+            }
           }
         }
 
