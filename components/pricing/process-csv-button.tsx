@@ -3570,6 +3570,27 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
       return
     }
 
+    // Debug visibility: confirm exactly which calculated rows payload is used
+    // when the user clicks "Apply Pricing" / process CSV.
+    try {
+      console.info("[Process CSV] Input summary before apply", {
+        source: Array.isArray(calculatedRowsBundle) && calculatedRowsBundle.length > 0 ? "calculatedRowsBundle" : "calculatedRows",
+        bundlePipelineCount: Array.isArray(calculatedRowsBundle) ? calculatedRowsBundle.length : 0,
+        bundleRowsCount: Array.isArray(calculatedRowsBundle)
+          ? calculatedRowsBundle.reduce((sum, entry) => sum + (Array.isArray(entry?.rows) ? entry.rows.length : 0), 0)
+          : 0,
+        resolvedRowsCount: resolvedCalculatedRows.rows.length,
+      })
+
+      if (Array.isArray(calculatedRowsBundle) && calculatedRowsBundle.length > 0) {
+        console.info("[Process CSV] calculatedRowsBundle payload", calculatedRowsBundle)
+      } else {
+        console.info("[Process CSV] calculatedRows payload", calculatedRows)
+      }
+    } catch {
+      // ignore debug logging failures
+    }
+
     setIsProcessing(true)
     try {
       const originalText = await file.text()
