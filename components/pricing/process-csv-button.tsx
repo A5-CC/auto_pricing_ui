@@ -1502,7 +1502,13 @@ function applyCalculatedPricesToCsv(
   const usingGroups = mappingGroups.length > 0
 
   const mappedPipelineNames = Array.from(new Set(mappingRules.map((rule) => rule.pipelineName).filter(Boolean)))
-  const hasUnitAreaRowsPre = calculatedRows.some((row) => Boolean(getAreaLookupToken(row.comboMap.unit_area)))
+  const hasUnitAreaRowsPre = calculatedRows.some((row) => Boolean(getAreaLookupToken(
+    row.comboMap.unit_area ??
+    row.comboMap.area ??
+    row.comboMap.sqft ??
+    row.comboMap.square_feet ??
+    row.comboMap.squarefeet
+  )))
 
   for (const pipelineName of mappedPipelineNames) {
     const cfg = getPipelineConfig(pipelineName)
@@ -1733,8 +1739,20 @@ function applyCalculatedPricesToCsv(
     const location = locationKey || normalizeMatchValue(rawLocation)
     const city = normalizeCityValue(rawLocation)
     const cityKey = normalizeLocationKey(city)
-    const dimensionToken = getDimensionLookupToken(calculatedRow.comboMap.unit_dimensions)
-    const areaToken = getAreaLookupToken(calculatedRow.comboMap.unit_area)
+    const dimensionToken = getDimensionLookupToken(
+      calculatedRow.comboMap.unit_dimensions ??
+      calculatedRow.comboMap.dimensions ??
+      calculatedRow.comboMap.unit_size ??
+      calculatedRow.comboMap.unitsize ??
+      calculatedRow.comboMap.size
+    )
+    const areaToken = getAreaLookupToken(
+      calculatedRow.comboMap.unit_area ??
+      calculatedRow.comboMap.area ??
+      calculatedRow.comboMap.sqft ??
+      calculatedRow.comboMap.square_feet ??
+      calculatedRow.comboMap.squarefeet
+    )
     const amenityRequirementToken = buildCalculatedAmenityRequirementToken(calculatedRow.comboMap as Record<string, unknown>)
     if (!location || (!dimensionToken && !areaToken)) continue
     const webPrice = applyConfiguredRounding(calculatedRow.price, webRounding)
@@ -1766,6 +1784,25 @@ function applyCalculatedPricesToCsv(
           addAreaCandidate(areaBucketKey(cityKey), parsedArea, price, calculatedRowIndex, amenityRequirementToken, pipelineName)
         }
       }
+    }
+  }
+
+  if (matchDebugEnabled && typeof window !== "undefined") {
+    try {
+      const rowsPerPipeline: Record<string, number> = {}
+      for (const row of calculatedRows) {
+        const pipelineName = String((row as Record<string, unknown>).__pipelineName ?? "").trim() || "(unscoped)"
+        rowsPerPipeline[pipelineName] = (rowsPerPipeline[pipelineName] ?? 0) + 1
+      }
+      console.info("[Process CSV Debug] Pipeline lookup source", {
+        calculatedRowsCount: calculatedRows.length,
+        rowsPerPipeline,
+        priceLookupKeyCount: priceLookup.size,
+        cityPriceLookupKeyCount: cityPriceLookup.size,
+        areaLookupBucketCount: areaLookup.size,
+      })
+    } catch {
+      // ignore debug logging failures
     }
   }
 
@@ -2610,25 +2647,105 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
   }, [])
 
   const resolvedCalculatedRows = useMemo<ResolvedCalculatedRows>(() => {
+    const debugEnabled = (() => {
+      if (typeof window === "undefined") return false
+      try {
+        const value = String(window.localStorage.getItem("process-csv-debug-match") ?? "").trim().toLowerCase()
+        return value === "1" || value === "true" || value === "on" || value === "yes"
+      } catch {
+        return false
+      }
+    })()
+
     const bundle = calculatedRowsBundle
     if (!bundle || bundle.length === 0) {
+      if (debugEnabled && typeof window !== "undefined") {
+        try {
+          console.info("[Process CSV Debug] Using direct calculatedRows (no bundle)", {
+            calculatedRowsCount: calculatedRows.length,
+          })
+        } catch {
+          // ignore debug logging failures
+        }
+      }
       return { rows: calculatedRows, error: null }
     }
 
     const merged: CalculatedPriceRow[] = []
+    const bundleDiagnostics: Array<{
+      pipelineName: string
+      sourceRows: number
+      keptRows: number
+      skippedInvalidPrice: number
+      skippedMissingLocation: number
+      skippedMissingSizeOrArea: number
+    }> = []
 
     for (const entry of bundle) {
       const pipelineName = entry.pipelineName || "Unnamed pipeline"
+      let keptRows = 0
+      let skippedInvalidPrice = 0
+      let skippedMissingLocation = 0
+      let skippedMissingSizeOrArea = 0
       for (const row of entry.rows ?? []) {
-        if (typeof row?.price !== "number" || Number.isNaN(row.price)) continue
+        if (typeof row?.price !== "number" || Number.isNaN(row.price)) {
+          skippedInvalidPrice += 1
+          continue
+        }
 
-        const location = normalizeMatchValue(row.comboMap.client_location)
-        const dimensionToken = getDimensionLookupToken(row.comboMap.unit_dimensions)
-        const areaToken = getAreaLookupToken(row.comboMap.unit_area)
+        const location = normalizeMatchValue(
+          row.comboMap.client_location ??
+          row.comboMap.facility_location_city ??
+          row.comboMap.location ??
+          row.comboMap.city
+        )
+        const dimensionToken = getDimensionLookupToken(
+          row.comboMap.unit_dimensions ??
+          row.comboMap.dimensions ??
+          row.comboMap.unit_size ??
+          row.comboMap.unitsize ??
+          row.comboMap.size
+        )
+        const areaToken = getAreaLookupToken(
+          row.comboMap.unit_area ??
+          row.comboMap.area ??
+          row.comboMap.sqft ??
+          row.comboMap.square_feet ??
+          row.comboMap.squarefeet
+        )
 
         const keyToken = areaToken || dimensionToken
-        if (!location || !keyToken) continue
+        if (!location) {
+          skippedMissingLocation += 1
+          continue
+        }
+        if (!keyToken) {
+          skippedMissingSizeOrArea += 1
+          continue
+        }
         merged.push({ ...row, __pipelineName: pipelineName } as CalculatedPriceRow)
+        keptRows += 1
+      }
+
+      bundleDiagnostics.push({
+        pipelineName,
+        sourceRows: entry.rows?.length ?? 0,
+        keptRows,
+        skippedInvalidPrice,
+        skippedMissingLocation,
+        skippedMissingSizeOrArea,
+      })
+    }
+
+    if (debugEnabled && typeof window !== "undefined") {
+      try {
+        console.info("[Process CSV Debug] Bundle ingestion diagnostics", {
+          bundlePipelines: bundle.length,
+          mergedRows: merged.length,
+          byPipeline: bundleDiagnostics,
+        })
+      } catch {
+        // ignore debug logging failures
       }
     }
 

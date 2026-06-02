@@ -250,12 +250,30 @@ export default function PipelineBundlesPage() {
         return Array.from(set);
       };
 
+      const getDistinctValuesFromAliases = (rows: Array<Record<string, unknown>>, keys: string[]): string[] => {
+        const set = new Set<string>();
+        for (const key of keys) {
+          for (const value of getDistinctValues(rows, key)) set.add(value);
+        }
+        return Array.from(set);
+      };
+
+      const hasAnyValueForKey = (rows: Array<Record<string, unknown>>, key: string): boolean => {
+        return getDistinctValues(rows, key).length > 0;
+      };
+
       const deriveUnitAreaRows = (rows: Array<Record<string, unknown>>) => {
         return rows.map((row) => {
           if (row.unit_area !== undefined && row.unit_area !== null && row.unit_area !== "") {
             return row;
           }
-          const area = computeAreaFromDimensionLikeValue(row.unit_dimensions);
+          const area = computeAreaFromDimensionLikeValue(
+            row.unit_dimensions ??
+            row.dimensions ??
+            row.unit_size ??
+            row.unitsize ??
+            row.size
+          );
           if (!area) return row;
           return { ...row, unit_area: area };
         });
@@ -269,19 +287,23 @@ export default function PipelineBundlesPage() {
       const baseRowsForCsv = baseRows.length > 0 ? baseRows : (subsetFilteredRows as Array<Record<string, unknown>>);
       let rowsForCsvCalc = (subsetFilteredRows.length > 0 ? subsetFilteredRows : baseRowsForCsv) as Array<Record<string, unknown>>;
 
-      const ensureCombinatoricKey = (key: string) => {
-        const existing = csvFilters[key];
+      const ensureCombinatoricKey = (key: string, aliases: string[] = []) => {
+        const candidates = Array.from(new Set([key, ...aliases].map((value) => String(value).trim()).filter(Boolean)));
+        const selectedKey = candidates.find((candidateKey) => hasAnyValueForKey(rowsForCsvCalc, candidateKey)) ?? key;
+        const existing = csvFilters[selectedKey] ?? csvFilters[key];
         const existingVals = existing && existing.mode === "subset" ? existing.values : [];
-        const fallbackVals = getDistinctValues(subsetFilteredRows, key);
-        const fallbackFromBase = fallbackVals.length > 0 ? fallbackVals : getDistinctValues(baseRowsForCsv, key);
+        const fallbackVals = getDistinctValuesFromAliases(subsetFilteredRows as Array<Record<string, unknown>>, candidates);
+        const fallbackFromBase = fallbackVals.length > 0
+          ? fallbackVals
+          : getDistinctValuesFromAliases(baseRowsForCsv, candidates);
         const values = (existingVals?.length ? existingVals : fallbackFromBase).map(String).filter(Boolean);
         if (values.length === 0) return;
-        csvFilters[key] = { mode: "subset", values };
-        csvCombinatoricFlags[key] = true;
+        csvFilters[selectedKey] = { mode: "subset", values };
+        csvCombinatoricFlags[selectedKey] = true;
       };
 
-      ensureCombinatoricKey("client_location");
-      ensureCombinatoricKey("unit_dimensions");
+      ensureCombinatoricKey("client_location", ["facility_location_city", "location", "city"]);
+      ensureCombinatoricKey("unit_dimensions", ["dimensions", "unit_size", "unitsize", "size"]);
       if (csvFilters.unit_area || settingsFilters.unit_area) {
         rowsForCsvCalc = deriveUnitAreaRows(rowsForCsvCalc);
       }
@@ -296,7 +318,7 @@ export default function PipelineBundlesPage() {
         }
       }
       // Optional, used when CSV includes Unit Type drive-up signal
-      ensureCombinatoricKey("has_drive_up_access");
+      ensureCombinatoricKey("has_drive_up_access", ["hasdriveupaccess", "drive_up", "driveup"]);
 
       const calculatedRowsForCsv = calculatePriceTable({
         competitorData: rowsForCsvCalc as PricingDataResponse["data"],
