@@ -97,17 +97,6 @@ export default function PipelineBundlesPage() {
       return Object.is(rounded, -0) ? 0 : rounded;
     };
 
-    const computeAreaFromDimensionLikeValue = (value: unknown): string => {
-      const raw = String(value ?? "").toLowerCase().replace(/×/g, "x");
-      const match = raw.match(/(\d+(?:\.\d+)?)\s*x\s*(\d+(?:\.\d+)?)/);
-      if (!match) return "";
-      const a = Number(match[1]);
-      const b = Number(match[2]);
-      if (!Number.isFinite(a) || !Number.isFinite(b) || a <= 0 || b <= 0) return "";
-      const area = a * b;
-      return Number.isInteger(area) ? String(Math.trunc(area)) : String(area);
-    };
-
     const normalizeValuesForColumn = (column: string, values: string[]) => {
       if (!Array.isArray(values) || values.length === 0) return [] as string[];
       const canonicalByKey = new Map<string, string>();
