@@ -1658,6 +1658,42 @@ function applyCalculatedPricesToCsv(
     comboMapEntries: Array<{ key: string; value: string }>
   }> = {}
 
+  const matchDebugEnabled = (() => {
+    if (typeof window === "undefined") return false
+    try {
+      const value = String(window.localStorage.getItem("process-csv-debug-match") ?? "").trim().toLowerCase()
+      return value === "1" || value === "true" || value === "on" || value === "yes"
+    } catch {
+      return false
+    }
+  })()
+
+  const matchDebugFilter = (() => {
+    if (typeof window === "undefined") return ""
+    try {
+      return normalizeMatchValue(window.localStorage.getItem("process-csv-debug-row-filter") ?? "")
+    } catch {
+      return ""
+    }
+  })()
+
+  const matchDebugIncludeMatched = (() => {
+    if (typeof window === "undefined") return false
+    try {
+      const value = String(window.localStorage.getItem("process-csv-debug-include-matched") ?? "").trim().toLowerCase()
+      return value === "1" || value === "true" || value === "on" || value === "yes"
+    } catch {
+      return false
+    }
+  })()
+
+  const matchDebugRows: Array<Record<string, unknown>> = []
+  const pushMatchDebugRow = (entry: Record<string, unknown>) => {
+    if (!matchDebugEnabled) return
+    if (matchDebugRows.length >= 500) return
+    matchDebugRows.push(entry)
+  }
+
   const areaBucketKey = (place: string) => place
   const appendLookup = (
     map: Map<string, Array<{ price: number; calculatedRowIndex: number; pipelineName?: string }>>,
@@ -1740,6 +1776,20 @@ function applyCalculatedPricesToCsv(
   for (let csvRowIndex = 0; csvRowIndex < rows.length; csvRowIndex++) {
     const row = rows[csvRowIndex]
     const csvRow = rowToRecord(headers, row)
+    const rowDebugSteps: Array<Record<string, unknown>> = []
+    const rowDebugSearchText = normalizeMatchValue([
+      ...row,
+      Object.values(csvRow).map((value) => String(value ?? "")).join(" "),
+    ].join(" "))
+    const rowDebugEnabled = matchDebugEnabled && (!matchDebugFilter || rowDebugSearchText.includes(matchDebugFilter))
+    const addRowDebugStep = (step: string, details?: Record<string, unknown>) => {
+      if (!rowDebugEnabled) return
+      rowDebugSteps.push({
+        step,
+        ...(details ?? {}),
+      })
+    }
+
     type CandidateMapping = {
       pipelineName: string
       locationIndex: number
@@ -1752,6 +1802,13 @@ function applyCalculatedPricesToCsv(
     }
 
     const candidates: CandidateMapping[] = []
+
+    addRowDebugStep("row-start", {
+      csvRowIndex,
+      usingGroups,
+      headers: headers.slice(0, 20),
+      rowSample: row.slice(0, 20),
+    })
 
     if (usingGroups) {
       const fallbackTargetIds = new Set(
@@ -1817,11 +1874,28 @@ function applyCalculatedPricesToCsv(
       }
     }
 
-    if (candidates.length === 0) continue
+    addRowDebugStep("candidates-built", {
+      candidateCount: candidates.length,
+      candidatePipelines: candidates.map((candidate) => candidate.pipelineName),
+    })
+
+    if (candidates.length === 0) {
+      addRowDebugStep("row-unmatched", {
+        reason: "no-candidates",
+      })
+      pushMatchDebugRow({
+        csvRowIndex,
+        matched: false,
+        reason: "no-candidates",
+        steps: rowDebugSteps,
+      })
+      continue
+    }
 
     let mappedMatch: { price: number; calculatedRowIndex: number } | undefined
     let matchedAreaValue = ""
     let unitAmenitiesIndex = -1
+    let mappedCandidatePipelineName = ""
 
     for (const candidate of candidates) {
       if (candidate.locationIndex < 0) continue
@@ -1915,6 +1989,24 @@ function applyCalculatedPricesToCsv(
       const allowAmenityWildcardLookup = !amenitySourceValue && !hasGroupAmenityPairMapping
       const allowDimensionMatching = true
 
+      addRowDebugStep("candidate-input", {
+        candidatePipelineName: candidate.pipelineName,
+        locationIndex: candidate.locationIndex,
+        unitSizeIndex: candidate.unitSizeIndex,
+        areaIndex: candidate.areaIndex,
+        unitAmenitiesIndex: candidate.unitAmenitiesIndex,
+        translatedLocationValue,
+        translatedDimensionValue,
+        translatedAreaValue,
+        location,
+        city,
+        dimensionToken,
+        areaToken,
+        amenitySourceValue,
+        amenitySubsets,
+        allowAmenityWildcardLookup,
+      })
+
       let candidateMatch =
         (areaToken ? findLookupByAmenitySubsets(priceLookup, location, areaToken, amenitySubsets, candidate.pipelineName) : undefined) ??
         (areaToken && locationKey ? findLookupByAmenitySubsets(priceLookup, locationKey, areaToken, amenitySubsets, candidate.pipelineName) : undefined) ??
@@ -1936,6 +2028,13 @@ function applyCalculatedPricesToCsv(
           (allowDimensionMatching && dimensionToken && city ? findLookupIgnoringAmenityToken(cityPriceLookup, city, dimensionToken, candidate.pipelineName) : undefined) ??
           (allowDimensionMatching && dimensionToken && cityKey ? findLookupIgnoringAmenityToken(cityPriceLookup, cityKey, dimensionToken, candidate.pipelineName) : undefined)
       }
+
+      addRowDebugStep("candidate-post-lookup", {
+        candidatePipelineName: candidate.pipelineName,
+        candidateFound: candidateMatch !== undefined,
+        matchedCalculatedRowIndex: candidateMatch?.calculatedRowIndex,
+        matchedPrice: candidateMatch?.price,
+      })
 
       if (candidateMatch !== undefined && areaToken) {
         candidateMatchedAreaValue = areaToken.replace(/^area:/, "")
@@ -1969,6 +2068,12 @@ function applyCalculatedPricesToCsv(
           if (best) {
             candidateMatch = { price: best.price, calculatedRowIndex: best.calculatedRowIndex }
             candidateMatchedAreaValue = Number.isInteger(best.area) ? String(Math.trunc(best.area)) : String(best.area)
+            addRowDebugStep("candidate-area-fallback-hit", {
+              candidatePipelineName: candidate.pipelineName,
+              fallbackArea: best.area,
+              matchedCalculatedRowIndex: best.calculatedRowIndex,
+              matchedPrice: best.price,
+            })
           }
         }
       }
@@ -1999,19 +2104,52 @@ function applyCalculatedPricesToCsv(
             // If the user did not provide specific disambiguation, prefer the first
             // candidate found by lookup instead of failing the row.
             if (hasSpecificGroupDisambiguation) {
+              addRowDebugStep("candidate-rejected", {
+                candidatePipelineName: candidate.pipelineName,
+                reason: "pair-mismatch-with-specific-disambiguation",
+                matchedCalculatedRowIndex: candidateMatch.calculatedRowIndex,
+              })
               continue
             }
+            addRowDebugStep("candidate-pairs-soft-fail", {
+              candidatePipelineName: candidate.pipelineName,
+              reason: "pair-mismatch-but-no-specific-disambiguation",
+              matchedCalculatedRowIndex: candidateMatch.calculatedRowIndex,
+            })
           }
         }
 
         mappedMatch = candidateMatch
         matchedAreaValue = candidateMatchedAreaValue
         unitAmenitiesIndex = candidate.unitAmenitiesIndex
+        mappedCandidatePipelineName = candidate.pipelineName
+        addRowDebugStep("candidate-accepted", {
+          candidatePipelineName: candidate.pipelineName,
+          matchedCalculatedRowIndex: candidateMatch.calculatedRowIndex,
+          matchedPrice: candidateMatch.price,
+          matchedAreaValue: candidateMatchedAreaValue,
+        })
         break
+      } else {
+        addRowDebugStep("candidate-miss", {
+          candidatePipelineName: candidate.pipelineName,
+          reason: "no-lookup-match",
+        })
       }
     }
 
-    if (mappedMatch === undefined) continue
+    if (mappedMatch === undefined) {
+      addRowDebugStep("row-unmatched", {
+        reason: "candidate-loop-exhausted",
+      })
+      pushMatchDebugRow({
+        csvRowIndex,
+        matched: false,
+        reason: "candidate-loop-exhausted",
+        steps: rowDebugSteps,
+      })
+      continue
+    }
 
     const baseWebRate = mappedMatch.price
     const adjustedWebRate = applyPopupAdjustersToWebRate(baseWebRate, csvRow, popupAdjusters)
@@ -2079,6 +2217,49 @@ function applyCalculatedPricesToCsv(
         pipelineRowEntries,
         comboMapEntries,
       }
+    }
+
+    addRowDebugStep("row-matched", {
+      mappedCandidatePipelineName,
+      calculatedRowIndex: mappedMatch.calculatedRowIndex,
+      finalWebRate,
+      standardRate,
+      matchedAreaValue,
+    })
+
+    if (matchDebugIncludeMatched) {
+      pushMatchDebugRow({
+        csvRowIndex,
+        matched: true,
+        mappedCandidatePipelineName,
+        mappedCalculatedRowIndex: mappedMatch.calculatedRowIndex,
+        steps: rowDebugSteps,
+      })
+    }
+  }
+
+  if (matchDebugEnabled && typeof window !== "undefined") {
+    try {
+      const summary = {
+        totalCsvRows: rows.length,
+        matchedRows: Object.keys(traceByCsvRowIndex).length,
+        unmatchedRows: Math.max(rows.length - Object.keys(traceByCsvRowIndex).length, 0),
+        capturedDebugRows: matchDebugRows.length,
+      }
+      window.localStorage.setItem(
+        "process-csv-last-match-debug",
+        JSON.stringify({
+          created_at: new Date().toISOString(),
+          summary,
+          rows: matchDebugRows,
+        })
+      )
+      console.info("[Process CSV Debug] Match summary", summary)
+      if (matchDebugRows.length > 0) {
+        console.info("[Process CSV Debug] Stored per-row debug at localStorage key: process-csv-last-match-debug")
+      }
+    } catch {
+      // ignore debug persistence failures
     }
   }
 
