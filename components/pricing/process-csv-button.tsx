@@ -1836,9 +1836,24 @@ function applyCalculatedPricesToCsv(
       const areaToken = candidate.areaIndex >= 0
         ? getAreaLookupToken(translatedAreaValue)
         : (candidate.unitSizeIndex >= 0 ? getAreaLookupToken(translatedDimensionValue) : "")
-      const amenitySubsets = candidate.unitAmenitiesIndex >= 0
-        ? buildCsvAmenityTokenSubsets(getCellValue(row, candidate.unitAmenitiesIndex))
-        : [""]
+
+      const hasGroupAmenityPairMapping = Boolean(candidate.groupColumnMappings?.some((mapping) => {
+        const key = normalizeColumnKey(mapping.competitorColumn)
+        return key === "unitamenities"
+          || key === "isclimatecontrolled"
+          || key === "haselevatoraccess"
+          || key === "hasdriveupaccess"
+          || key === "storagelevel"
+          || key === "storageleveldescription"
+      }))
+
+      // If group pair mappings are present for amenities, do not pre-filter lookup
+      // by derived amenity token; pair matching below will enforce the intended logic.
+      const amenitySubsets = hasGroupAmenityPairMapping
+        ? [""]
+        : (candidate.unitAmenitiesIndex >= 0
+          ? buildCsvAmenityTokenSubsets(getCellValue(row, candidate.unitAmenitiesIndex))
+          : [""])
       const allowDimensionMatching = true
 
       let candidateMatch =
