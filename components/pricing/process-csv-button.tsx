@@ -930,19 +930,28 @@ function translateCsvLocationValue(raw: string, mappings: LocationStringMapping[
   return raw
 }
 
-function translateCsvLocationValueFromGroupPairs(raw: string, mappings?: MappingGroupColumnMapping[]): string {
+function translateCsvValueFromGroupPairs(
+  raw: string,
+  mappings: MappingGroupColumnMapping[] | undefined,
+  targetColumns: string[]
+): string {
   if (!Array.isArray(mappings) || mappings.length === 0) return raw
 
-  const locationMapping = mappings.find((mapping) => {
+  const accepted = new Set(targetColumns.map((key) => normalizeColumnKey(key)).filter(Boolean))
+  const selectedMapping = mappings.find((mapping) => {
     const key = normalizeColumnKey(mapping.competitorColumn)
-    return key === "clientlocation" || key === "facilitylocationcity" || key === "location" || key === "city"
+    return accepted.has(key)
   })
-  if (!locationMapping) return raw
+  if (!selectedMapping) return raw
 
   const rawNormalized = normalizeMatchValue(raw)
-  for (const pair of locationMapping.pairs ?? []) {
+  for (const pair of selectedMapping.pairs ?? []) {
     const csvValue = normalizeMatchValue(pair.csvValue)
-    if (!csvValue) continue
+    if (!csvValue) {
+      // Operator-only pairs (e.g. first-two-dimensions) don't produce a direct
+      // value translation and should preserve the original CSV value.
+      continue
+    }
 
     const csvMatched = pair.csvContains
       ? rawNormalized.includes(csvValue)
@@ -1766,20 +1775,40 @@ function applyCalculatedPricesToCsv(
       let candidateMatchedAreaValue = ""
       const baseLocation = getCellValue(row, candidate.locationIndex)
       const rawLocationValue = baseLocation
-      const translatedLocationValue = translateCsvLocationValueFromGroupPairs(
+      const translatedLocationValue = translateCsvValueFromGroupPairs(
         translateCsvLocationValue(rawLocationValue, candidate.locationMappings),
-        candidate.groupColumnMappings
+        candidate.groupColumnMappings,
+        ["client_location", "facility_location_city", "location", "city"]
       )
       const location = normalizeLocationKey(translatedLocationValue)
       const locationKey = location
       const city = normalizeCityValue(translatedLocationValue)
       const cityKey = normalizeLocationKey(city)
+
+      const rawDimensionValue = candidate.unitSizeIndex >= 0
+        ? getCellValue(row, candidate.unitSizeIndex)
+        : ""
+      const translatedDimensionValue = translateCsvValueFromGroupPairs(
+        rawDimensionValue,
+        candidate.groupColumnMappings,
+        ["unit_dimensions", "dimensions", "unitsize", "size"]
+      )
+
+      const rawAreaValue = candidate.areaIndex >= 0
+        ? getCellValue(row, candidate.areaIndex)
+        : rawDimensionValue
+      const translatedAreaValue = translateCsvValueFromGroupPairs(
+        rawAreaValue,
+        candidate.groupColumnMappings,
+        ["unit_area", "area", "sqft", "square_feet", "squarefeet"]
+      )
+
       const dimensionToken = candidate.unitSizeIndex >= 0
-        ? getDimensionLookupTokenByMode(getCellValue(row, candidate.unitSizeIndex), candidate.dimensionMode)
+        ? getDimensionLookupTokenByMode(translatedDimensionValue, candidate.dimensionMode)
         : ""
       const areaToken = candidate.areaIndex >= 0
-        ? getAreaLookupToken(getCellValue(row, candidate.areaIndex))
-        : (candidate.unitSizeIndex >= 0 ? getAreaLookupToken(getCellValue(row, candidate.unitSizeIndex)) : "")
+        ? getAreaLookupToken(translatedAreaValue)
+        : (candidate.unitSizeIndex >= 0 ? getAreaLookupToken(translatedDimensionValue) : "")
       const amenitySubsets = candidate.unitAmenitiesIndex >= 0
         ? buildCsvAmenityTokenSubsets(getCellValue(row, candidate.unitAmenitiesIndex))
         : [""]
