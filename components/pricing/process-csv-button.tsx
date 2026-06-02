@@ -763,6 +763,34 @@ function findLookupByAmenitySubsets(
   return undefined
 }
 
+function findLookupIgnoringAmenityToken(
+  map: Map<string, Array<{ price: number; calculatedRowIndex: number; pipelineName?: string }>>,
+  place: string,
+  dimensionOrAreaToken: string,
+  selectedPipelineName?: string
+): { price: number; calculatedRowIndex: number } | undefined {
+  const normalizedSelectedPipeline = String(selectedPipelineName ?? "").trim().toLowerCase()
+  const prefix = `${place}__${dimensionOrAreaToken}`
+
+  // Prefer exact key without amenity token if present.
+  const exact = map.get(prefix)
+  if (exact && exact.length > 0) {
+    if (!normalizedSelectedPipeline) return exact[0]
+    const scopedExact = exact.find((candidate) => String(candidate.pipelineName ?? "").trim().toLowerCase() === normalizedSelectedPipeline)
+    if (scopedExact) return scopedExact
+  }
+
+  for (const [key, matches] of map.entries()) {
+    if (!key.startsWith(`${prefix}__`)) continue
+    if (!Array.isArray(matches) || matches.length === 0) continue
+    if (!normalizedSelectedPipeline) return matches[0]
+    const scoped = matches.find((candidate) => String(candidate.pipelineName ?? "").trim().toLowerCase() === normalizedSelectedPipeline)
+    if (scoped) return scoped
+  }
+
+  return undefined
+}
+
 function buildPriceLookupKey(location: string, dimension: string, driveUpAccess?: string): string {
   const driveUpPart = driveUpAccess ? `__${driveUpAccess}` : ""
   return `${location}__${dimension}${driveUpPart}`
@@ -1883,6 +1911,8 @@ function applyCalculatedPricesToCsv(
         : (amenitySourceValue
           ? buildCsvAmenityTokenSubsets(amenitySourceValue)
           : [""])
+
+      const allowAmenityWildcardLookup = !amenitySourceValue && !hasGroupAmenityPairMapping
       const allowDimensionMatching = true
 
       let candidateMatch =
@@ -1894,6 +1924,18 @@ function applyCalculatedPricesToCsv(
         (allowDimensionMatching && dimensionToken && locationKey ? findLookupByAmenitySubsets(priceLookup, locationKey, dimensionToken, amenitySubsets, candidate.pipelineName) : undefined) ??
         (allowDimensionMatching && dimensionToken && city ? findLookupByAmenitySubsets(cityPriceLookup, city, dimensionToken, amenitySubsets, candidate.pipelineName) : undefined)
         ?? (allowDimensionMatching && dimensionToken && cityKey ? findLookupByAmenitySubsets(cityPriceLookup, cityKey, dimensionToken, amenitySubsets, candidate.pipelineName) : undefined)
+
+      if (candidateMatch === undefined && allowAmenityWildcardLookup) {
+        candidateMatch =
+          (areaToken ? findLookupIgnoringAmenityToken(priceLookup, location, areaToken, candidate.pipelineName) : undefined) ??
+          (areaToken && locationKey ? findLookupIgnoringAmenityToken(priceLookup, locationKey, areaToken, candidate.pipelineName) : undefined) ??
+          (areaToken && city ? findLookupIgnoringAmenityToken(cityPriceLookup, city, areaToken, candidate.pipelineName) : undefined) ??
+          (areaToken && cityKey ? findLookupIgnoringAmenityToken(cityPriceLookup, cityKey, areaToken, candidate.pipelineName) : undefined) ??
+          (allowDimensionMatching && dimensionToken ? findLookupIgnoringAmenityToken(priceLookup, location, dimensionToken, candidate.pipelineName) : undefined) ??
+          (allowDimensionMatching && dimensionToken && locationKey ? findLookupIgnoringAmenityToken(priceLookup, locationKey, dimensionToken, candidate.pipelineName) : undefined) ??
+          (allowDimensionMatching && dimensionToken && city ? findLookupIgnoringAmenityToken(cityPriceLookup, city, dimensionToken, candidate.pipelineName) : undefined) ??
+          (allowDimensionMatching && dimensionToken && cityKey ? findLookupIgnoringAmenityToken(cityPriceLookup, cityKey, dimensionToken, candidate.pipelineName) : undefined)
+      }
 
       if (candidateMatch !== undefined && areaToken) {
         candidateMatchedAreaValue = areaToken.replace(/^area:/, "")
@@ -1913,7 +1955,7 @@ function applyCalculatedPricesToCsv(
               const areaCandidates = (areaLookup.get(bucket) ?? []) as Array<{ area: number; price: number; delta?: number; calculatedRowIndex: number; amenityRequirementToken?: string; pipelineName?: string }>
               for (const c of areaCandidates) {
                 if (candidate.pipelineName && c.pipelineName !== candidate.pipelineName) continue
-                if (!amenitySubsets.includes(c.amenityRequirementToken ?? "")) continue
+                if (!allowAmenityWildcardLookup && !amenitySubsets.includes(c.amenityRequirementToken ?? "")) continue
                 const delta = Math.abs(c.area - targetArea)
                 if (delta > 3) continue
                 if (!best || delta < best.delta) {
