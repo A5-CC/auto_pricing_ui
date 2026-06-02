@@ -1848,9 +1848,14 @@ function applyCalculatedPricesToCsv(
       }))
 
       // If group pair mappings are present for amenities, do not pre-filter lookup
-      // by derived amenity token; pair matching below will enforce the intended logic.
+      // too aggressively by one token; try derived subsets first, then empty fallback.
       const amenitySubsets = hasGroupAmenityPairMapping
-        ? [""]
+        ? Array.from(new Set([
+            ...(candidate.unitAmenitiesIndex >= 0
+              ? buildCsvAmenityTokenSubsets(getCellValue(row, candidate.unitAmenitiesIndex))
+              : [""]),
+            "",
+          ]))
         : (candidate.unitAmenitiesIndex >= 0
           ? buildCsvAmenityTokenSubsets(getCellValue(row, candidate.unitAmenitiesIndex))
           : [""])
