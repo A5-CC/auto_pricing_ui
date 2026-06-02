@@ -930,6 +930,33 @@ function translateCsvLocationValue(raw: string, mappings: LocationStringMapping[
   return raw
 }
 
+function translateCsvLocationValueFromGroupPairs(raw: string, mappings?: MappingGroupColumnMapping[]): string {
+  if (!Array.isArray(mappings) || mappings.length === 0) return raw
+
+  const locationMapping = mappings.find((mapping) => {
+    const key = normalizeColumnKey(mapping.competitorColumn)
+    return key === "clientlocation" || key === "facilitylocationcity" || key === "location" || key === "city"
+  })
+  if (!locationMapping) return raw
+
+  const rawNormalized = normalizeMatchValue(raw)
+  for (const pair of locationMapping.pairs ?? []) {
+    const csvValue = normalizeMatchValue(pair.csvValue)
+    if (!csvValue) continue
+
+    const csvMatched = pair.csvContains
+      ? rawNormalized.includes(csvValue)
+      : rawNormalized === csvValue
+
+    if (!csvMatched) continue
+
+    const mappedValue = String(pair.pipelineValue ?? "").trim()
+    if (mappedValue) return mappedValue
+  }
+
+  return raw
+}
+
 function doesMappingRuleMatch(record: Record<string, string>, rule: PipelineMappingRule): boolean {
   const leftRaw = String(getCsvValueByColumn(record, rule.column) ?? "")
   const left = leftRaw.trim().toLowerCase()
@@ -1739,7 +1766,10 @@ function applyCalculatedPricesToCsv(
       let candidateMatchedAreaValue = ""
       const baseLocation = getCellValue(row, candidate.locationIndex)
       const rawLocationValue = baseLocation
-      const translatedLocationValue = translateCsvLocationValue(rawLocationValue, candidate.locationMappings)
+      const translatedLocationValue = translateCsvLocationValueFromGroupPairs(
+        translateCsvLocationValue(rawLocationValue, candidate.locationMappings),
+        candidate.groupColumnMappings
+      )
       const location = normalizeLocationKey(translatedLocationValue)
       const locationKey = location
       const city = normalizeCityValue(translatedLocationValue)
