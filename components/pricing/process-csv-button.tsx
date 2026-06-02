@@ -240,7 +240,13 @@ function normalizeMappingGroupsFromUnknown(source: unknown, defaultPipelineName 
             return {
               id: readStringFromKeys(mapping, "id") || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
               csvColumn: readStringFromKeys(mapping, "csvColumn", "csv_column"),
-              competitorColumn: readStringFromKeys(mapping, "competitorColumn", "competitor_column") as MappingGroupCompetitorColumn,
+              competitorColumn: readStringFromKeys(
+                mapping,
+                "pipelineColumn",
+                "pipeline_column",
+                "competitorColumn",
+                "competitor_column"
+              ) as MappingGroupCompetitorColumn,
               pairs,
             }
           })
