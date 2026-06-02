@@ -1020,9 +1020,9 @@ function doesGroupMappingPairMatch(
   pair: MappingGroupPair,
   pipelineColumnName?: string
 ): boolean {
-  if (pair.csvFirstTwoDimensions) {
-    const normalizedPipelineColumn = normalizeColumnKey(String(pipelineColumnName ?? ""))
+  const normalizedPipelineColumn = normalizeColumnKey(String(pipelineColumnName ?? ""))
 
+  if (pair.csvFirstTwoDimensions) {
     if (normalizedPipelineColumn === "unitarea") {
       const csvAreaRaw = computeAreaFromDimensionLikeValue(csvRaw)
       const pipelineAreaRaw = normalizeUnitAreaValue(pipelineRaw) || computeAreaFromDimensionLikeValue(pipelineRaw)
@@ -1049,14 +1049,35 @@ function doesGroupMappingPairMatch(
   const csvRight = normalizeMatchValue(pair.csvValue)
   const pipelineRight = normalizeMatchValue(pair.pipelineValue)
 
-  const csvMatches = pair.csvContains
-    ? (csvRight.length > 0 && csvLeft.includes(csvRight))
-    : csvLeft === csvRight
-  const pipelineMatches = pair.pipelineContains
-    ? (pipelineRight.length > 0 && pipelineLeft.includes(pipelineRight))
-    : pipelineLeft === pipelineRight
+  // Allow wildcard on either side when value is intentionally blank.
+  const csvMatches = csvRight.length === 0
+    ? true
+    : (pair.csvContains
+      ? csvLeft.includes(csvRight)
+      : (csvLeft === csvRight || csvLeft.includes(csvRight) || csvRight.includes(csvLeft)))
 
-  return csvMatches && pipelineMatches
+  if (!csvMatches) return false
+
+  if (pipelineRight.length === 0) return true
+
+  const pipelineMatches = pair.pipelineContains
+    ? pipelineLeft.includes(pipelineRight)
+    : (pipelineLeft === pipelineRight || pipelineLeft.includes(pipelineRight) || pipelineRight.includes(pipelineLeft))
+
+  if (pipelineMatches) return true
+
+  // Extra fallback for location-like fields where address/label normalization can differ.
+  if (normalizedPipelineColumn === "clientlocation" || normalizedPipelineColumn === "facilitylocationcity") {
+    const pipelineLeftLoc = normalizeLocationKey(pipelineLeft)
+    const pipelineRightLoc = normalizeLocationKey(pipelineRight)
+    return Boolean(
+      pipelineLeftLoc &&
+      pipelineRightLoc &&
+      (pipelineLeftLoc === pipelineRightLoc || pipelineLeftLoc.includes(pipelineRightLoc) || pipelineRightLoc.includes(pipelineLeftLoc))
+    )
+  }
+
+  return false
 }
 
 function applyPopupAdjustersToWebRate(
