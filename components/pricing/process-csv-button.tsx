@@ -1735,34 +1735,40 @@ function applyCalculatedPricesToCsv(
           activeGroup = activeGroup.fallbackGroupId ? getGroupById(activeGroup.fallbackGroupId) : undefined
         }
       }
-    } else {
-      const selectedPipelineName = (() => {
-        for (const rule of mappingRules) {
-          if (doesMappingRuleMatch(csvRow, rule)) return rule.pipelineName
-        }
-        return undefined
-      })()
-      if (!selectedPipelineName) continue
-      const activeConfig = getPipelineConfig(selectedPipelineName)
-      if (!activeConfig) continue
-      candidates.push({
-        pipelineName: selectedPipelineName,
-        locationIndex: activeConfig.csvLocationColumn
-          ? findColumnIndexByHeaderName(headers, activeConfig.csvLocationColumn)
-          : defaultLocationIndex,
-        unitSizeIndex: activeConfig.csvDimensionColumn
-          ? findColumnIndexByHeaderName(headers, activeConfig.csvDimensionColumn)
-          : defaultUnitSizeIndex,
-        areaIndex: activeConfig.csvAreaColumn
-          ? findColumnIndexByHeaderName(headers, activeConfig.csvAreaColumn)
-          : defaultAreaIndex,
-        unitAmenitiesIndex: activeConfig.csvAmenitiesColumn
-          ? findColumnIndexByHeaderName(headers, activeConfig.csvAmenitiesColumn)
-          : defaultUnitAmenitiesIndex,
-        dimensionMode: activeConfig.dimensionMode,
-        locationMappings: activeConfig.locationMappings ?? [],
-      })
     }
+
+    // Always allow legacy/simple mapping rules as an additional path, even when
+    // group mappings are present. This keeps CSV-driven mappings consistent.
+    const selectedPipelineName = (() => {
+      for (const rule of mappingRules) {
+        if (doesMappingRuleMatch(csvRow, rule)) return rule.pipelineName
+      }
+      return undefined
+    })()
+    if (selectedPipelineName) {
+      const activeConfig = getPipelineConfig(selectedPipelineName)
+      if (activeConfig) {
+        candidates.push({
+          pipelineName: selectedPipelineName,
+          locationIndex: activeConfig.csvLocationColumn
+            ? findColumnIndexByHeaderName(headers, activeConfig.csvLocationColumn)
+            : defaultLocationIndex,
+          unitSizeIndex: activeConfig.csvDimensionColumn
+            ? findColumnIndexByHeaderName(headers, activeConfig.csvDimensionColumn)
+            : defaultUnitSizeIndex,
+          areaIndex: activeConfig.csvAreaColumn
+            ? findColumnIndexByHeaderName(headers, activeConfig.csvAreaColumn)
+            : defaultAreaIndex,
+          unitAmenitiesIndex: activeConfig.csvAmenitiesColumn
+            ? findColumnIndexByHeaderName(headers, activeConfig.csvAmenitiesColumn)
+            : defaultUnitAmenitiesIndex,
+          dimensionMode: activeConfig.dimensionMode,
+          locationMappings: activeConfig.locationMappings ?? [],
+        })
+      }
+    }
+
+    if (candidates.length === 0) continue
 
     let mappedMatch: { price: number; calculatedRowIndex: number } | undefined
     let matchedAreaValue = ""
