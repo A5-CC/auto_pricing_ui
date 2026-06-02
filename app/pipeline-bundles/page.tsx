@@ -232,102 +232,16 @@ export default function PipelineBundlesPage() {
       const roundingEnabled = Boolean(rounding.enabled);
       const roundingOffset = Number(rounding.offset ?? 0);
 
-      const getDistinctValues = (rows: Array<Record<string, unknown>>, key: string): string[] => {
-        const set = new Set<string>();
-        for (const row of rows) {
-          const cell = row[key];
-          if (cell === null || cell === undefined || cell === "") continue;
-          if (Array.isArray(cell)) {
-            for (const item of cell) {
-              const next = String(item);
-              if (next) set.add(next);
-            }
-          } else {
-            const next = String(cell);
-            if (next) set.add(next);
-          }
-        }
-        return Array.from(set);
-      };
-
-      const getDistinctValuesFromAliases = (rows: Array<Record<string, unknown>>, keys: string[]): string[] => {
-        const set = new Set<string>();
-        for (const key of keys) {
-          for (const value of getDistinctValues(rows, key)) set.add(value);
-        }
-        return Array.from(set);
-      };
-
-      const hasAnyValueForKey = (rows: Array<Record<string, unknown>>, key: string): boolean => {
-        return getDistinctValues(rows, key).length > 0;
-      };
-
-      const deriveUnitAreaRows = (rows: Array<Record<string, unknown>>) => {
-        return rows.map((row) => {
-          if (row.unit_area !== undefined && row.unit_area !== null && row.unit_area !== "") {
-            return row;
-          }
-          const area = computeAreaFromDimensionLikeValue(
-            row.unit_dimensions ??
-            row.dimensions ??
-            row.unit_size ??
-            row.unitsize ??
-            row.size
-          );
-          if (!area) return row;
-          return { ...row, unit_area: area };
-        });
-      };
-
-      // CSV mapping requires these combinatoric keys to exist in comboMap.
-      // Keep on-page tables unchanged, but generate CSV rows with enforced keys.
-      const csvFilters: Record<string, FilterSelection<string>> = { ...filters };
-      const csvCombinatoricFlags: Record<string, boolean> = { ...mergedCombinatoricFlags };
-
-      const baseRowsForCsv = baseRows.length > 0 ? baseRows : (subsetFilteredRows as Array<Record<string, unknown>>);
-      let rowsForCsvCalc = (subsetFilteredRows.length > 0 ? subsetFilteredRows : baseRowsForCsv) as Array<Record<string, unknown>>;
-
-      const ensureCombinatoricKey = (key: string, aliases: string[] = []) => {
-        const candidates = Array.from(new Set([key, ...aliases].map((value) => String(value).trim()).filter(Boolean)));
-        const selectedKey = candidates.find((candidateKey) => hasAnyValueForKey(rowsForCsvCalc, candidateKey)) ?? key;
-        const existing = csvFilters[selectedKey] ?? csvFilters[key];
-        const existingVals = existing && existing.mode === "subset" ? existing.values : [];
-        const fallbackVals = getDistinctValuesFromAliases(subsetFilteredRows as Array<Record<string, unknown>>, candidates);
-        const fallbackFromBase = fallbackVals.length > 0
-          ? fallbackVals
-          : getDistinctValuesFromAliases(baseRowsForCsv, candidates);
-        const values = (existingVals?.length ? existingVals : fallbackFromBase).map(String).filter(Boolean);
-        if (values.length === 0) return;
-        csvFilters[selectedKey] = { mode: "subset", values };
-        csvCombinatoricFlags[selectedKey] = true;
-      };
-
-      ensureCombinatoricKey("client_location", ["facility_location_city", "location", "city"]);
-      ensureCombinatoricKey("unit_dimensions", ["dimensions", "unit_size", "unitsize", "size"]);
-      if (csvFilters.unit_area || settingsFilters.unit_area) {
-        rowsForCsvCalc = deriveUnitAreaRows(rowsForCsvCalc);
-      }
-      const unitAreaFallbackValues = getDistinctValues(rowsForCsvCalc, "unit_area");
-      if (unitAreaFallbackValues.length > 0) {
-        const existing = csvFilters.unit_area;
-        const existingVals = existing && existing.mode === "subset" ? existing.values : [];
-        const values = (existingVals?.length ? existingVals : unitAreaFallbackValues).map(String).filter(Boolean);
-        if (values.length > 0) {
-          csvFilters.unit_area = { mode: "subset", values };
-          csvCombinatoricFlags.unit_area = true;
-        }
-      }
-      // Optional, used when CSV includes Unit Type drive-up signal
-      ensureCombinatoricKey("has_drive_up_access", ["hasdriveupaccess", "drive_up", "driveup"]);
-
+      // IMPORTANT: keep Process CSV calculation path identical to Pipelines page
+      // so both surfaces operate on the same calculated combination set.
+      const rowsForCsvCalc = subsetFilteredRows as PricingDataResponse["data"];
       const calculatedRowsForCsv = calculatePriceTable({
-        competitorData: rowsForCsvCalc as PricingDataResponse["data"],
+        competitorData: rowsForCsvCalc,
         clientAvailableUnits: clientDataResponse?.data.length || 0,
         adjusters,
         currentDate,
-        filters: csvFilters,
-        combinatoricFlags: csvCombinatoricFlags,
-        existingCombinationsOnly: true,
+        filters,
+        combinatoricFlags: mergedCombinatoricFlags,
       }).rows;
 
       const roundedCalculatedRowsForCsv = calculatedRowsForCsv.map((row) => {
@@ -337,6 +251,60 @@ export default function PipelineBundlesPage() {
           price: applyConfiguredRounding(row.price, rounding),
         };
       });
+
+      const processCsvDebugEnabled = (() => {
+        if (typeof window === "undefined") return false;
+        try {
+          const value = String(window.localStorage.getItem("process-csv-debug-match") ?? "").trim().toLowerCase();
+          return value === "1" || value === "true" || value === "on" || value === "yes";
+        } catch {
+          return false;
+        }
+      })();
+
+      if (processCsvDebugEnabled && typeof window !== "undefined") {
+        try {
+          const summary = {
+            pipelineName: pipeline.name,
+            baseRows: baseRows.length,
+            subsetFilteredRows: subsetFilteredRows.length,
+            rowsForCsvCalc: rowsForCsvCalc.length,
+            calculatedRowsForCsv: calculatedRowsForCsv.length,
+            roundedCalculatedRowsForCsv: roundedCalculatedRowsForCsv.length,
+            filterKeys: Object.keys(filters),
+            combinatoricKeys: Object.keys(mergedCombinatoricFlags).filter((key) => Boolean(mergedCombinatoricFlags[key])),
+            matchesPipelinesPagePath: true,
+          };
+
+          console.info("[Pipeline Bundles Debug] Calculated rows summary", summary);
+          console.info("[Pipeline Bundles Debug] Calculated rows (comboMap + price)", {
+            pipelineName: pipeline.name,
+            rows: roundedCalculatedRowsForCsv,
+          });
+
+          const existingRaw = (() => {
+            try {
+              return JSON.parse(window.localStorage.getItem("process-csv-last-bundle-debug") ?? "[]") as Array<Record<string, unknown>>;
+            } catch {
+              return [] as Array<Record<string, unknown>>;
+            }
+          })();
+
+          const nextRaw = [
+            ...existingRaw.filter((item) => String(item.pipelineName ?? "") !== String(pipeline.name ?? "")),
+            {
+              created_at: new Date().toISOString(),
+              pipelineName: pipeline.name,
+              summary,
+              rows: roundedCalculatedRowsForCsv,
+            },
+          ];
+
+          window.localStorage.setItem("process-csv-last-bundle-debug", JSON.stringify(nextRaw));
+        } catch {
+          // ignore debug logging failures
+        }
+      }
 
       return {
         pipeline,
