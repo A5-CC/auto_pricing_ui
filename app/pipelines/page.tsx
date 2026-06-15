@@ -6,6 +6,7 @@ import { AddFunctionAdjusterDialog } from "@/components/pipelines/adjusters/add-
 import { AddTemporalAdjusterDialog } from "@/components/pipelines/adjusters/add-temporal-adjuster-dialog";
 import { useAdjusterDialog } from "@/components/pipelines/adjusters/use-adjuster-dialog";
 import { CalculatedPrice } from "@/components/pipelines/calculated-price";
+import { PipelineBuilderChatbot } from "@/components/pipelines/pipeline-builder-chatbot";
 import { PipelineSelector } from "@/components/pipelines/pipeline-selector";
 import { PriceDataWarning } from "@/components/pipelines/price-data-warning";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -790,6 +791,10 @@ export default function PipelinesPage() {
           onAdd={handleAddAdjuster}
         />
       </div>{/* end loading guard */}
+
+      <PipelineBuilderChatbot
+        availableColumns={dataResponse?.columns ?? []}
+      />
     </main>
   );
 }
