@@ -337,6 +337,14 @@ export interface PipelineState {
   validation_errors: string[];
 }
 
+export type AgentFlowType = 'pipeline' | 'pipeline_bundle';
+
+export interface AgentConfigState {
+  flow_type?: AgentFlowType | string;
+  bundle_config?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
 /**
  * Action to be executed on the frontend
  */
@@ -356,6 +364,7 @@ export interface AgentChatResponse {
   suggestions: string[];
   actions: PipelineAction[];
   pipeline_state: PipelineState;
+  config_state?: AgentConfigState | null;
   timestamp: string;
 }
 

@@ -11,12 +11,15 @@ import {
   getAgentSession,
   getE1DataSummary,
   sendAgentMessage,
+  type AgentConfigState,
+  type AgentFlowType,
   type AgentChatResponse,
   type ConversationPhase,
   type E1DataSummary,
   type PipelineAction,
   type PipelineState
 } from "@/lib/api/client/pipelines";
+import { saveProcessCsvConfiguration, type ProcessCsvConfigurationPayload } from "@/lib/api/client/pricing";
 import { cn } from "@/lib/utils";
 import {
   Bot,
@@ -106,6 +109,10 @@ function normalizeConversationPhase(phase: string | ConversationPhase | null | u
   return "welcome";
 }
 
+function normalizeFlowType(flowType: string | AgentFlowType | null | undefined): AgentFlowType {
+  return flowType === "pipeline_bundle" ? "pipeline_bundle" : "pipeline";
+}
+
 // =============================================================================
 // Main Component
 // =============================================================================
@@ -131,8 +138,10 @@ export function PipelineBuilderChatbot({
   const [isSaving, setIsSaving] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [currentPhase, setCurrentPhase] = useState<ConversationPhase>("welcome");
+  const [currentFlowType, setCurrentFlowType] = useState<AgentFlowType>("pipeline");
   // pipelineState holds the latest pipeline configuration, updated from agent responses
   const [pipelineState, setPipelineState] = useState<PipelineState | null>(null);
+  const [configState, setConfigState] = useState<AgentConfigState | null>(null);
   const [pipelineName, setPipelineName] = useState("");
   const [showPipelinePreview, setShowPipelinePreview] = useState(false);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
@@ -146,6 +155,19 @@ export function PipelineBuilderChatbot({
   // Track if initialization has happened to prevent duplicate calls
   const hasInitialized = useRef(false);
   const hasSignaledReady = useRef(false);
+  const latestSessionStateRef = useRef<{
+    phase: ConversationPhase;
+    sessionId: string | null;
+    flowType: AgentFlowType;
+    pipelineState: PipelineState | null;
+    configState: AgentConfigState | null;
+  }>({
+    phase: "welcome",
+    sessionId: null,
+    flowType: "pipeline",
+    pipelineState: null,
+    configState: null,
+  });
 
   // Set mounted after hydration
   useEffect(() => {
@@ -190,6 +212,137 @@ export function PipelineBuilderChatbot({
   // Save is only enabled when we have a session and at least one adjuster in
   // the current pipeline snapshot.
   const canSavePipeline = Boolean(sessionId && (pipelineState?.adjusters?.length ?? 0) > 0);
+
+  const canSaveBundleConfig = Boolean(
+    configState?.bundle_config &&
+    typeof configState.bundle_config === "object"
+  );
+
+  const canConfirmSave =
+    currentPhase === "review" &&
+    (currentFlowType === "pipeline" ? canSavePipeline : canSaveBundleConfig);
+
+  const buildPipelinePayloadFromState = useCallback((state: PipelineState, fallbackName?: string) => {
+    const normalizedName = (fallbackName ?? "").trim() || (state.name ?? "").trim() || `Pipeline ${new Date().toISOString().replace("T", " ").slice(0, 19)}`;
+
+    const rawFilters = (state.universal_filters ?? {}) as Record<string, unknown>;
+    const filters = Object.entries(rawFilters).reduce((acc, [key, value]) => {
+      if (!Array.isArray(value)) return acc;
+      const normalizedValues = value
+        .map((item) => String(item).trim())
+        .filter(Boolean);
+      if (normalizedValues.length > 0) {
+        acc[key] = normalizedValues;
+      }
+      return acc;
+    }, {} as Record<string, string[]>);
+
+    const settings = state.settings && typeof state.settings === "object"
+      ? state.settings
+      : {};
+
+    return {
+      name: normalizedName,
+      filters,
+      adjusters: (Array.isArray(state.adjusters) ? state.adjusters : []) as Adjuster[],
+      settings,
+    };
+  }, []);
+
+  const buildBundleConfigPayloadFromState = useCallback((state: AgentConfigState | null): ProcessCsvConfigurationPayload => {
+    const bundleConfig = (state?.bundle_config ?? {}) as Record<string, unknown>;
+
+    const roundingRaw = (bundleConfig.standard_rate_rounding ?? {}) as Record<string, unknown>;
+    const levelsRaw = (bundleConfig.levels_adjuster ?? {}) as Record<string, unknown>;
+
+    const payload: ProcessCsvConfigurationPayload = {
+      name: String(bundleConfig.name ?? "").trim(),
+      snapshot_id: String(bundleConfig.snapshot_id ?? "").trim(),
+      standard_rate_formula: String(bundleConfig.standard_rate_formula ?? "").trim(),
+      standard_rate_rounding: {
+        enabled: Boolean(roundingRaw.enabled),
+        offset: Number(roundingRaw.offset ?? 0) || 0,
+      },
+      competitive_adjusters: (Array.isArray(bundleConfig.competitive_adjusters)
+        ? bundleConfig.competitive_adjusters
+        : []) as Adjuster[],
+      levels_adjuster: {
+        apply_to_web: Boolean(levelsRaw.apply_to_web),
+        premium: typeof levelsRaw.premium === "object" && levelsRaw.premium !== null
+          ? (levelsRaw.premium as { multiplier: number; offset: number })
+          : undefined,
+        standard: typeof levelsRaw.standard === "object" && levelsRaw.standard !== null
+          ? (levelsRaw.standard as { multiplier: number; offset: number })
+          : undefined,
+        economy: typeof levelsRaw.economy === "object" && levelsRaw.economy !== null
+          ? (levelsRaw.economy as { multiplier: number; offset: number })
+          : undefined,
+      },
+      ...(Array.isArray(bundleConfig.mapping_groups)
+        ? { mapping_groups: bundleConfig.mapping_groups as ProcessCsvConfigurationPayload["mapping_groups"] }
+        : {}),
+    };
+
+    return payload;
+  }, []);
+
+  const handleConfirmSave = useCallback(async () => {
+    const latest = latestSessionStateRef.current;
+    if (latest.phase !== "review") {
+      toast.error("Save unavailable", {
+        description: "You can save only during the review phase."
+      });
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      if (latest.flowType === "pipeline_bundle") {
+        const payload = buildBundleConfigPayloadFromState(latest.configState);
+        if (!payload.name || !payload.snapshot_id || !payload.standard_rate_formula) {
+          throw new Error("Bundle config is missing required fields (name, snapshot_id, or standard_rate_formula).");
+        }
+
+        await saveProcessCsvConfiguration(payload);
+        toast.success("✅ Bundle configuration saved", {
+          description: `Saved \"${payload.name}\" to process-csv configurations`
+        });
+      } else {
+        if (!latest.pipelineState) {
+          throw new Error("Pipeline state is not available yet.");
+        }
+
+        const payload = buildPipelinePayloadFromState(latest.pipelineState, pipelineName);
+        await createPipeline(payload);
+        setPipelineName(payload.name);
+        toast.success("✅ Pipeline saved", {
+          description: `Saved \"${payload.name}\" to pipelines`
+        });
+      }
+
+      setCurrentPhase("complete");
+      latestSessionStateRef.current = {
+        ...latestSessionStateRef.current,
+        phase: "complete",
+      };
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: generateMessageId("assistant"),
+          role: "assistant",
+          content: "✅ Save confirmed and completed.",
+          timestamp: new Date(),
+        }
+      ]);
+    } catch (error) {
+      console.error("Error confirming save:", error);
+      toast.error("Save failed", {
+        description: error instanceof Error ? error.message : "Unknown error"
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  }, [buildBundleConfigPayloadFromState, buildPipelinePayloadFromState, pipelineName]);
 
   const savePipelineToPipelinesStore = useCallback(async (state: PipelineState, name: string) => {
     const trimmedName = (name ?? "").trim();
@@ -330,10 +483,22 @@ export function PipelineBuilderChatbot({
   }, []);
 
   const handleAgentResponse = useCallback((response: AgentChatResponse) => {
+    const flowType = normalizeFlowType(response.config_state?.flow_type);
+
     // Update session
     setSessionId(response.session_id);
     setCurrentPhase(normalizeConversationPhase(response.phase));
+    setCurrentFlowType(flowType);
     setPipelineState(response.pipeline_state);
+    setConfigState(response.config_state ?? null);
+
+    latestSessionStateRef.current = {
+      phase: normalizeConversationPhase(response.phase),
+      sessionId: response.session_id ?? null,
+      flowType,
+      pipelineState: response.pipeline_state ?? null,
+      configState: response.config_state ?? null,
+    };
 
     // Add assistant message
     const assistantMessage: Message = {
@@ -359,28 +524,10 @@ export function PipelineBuilderChatbot({
 
         if (action.type === "save_pipeline") {
           const actionName = typeof action.payload?.name === "string" ? action.payload.name.trim() : "";
-          const derivedName = actionName || (response.pipeline_state?.name ?? "").trim() || `Pipeline ${new Date().toISOString().replace("T", " ").slice(0, 19)}`;
-
-          setPipelineName(derivedName);
-
-          void (async () => {
-            setIsSaving(true);
-            try {
-              await savePipelineToPipelinesStore(response.pipeline_state, derivedName);
-              toast.success("✅ Pipeline saved", {
-                description: `"${derivedName}" is now available on the Pipelines page`
-              });
-              setCurrentPhase("complete");
-              await refreshSavedPipelines();
-            } catch (error) {
-              console.error("Error auto-saving pipeline:", error);
-              toast.error("Auto-save failed", {
-                description: error instanceof Error ? error.message : "Unknown error"
-              });
-            } finally {
-              setIsSaving(false);
-            }
-          })();
+          const derivedName = actionName || (response.pipeline_state?.name ?? "").trim();
+          if (derivedName) {
+            setPipelineName(derivedName);
+          }
         }
       });
     }
@@ -427,6 +574,7 @@ export function PipelineBuilderChatbot({
     let latestSessionId = initialResponse.session_id;
     let latestPhase = initialResponse.phase;
     let latestPipelineState = initialResponse.pipeline_state;
+    let latestConfigState = initialResponse.config_state ?? null;
     let latestTimestamp = initialResponse.timestamp;
     const mergedSuggestions = [...(initialResponse.suggestions ?? [])];
     const mergedActions: PipelineAction[] = [...(initialResponse.actions ?? [])];
@@ -444,6 +592,7 @@ export function PipelineBuilderChatbot({
       latestSessionId = continuation.session_id || latestSessionId;
       latestPhase = continuation.phase ?? latestPhase;
       latestPipelineState = continuation.pipeline_state ?? latestPipelineState;
+      latestConfigState = continuation.config_state ?? latestConfigState;
       latestTimestamp = continuation.timestamp ?? latestTimestamp;
 
       const continuationText = (continuation.message ?? "").trim();
@@ -476,6 +625,7 @@ export function PipelineBuilderChatbot({
       session_id: latestSessionId,
       phase: latestPhase,
       pipeline_state: latestPipelineState,
+      config_state: latestConfigState,
       timestamp: latestTimestamp,
       message: mergedMessage,
       suggestions: dedupedSuggestions,
@@ -526,7 +676,6 @@ export function PipelineBuilderChatbot({
     };
     setMessages(prev => [...prev, userMessage]);
     setInputValue("");
-    const saveIntent = /\bsave\b/i.test(cleanedMessage);
 
     setIsTyping(true);
 
@@ -544,32 +693,7 @@ export function PipelineBuilderChatbot({
       );
 
       const completeResponse = await ensureFullAssistantResponse(response, context);
-
-      const responseTriggeredSave = completeResponse.actions?.some((action) => action.type === "save_pipeline") ?? false;
       handleAgentResponse(completeResponse);
-
-      // If user asked to save but the agent didn't emit save action,
-      // save the latest pipeline state returned by this response.
-      if (saveIntent && !responseTriggeredSave) {
-        const inferredName = (pipelineName ?? "").trim() || (completeResponse.pipeline_state?.name ?? "").trim() || `Pipeline ${new Date().toISOString().replace("T", " ").slice(0, 19)}`;
-        setPipelineName(inferredName);
-        setIsSaving(true);
-        try {
-          await savePipelineToPipelinesStore(completeResponse.pipeline_state, inferredName);
-          toast.success("✅ Pipeline saved", {
-            description: `"${inferredName}" is now available on the Pipelines page`
-          });
-          setCurrentPhase("complete");
-          await refreshSavedPipelines();
-        } catch (error) {
-          console.error("Error saving pipeline from chat command:", error);
-          toast.error("Error saving", {
-            description: error instanceof Error ? error.message : "Unknown error"
-          });
-        } finally {
-          setIsSaving(false);
-        }
-      }
     } catch (error) {
       console.error("Error sending message:", error);
       toast.error("Connection error", {
@@ -734,8 +858,18 @@ export function PipelineBuilderChatbot({
     setMessages([]);
     setSessionId(null);
     setCurrentPhase("welcome");
+    setCurrentFlowType("pipeline");
     setPipelineState(null);
+    setConfigState(null);
     setPipelineName("");
+
+    latestSessionStateRef.current = {
+      phase: "welcome",
+      sessionId: null,
+      flowType: "pipeline",
+      pipelineState: null,
+      configState: null,
+    };
 
     setShowPipelinePreview(false);
     setShowSaveDialog(false);
@@ -989,14 +1123,18 @@ export function PipelineBuilderChatbot({
           )}
         </div>
 
-        {/* Save Pipeline Section */}
-        {!SAVE_DIALOG_DISABLED && (currentPhase === "review" || currentPhase === "complete") && pipelineState && (
+        {/* Save Confirmation Section */}
+        {canConfirmSave && (
           <div className="px-6 py-4 border-t bg-gradient-to-r from-green-50 to-emerald-50 flex-shrink-0 shadow-inner">
             <div className="max-w-4xl mx-auto flex items-center justify-between gap-3">
-              <p className="text-sm text-emerald-900/80">Pipeline is ready to save.</p>
+              <p className="text-sm text-emerald-900/80">
+                {currentFlowType === "pipeline_bundle"
+                  ? "Bundle config is in review. Confirm save?"
+                  : "Pipeline is in review. Confirm save?"}
+              </p>
               <Button
-                // onClick={openSaveDialog} removed
-                disabled={isSaving || !canSavePipeline}
+                onClick={handleConfirmSave}
+                disabled={isSaving || !canConfirmSave}
                 className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white h-11 px-6 rounded-xl shadow-lg shadow-green-600/25 font-semibold transition-all hover:scale-105 disabled:opacity-50 disabled:hover:scale-100"
                 size="sm"
               >
@@ -1005,7 +1143,7 @@ export function PipelineBuilderChatbot({
                 ) : (
                   <>
                     <Save className="h-4 w-4 mr-2" />
-                    Name & Save
+                    Confirm & Save
                   </>
                 )}
               </Button>
@@ -1171,18 +1309,22 @@ export function PipelineBuilderChatbot({
             )}
           </div>
 
-          {/* Save Pipeline Section */}
-          {!SAVE_DIALOG_DISABLED && (currentPhase === "review" || currentPhase === "complete") && pipelineState && (
+          {/* Save Confirmation Section */}
+          {canConfirmSave && (
             <div className="px-6 py-4 border-t bg-gradient-to-r from-green-50 to-emerald-50 flex-shrink-0 shadow-inner">
               <div className="max-w-4xl mx-auto flex items-center justify-between gap-3">
-                <p className="text-sm text-emerald-900/80">Pipeline is ready to save.</p>
+                <p className="text-sm text-emerald-900/80">
+                  {currentFlowType === "pipeline_bundle"
+                    ? "Bundle config is in review. Confirm save?"
+                    : "Pipeline is in review. Confirm save?"}
+                </p>
                 <Button
-                  // onClick={openSaveDialog} removed
-                  disabled={isSaving || !canSavePipeline}
+                  onClick={handleConfirmSave}
+                  disabled={isSaving || !canConfirmSave}
                   className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white h-11 px-6 rounded-xl shadow-lg shadow-green-600/25 font-semibold transition-all hover:scale-105 disabled:opacity-50 disabled:hover:scale-100"
                   size="sm"
                 >
-                  {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Save className="h-4 w-4 mr-2" />Name & Save</>}
+                  {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Save className="h-4 w-4 mr-2" />Confirm & Save</>}
                 </Button>
               </div>
             </div>
@@ -1394,14 +1536,18 @@ export function PipelineBuilderChatbot({
                 )}
               </CardContent>
 
-              {/* Save Pipeline Section (shown in review/complete phase) */}
-              {!SAVE_DIALOG_DISABLED && (currentPhase === "review" || currentPhase === "complete") && pipelineState && (
+              {/* Save Confirmation Section (shown only in review phase) */}
+              {canConfirmSave && (
                 <div className="px-4 py-3 border-t bg-card">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="text-xs text-muted-foreground">Pipeline is ready to save.</p>
+                    <p className="text-xs text-muted-foreground">
+                      {currentFlowType === "pipeline_bundle"
+                        ? "Bundle config is in review. Confirm save?"
+                        : "Pipeline is in review. Confirm save?"}
+                    </p>
                     <Button
-                      // onClick={openSaveDialog} removed
-                      disabled={isSaving || !canSavePipeline}
+                      onClick={handleConfirmSave}
+                      disabled={isSaving || !canConfirmSave}
                       className="gap-2"
                     >
                       {isSaving ? (
@@ -1409,7 +1555,7 @@ export function PipelineBuilderChatbot({
                       ) : (
                         <>
                           <Save className="h-4 w-4" />
-                          Name & Save
+                          Confirm & Save
                         </>
                       )}
                     </Button>
