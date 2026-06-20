@@ -1250,10 +1250,12 @@ export function PipelineBuilderChatbot({
       <Button
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          "fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg transition-all hover:scale-110",
-          "z-50"
+          "fixed right-6 h-14 w-14 rounded-full shadow-xl transition-all hover:scale-110",
+          "z-[9999] bg-primary text-primary-foreground border-2 border-background"
         )}
+        style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 1.5rem)" }}
         size="icon"
+        aria-label={isOpen ? "Close pipeline assistant" : "Open pipeline assistant"}
       >
         {isOpen ? (
           <X className="h-6 w-6" />
