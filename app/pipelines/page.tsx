@@ -18,15 +18,15 @@ import type { Adjuster } from "@/lib/adjusters";
 import { DEFAULT_PRICE_FALLBACK_CHAIN, getPriceDiagnostics, hasValidCompetitorPrices } from "@/lib/adjusters";
 import { getCachedValue } from "@/lib/api/cache";
 import {
-  getE1Client,
+    getE1Client,
 } from "@/lib/api/client/pipelines";
 import { getColumnStatistics, getPricingData, getPricingSchemas, getPricingSnapshots } from "@/lib/api/client/pricing";
 import type {
-  ColumnStatistics,
-  Pipeline,
-  PricingDataResponse,
-  PricingSchemas,
-  PricingSnapshot,
+    ColumnStatistics,
+    Pipeline,
+    PricingDataResponse,
+    PricingSchemas,
+    PricingSnapshot,
 } from "@/lib/api/types";
 import { normalizeFilterValue } from "@/lib/pricing/filter-value-normalization";
 import { Calculator, Clock, Plus, TrendingDown } from "lucide-react";
