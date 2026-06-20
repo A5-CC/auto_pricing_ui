@@ -7,36 +7,36 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import type { Adjuster } from "@/lib/adjusters/types";
 import {
-    createPipeline,
-    getAgentSession,
-    getE1DataSummary,
-    sendAgentMessage,
-    type AgentChatResponse,
-    type ConversationPhase,
-    type E1DataSummary,
-    type PipelineAction,
-    type PipelineState
+  createPipeline,
+  getAgentSession,
+  getE1DataSummary,
+  sendAgentMessage,
+  type AgentChatResponse,
+  type ConversationPhase,
+  type E1DataSummary,
+  type PipelineAction,
+  type PipelineState
 } from "@/lib/api/client/pipelines";
 import { cn } from "@/lib/utils";
 import {
-    Bot,
-    Check,
-    CheckCircle2,
-    ChevronDown,
-    ChevronUp,
-    Database,
-    Filter,
-    FolderOpen,
-    Loader2,
-    MessageCircle,
-    Pencil,
-    RefreshCw,
-    Save,
-    Send,
-    Settings2,
-    Sparkles,
-    X,
-    Zap,
+  Bot,
+  Check,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  Database,
+  Filter,
+  FolderOpen,
+  Loader2,
+  MessageCircle,
+  Pencil,
+  RefreshCw,
+  Save,
+  Send,
+  Settings2,
+  Sparkles,
+  X,
+  Zap,
 } from "lucide-react";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -487,7 +487,7 @@ export function PipelineBuilderChatbot({
     setIsTyping(true);
     try {
       const response = await sendAgentMessage(
-        "Hello",
+        "*",
         undefined,
         { availableColumns }
       );
