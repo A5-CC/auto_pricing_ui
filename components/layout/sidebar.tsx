@@ -3,21 +3,21 @@
 import { useAuth } from '@/components/AuthContext';
 import { cn } from '@/lib/utils';
 import {
-    ChevronDown,
-    ChevronLeft,
-    ChevronRight,
-    FileCode,
-    FileText,
-    Link as LinkIcon,
-    LogOut,
-    MapPin,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  FileCode,
+  FileText,
+  Link as LinkIcon,
+  LogOut,
+  MapPin,
+  Menu,
   MessageCircle,
-    Menu,
-    PlayCircle,
-    Settings,
-    TrendingUp,
-    Wrench,
-    Zap
+  PlayCircle,
+  Settings,
+  TrendingUp,
+  Wrench,
+  Zap
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
