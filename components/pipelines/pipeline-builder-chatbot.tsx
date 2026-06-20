@@ -145,6 +145,7 @@ export function PipelineBuilderChatbot({
   
   // Track if initialization has happened to prevent duplicate calls
   const hasInitialized = useRef(false);
+  const hasSignaledReady = useRef(false);
 
   // Set mounted after hydration
   useEffect(() => {
@@ -660,12 +661,18 @@ export function PipelineBuilderChatbot({
     initializeConversation,
   ]);
 
-  // Notify parent when ready (E1 data loaded and conversation initialized)
+  // Notify parent when ready. Do not block on E1 summary, because API outages
+  // should still let the UI render fallback messages instead of an endless loader.
   useEffect(() => {
-    if (mode === 'fullpage' && e1DataSummary && messages.length > 0 && onReady) {
+    if (mode !== 'fullpage' || !onReady || hasSignaledReady.current) return;
+
+    // Ready once we have any message (real or fallback), or initialization has
+    // completed and typing is no longer active.
+    if (messages.length > 0 || (hasInitialized.current && !isTyping)) {
+      hasSignaledReady.current = true;
       onReady();
     }
-  }, [mode, e1DataSummary, messages.length, onReady]);
+  }, [mode, messages.length, isTyping, onReady]);
 
   // Auto-open save dialog once per session when pipeline becomes savable.
   // Uses backend-confirmed session state to avoid showing save for empty drafts.
