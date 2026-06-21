@@ -19,7 +19,7 @@ import {
   type PipelineAction,
   type PipelineState
 } from "@/lib/api/client/pipelines";
-import { saveProcessCsvConfiguration, type ProcessCsvConfigurationPayload } from "@/lib/api/client/pricing";
+import { type ProcessCsvConfigurationPayload } from "@/lib/api/client/pricing";
 import { cn } from "@/lib/utils";
 import {
   Bot,
