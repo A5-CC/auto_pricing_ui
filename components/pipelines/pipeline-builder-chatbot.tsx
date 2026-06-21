@@ -85,9 +85,15 @@ const CONTINUATION_PROMPT =
 const PHASE_CONFIG: Record<ConversationPhase, { label: string; icon: React.ReactNode; color: string }> = {
   welcome: { label: "Welcome", icon: <Sparkles className="h-4 w-4" />, color: "bg-blue-500" },
   scope_dimensions: { label: "Dimensions", icon: <Filter className="h-4 w-4" />, color: "bg-purple-500" },
+  combinatoric_dimensions: { label: "Combinatorics", icon: <Filter className="h-4 w-4" />, color: "bg-violet-500" },
   scope_values: { label: "Values", icon: <Settings2 className="h-4 w-4" />, color: "bg-indigo-500" },
   adjuster_type: { label: "Adjuster Type", icon: <Zap className="h-4 w-4" />, color: "bg-amber-500" },
   adjuster_config: { label: "Adjuster Config", icon: <Pencil className="h-4 w-4" />, color: "bg-orange-500" },
+  rounding: { label: "Rounding", icon: <Settings2 className="h-4 w-4" />, color: "bg-yellow-500" },
+  bundle_standard_rate: { label: "Bundle Standard Rate", icon: <Zap className="h-4 w-4" />, color: "bg-cyan-500" },
+  bundle_mapping: { label: "Bundle Mapping", icon: <Pencil className="h-4 w-4" />, color: "bg-sky-500" },
+  bundle_adjusters: { label: "Bundle Adjusters", icon: <Settings2 className="h-4 w-4" />, color: "bg-teal-500" },
+  general_assist: { label: "General Assist", icon: <Sparkles className="h-4 w-4" />, color: "bg-slate-500" },
   review: { label: "Review", icon: <CheckCircle2 className="h-4 w-4" />, color: "bg-green-500" },
   complete: { label: "Complete", icon: <Check className="h-4 w-4" />, color: "bg-emerald-500" },
 };
@@ -97,9 +103,15 @@ function normalizeConversationPhase(phase: string | ConversationPhase | null | u
   const allowed: ConversationPhase[] = [
     "welcome",
     "scope_dimensions",
+    "combinatoric_dimensions",
     "scope_values",
     "adjuster_type",
     "adjuster_config",
+    "rounding",
+    "bundle_standard_rate",
+    "bundle_mapping",
+    "bundle_adjusters",
+    "general_assist",
     "review",
     "complete",
   ];
@@ -111,6 +123,16 @@ function normalizeConversationPhase(phase: string | ConversationPhase | null | u
 
 function normalizeFlowType(flowType: string | AgentFlowType | null | undefined): AgentFlowType {
   return flowType === "pipeline_bundle" ? "pipeline_bundle" : "pipeline";
+}
+
+function inferFlowTypeFromConfigState(state: AgentConfigState | null | undefined): AgentFlowType {
+  const flowType = String(state?.flow_type ?? "").trim().toLowerCase();
+  if (flowType) return normalizeFlowType(flowType);
+
+  const activeTrigger = String(state?.active_trigger ?? "").trim().toLowerCase();
+  if (activeTrigger === "config") return "pipeline_bundle";
+
+  return "pipeline";
 }
 
 // =============================================================================
@@ -218,9 +240,14 @@ export function PipelineBuilderChatbot({
     typeof configState.bundle_config === "object"
   );
 
+  const effectiveFlowType: AgentFlowType =
+    inferFlowTypeFromConfigState(configState) === "pipeline_bundle"
+      ? "pipeline_bundle"
+      : currentFlowType;
+
   const canConfirmSave =
     currentPhase === "review" &&
-    (currentFlowType === "pipeline" ? canSavePipeline : canSaveBundleConfig);
+    (effectiveFlowType === "pipeline" ? canSavePipeline : canSaveBundleConfig);
 
   const buildPipelinePayloadFromState = useCallback((state: PipelineState, fallbackName?: string) => {
     const normalizedName = (fallbackName ?? "").trim() || (state.name ?? "").trim() || `Pipeline ${new Date().toISOString().replace("T", " ").slice(0, 19)}`;
@@ -298,15 +325,49 @@ export function PipelineBuilderChatbot({
     setIsSaving(true);
     try {
       if (latest.flowType === "pipeline_bundle") {
-        const payload = buildBundleConfigPayloadFromState(latest.configState);
-        if (!payload.name || !payload.snapshot_id || !payload.standard_rate_formula) {
-          throw new Error("Bundle config is missing required fields (name, snapshot_id, or standard_rate_formula).");
-        }
+        const saveResponse = await sendAgentMessage(
+          "save",
+          latest.sessionId ?? undefined,
+          {
+            availableColumns,
+            config_state: latest.configState ?? undefined,
+            flow_type: "pipeline_bundle",
+          }
+        );
 
-        await saveProcessCsvConfiguration(payload);
+        const nextPhase = normalizeConversationPhase(saveResponse.phase);
+        const nextFlowType = inferFlowTypeFromConfigState(saveResponse.config_state ?? null);
+
+        setSessionId(saveResponse.session_id);
+        setCurrentPhase(nextPhase);
+        setCurrentFlowType(nextFlowType);
+        setPipelineState(saveResponse.pipeline_state);
+        setConfigState(saveResponse.config_state ?? null);
+
+        latestSessionStateRef.current = {
+          phase: nextPhase,
+          sessionId: saveResponse.session_id ?? null,
+          flowType: nextFlowType,
+          pipelineState: saveResponse.pipeline_state ?? null,
+          configState: saveResponse.config_state ?? null,
+        };
+
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: generateMessageId("assistant"),
+            role: "assistant",
+            content: saveResponse.message,
+            timestamp: new Date(saveResponse.timestamp),
+            suggestions: saveResponse.suggestions,
+            actions: saveResponse.actions,
+          },
+        ]);
+
         toast.success("✅ Bundle configuration saved", {
-          description: `Saved \"${payload.name}\" to process-csv configurations`
+          description: "Saved through assistant session state"
         });
+        return;
       } else {
         if (!latest.pipelineState) {
           throw new Error("Pipeline state is not available yet.");
@@ -342,7 +403,7 @@ export function PipelineBuilderChatbot({
     } finally {
       setIsSaving(false);
     }
-  }, [buildBundleConfigPayloadFromState, buildPipelinePayloadFromState, pipelineName]);
+  }, [availableColumns, buildPipelinePayloadFromState, pipelineName]);
 
   const savePipelineToPipelinesStore = useCallback(async (state: PipelineState, name: string) => {
     const trimmedName = (name ?? "").trim();
@@ -483,7 +544,7 @@ export function PipelineBuilderChatbot({
   }, []);
 
   const handleAgentResponse = useCallback((response: AgentChatResponse) => {
-    const flowType = normalizeFlowType(response.config_state?.flow_type);
+    const flowType = inferFlowTypeFromConfigState(response.config_state ?? null);
 
     // Update session
     setSessionId(response.session_id);
@@ -685,6 +746,10 @@ export function PipelineBuilderChatbot({
       if (e1DataSummary) {
         context.e1DataSummary = e1DataSummary;
       }
+      if (configState && typeof configState === "object") {
+        context.config_state = configState;
+      }
+      context.flow_type = effectiveFlowType;
       
       const response = await sendAgentMessage(
         cleanedMessage,
@@ -1128,7 +1193,7 @@ export function PipelineBuilderChatbot({
           <div className="px-6 py-4 border-t bg-gradient-to-r from-green-50 to-emerald-50 flex-shrink-0 shadow-inner">
             <div className="max-w-4xl mx-auto flex items-center justify-between gap-3">
               <p className="text-sm text-emerald-900/80">
-                {currentFlowType === "pipeline_bundle"
+                {effectiveFlowType === "pipeline_bundle"
                   ? "Bundle config is in review. Confirm save?"
                   : "Pipeline is in review. Confirm save?"}
               </p>
@@ -1314,7 +1379,7 @@ export function PipelineBuilderChatbot({
             <div className="px-6 py-4 border-t bg-gradient-to-r from-green-50 to-emerald-50 flex-shrink-0 shadow-inner">
               <div className="max-w-4xl mx-auto flex items-center justify-between gap-3">
                 <p className="text-sm text-emerald-900/80">
-                  {currentFlowType === "pipeline_bundle"
+                  {effectiveFlowType === "pipeline_bundle"
                     ? "Bundle config is in review. Confirm save?"
                     : "Pipeline is in review. Confirm save?"}
                 </p>
@@ -1541,7 +1606,7 @@ export function PipelineBuilderChatbot({
                 <div className="px-4 py-3 border-t bg-card">
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-xs text-muted-foreground">
-                      {currentFlowType === "pipeline_bundle"
+                      {effectiveFlowType === "pipeline_bundle"
                         ? "Bundle config is in review. Confirm save?"
                         : "Pipeline is in review. Confirm save?"}
                     </p>

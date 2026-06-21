@@ -277,9 +277,15 @@ export interface ChatResponse {
 export type ConversationPhase = 
   | 'welcome'
   | 'scope_dimensions'
+  | 'combinatoric_dimensions'
   | 'scope_values'
   | 'adjuster_type'
   | 'adjuster_config'
+  | 'rounding'
+  | 'bundle_standard_rate'
+  | 'bundle_mapping'
+  | 'bundle_adjusters'
+  | 'general_assist'
   | 'review'
   | 'complete';
 
@@ -341,6 +347,9 @@ export type AgentFlowType = 'pipeline' | 'pipeline_bundle';
 
 export interface AgentConfigState {
   flow_type?: AgentFlowType | string;
+  active_trigger?: 'pipeline' | 'config' | string;
+  config_triggers?: Record<string, unknown>;
+  open_existing?: Record<string, unknown>;
   bundle_config?: Record<string, unknown>;
   [key: string]: unknown;
 }
@@ -378,6 +387,12 @@ export async function sendAgentMessage(
     availableColumns?: string[];
     currentFilters?: Record<string, string[]>;
     currentAdjusters?: Array<{ type: string; [key: string]: unknown }>;
+    config_state?: AgentConfigState;
+    configState?: AgentConfigState;
+    flow_type?: AgentFlowType | string;
+    flowType?: AgentFlowType | string;
+    e1DataSummary?: unknown;
+    [key: string]: unknown;
   }
 ): Promise<AgentChatResponse> {
   const response = await fetchWithError(`${API_BASE_URL}/agent/chat`, {
