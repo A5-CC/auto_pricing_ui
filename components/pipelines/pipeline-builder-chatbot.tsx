@@ -19,7 +19,6 @@ import {
   type PipelineAction,
   type PipelineState
 } from "@/lib/api/client/pipelines";
-import { type ProcessCsvConfigurationPayload } from "@/lib/api/client/pricing";
 import { cn } from "@/lib/utils";
 import {
   Bot,
@@ -274,43 +273,6 @@ export function PipelineBuilderChatbot({
       adjusters: (Array.isArray(state.adjusters) ? state.adjusters : []) as Adjuster[],
       settings,
     };
-  }, []);
-
-  const buildBundleConfigPayloadFromState = useCallback((state: AgentConfigState | null): ProcessCsvConfigurationPayload => {
-    const bundleConfig = (state?.bundle_config ?? {}) as Record<string, unknown>;
-
-    const roundingRaw = (bundleConfig.standard_rate_rounding ?? {}) as Record<string, unknown>;
-    const levelsRaw = (bundleConfig.levels_adjuster ?? {}) as Record<string, unknown>;
-
-    const payload: ProcessCsvConfigurationPayload = {
-      name: String(bundleConfig.name ?? "").trim(),
-      snapshot_id: String(bundleConfig.snapshot_id ?? "").trim(),
-      standard_rate_formula: String(bundleConfig.standard_rate_formula ?? "").trim(),
-      standard_rate_rounding: {
-        enabled: Boolean(roundingRaw.enabled),
-        offset: Number(roundingRaw.offset ?? 0) || 0,
-      },
-      competitive_adjusters: (Array.isArray(bundleConfig.competitive_adjusters)
-        ? bundleConfig.competitive_adjusters
-        : []) as Adjuster[],
-      levels_adjuster: {
-        apply_to_web: Boolean(levelsRaw.apply_to_web),
-        premium: typeof levelsRaw.premium === "object" && levelsRaw.premium !== null
-          ? (levelsRaw.premium as { multiplier: number; offset: number })
-          : undefined,
-        standard: typeof levelsRaw.standard === "object" && levelsRaw.standard !== null
-          ? (levelsRaw.standard as { multiplier: number; offset: number })
-          : undefined,
-        economy: typeof levelsRaw.economy === "object" && levelsRaw.economy !== null
-          ? (levelsRaw.economy as { multiplier: number; offset: number })
-          : undefined,
-      },
-      ...(Array.isArray(bundleConfig.mapping_groups)
-        ? { mapping_groups: bundleConfig.mapping_groups as ProcessCsvConfigurationPayload["mapping_groups"] }
-        : {}),
-    };
-
-    return payload;
   }, []);
 
   const handleConfirmSave = useCallback(async () => {
@@ -592,7 +554,7 @@ export function PipelineBuilderChatbot({
         }
       });
     }
-  }, [onActionExecute, refreshSavedPipelines, savePipelineToPipelinesStore]);
+  }, [onActionExecute]);
 
   // Load E1 data summary
   const loadE1DataSummary = useCallback(async () => {
