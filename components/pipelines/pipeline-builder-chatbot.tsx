@@ -248,33 +248,6 @@ export function PipelineBuilderChatbot({
     currentPhase === "review" &&
     (effectiveFlowType === "pipeline" ? canSavePipeline : canSaveBundleConfig);
 
-  const buildPipelinePayloadFromState = useCallback((state: PipelineState, fallbackName?: string) => {
-    const normalizedName = (fallbackName ?? "").trim() || (state.name ?? "").trim() || `Pipeline ${new Date().toISOString().replace("T", " ").slice(0, 19)}`;
-
-    const rawFilters = (state.universal_filters ?? {}) as Record<string, unknown>;
-    const filters = Object.entries(rawFilters).reduce((acc, [key, value]) => {
-      if (!Array.isArray(value)) return acc;
-      const normalizedValues = value
-        .map((item) => String(item).trim())
-        .filter(Boolean);
-      if (normalizedValues.length > 0) {
-        acc[key] = normalizedValues;
-      }
-      return acc;
-    }, {} as Record<string, string[]>);
-
-    const settings = state.settings && typeof state.settings === "object"
-      ? state.settings
-      : {};
-
-    return {
-      name: normalizedName,
-      filters,
-      adjusters: (Array.isArray(state.adjusters) ? state.adjusters : []) as Adjuster[],
-      settings,
-    };
-  }, []);
-
   const handleConfirmSave = useCallback(async () => {
     const latest = latestSessionStateRef.current;
     if (latest.phase !== "review") {
@@ -286,62 +259,49 @@ export function PipelineBuilderChatbot({
 
     setIsSaving(true);
     try {
-      if (latest.flowType === "pipeline_bundle") {
-        const saveResponse = await sendAgentMessage(
-          "save",
-          latest.sessionId ?? undefined,
-          {
-            availableColumns,
-            config_state: latest.configState ?? undefined,
-            flow_type: "pipeline_bundle",
-          }
-        );
-
-        const nextPhase = normalizeConversationPhase(saveResponse.phase);
-        const nextFlowType = inferFlowTypeFromConfigState(saveResponse.config_state ?? null);
-
-        setSessionId(saveResponse.session_id);
-        setCurrentPhase(nextPhase);
-        setCurrentFlowType(nextFlowType);
-        setPipelineState(saveResponse.pipeline_state);
-        setConfigState(saveResponse.config_state ?? null);
-
-        latestSessionStateRef.current = {
-          phase: nextPhase,
-          sessionId: saveResponse.session_id ?? null,
-          flowType: nextFlowType,
-          pipelineState: saveResponse.pipeline_state ?? null,
-          configState: saveResponse.config_state ?? null,
-        };
-
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: generateMessageId("assistant"),
-            role: "assistant",
-            content: saveResponse.message,
-            timestamp: new Date(saveResponse.timestamp),
-            suggestions: saveResponse.suggestions,
-            actions: saveResponse.actions,
-          },
-        ]);
-
-        toast.success("✅ Bundle configuration saved", {
-          description: "Saved through assistant session state"
-        });
-        return;
-      } else {
-        if (!latest.pipelineState) {
-          throw new Error("Pipeline state is not available yet.");
+      const saveResponse = await sendAgentMessage(
+        "save",
+        latest.sessionId ?? undefined,
+        {
+          availableColumns,
+          config_state: latest.configState ?? undefined,
+          flow_type: latest.flowType,
         }
+      );
 
-        const payload = buildPipelinePayloadFromState(latest.pipelineState, pipelineName);
-        await createPipeline(payload);
-        setPipelineName(payload.name);
-        toast.success("✅ Pipeline saved", {
-          description: `Saved \"${payload.name}\" to pipelines`
-        });
-      }
+      const nextPhase = normalizeConversationPhase(saveResponse.phase);
+      const nextFlowType = inferFlowTypeFromConfigState(saveResponse.config_state ?? null);
+
+      setSessionId(saveResponse.session_id);
+      setCurrentPhase(nextPhase);
+      setCurrentFlowType(nextFlowType);
+      setPipelineState(saveResponse.pipeline_state);
+      setConfigState(saveResponse.config_state ?? null);
+
+      latestSessionStateRef.current = {
+        phase: nextPhase,
+        sessionId: saveResponse.session_id ?? null,
+        flowType: nextFlowType,
+        pipelineState: saveResponse.pipeline_state ?? null,
+        configState: saveResponse.config_state ?? null,
+      };
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: generateMessageId("assistant"),
+          role: "assistant",
+          content: saveResponse.message,
+          timestamp: new Date(saveResponse.timestamp),
+          suggestions: saveResponse.suggestions,
+          actions: saveResponse.actions,
+        },
+      ]);
+
+      toast.success(
+        nextFlowType === "pipeline_bundle" ? "✅ Bundle configuration saved" : "✅ Pipeline saved",
+        { description: "Saved through assistant session state" }
+      );
 
       setCurrentPhase("complete");
       latestSessionStateRef.current = {
@@ -365,7 +325,7 @@ export function PipelineBuilderChatbot({
     } finally {
       setIsSaving(false);
     }
-  }, [availableColumns, buildPipelinePayloadFromState, pipelineName]);
+  }, [availableColumns]);
 
   const savePipelineToPipelinesStore = useCallback(async (state: PipelineState, name: string) => {
     const trimmedName = (name ?? "").trim();
