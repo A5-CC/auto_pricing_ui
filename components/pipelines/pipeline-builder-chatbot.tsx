@@ -494,6 +494,13 @@ export function PipelineBuilderChatbot({
     };
     setMessages(prev => [...prev, assistantMessage]);
 
+    const messageText = String(response.message ?? "").trim().toLowerCase();
+    if (messageText.startsWith("saved.")) {
+      toast.success("✅ Saved", {
+        description: response.message,
+      });
+    }
+
     // Execute actions
     if (response.actions && response.actions.length > 0) {
       response.actions.forEach(action => {
