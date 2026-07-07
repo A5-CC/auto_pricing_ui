@@ -413,9 +413,9 @@ export async function saveProcessCsvConfiguration(
   const savePayloadWithoutSnapshot: ProcessCsvConfigurationPayload = {
     ...payloadWithMappings,
   }
-  delete (savePayloadWithoutSnapshot as Record<string, unknown>).snapshot_id
+  Reflect.deleteProperty(savePayloadWithoutSnapshot, "snapshot_id")
 
-  const attempts: Array<Record<string, unknown>> = [
+  const attempts: unknown[] = [
     // Preferred: include required top-level fields and payload envelope together.
     {
       ...savePayloadWithoutSnapshot,
