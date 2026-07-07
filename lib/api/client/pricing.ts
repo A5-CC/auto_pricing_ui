@@ -404,11 +404,6 @@ export async function saveProcessCsvConfiguration(
     mapping_groups: mappingGroups,
   }
 
-  const wrappedPayload = {
-    ...payloadWithMappings,
-    payload: payloadWithMappings,
-  }
-
   const mappingSnapshot = getMappingSnapshot(payloadWithMappings as Partial<ProcessCsvConfigurationPayload>)
   persistMappingShadow(mappingSnapshot, {
     snapshotId: String(payload.snapshot_id ?? "latest"),
