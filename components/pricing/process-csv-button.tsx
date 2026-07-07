@@ -3387,7 +3387,6 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     
     const saveResult = await saveProcessCsvConfiguration({
       name,
-      snapshot_id: snapshotId,
       standard_rate_formula: expectedFormula,
       standard_rate_rounding: {
         enabled: expectedRoundingEnabled,
@@ -3416,10 +3415,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
       (savedId
         ? refreshedConfigs.find((cfg) => String(cfg.id ?? "").trim() === savedId)
         : undefined) ??
-      refreshedConfigs.find((cfg) => (
-        String(cfg.name ?? "").trim() === String(name).trim() &&
-        String(cfg.snapshot_id ?? "").trim() === String(snapshotId ?? "").trim()
-      ))
+      refreshedConfigs.find((cfg) => String(cfg.name ?? "").trim() === String(name).trim())
     )
 
     if (!savedConfig) {

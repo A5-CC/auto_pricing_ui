@@ -12,7 +12,7 @@ import { API_BASE_URL, fetchWithError } from './shared'
 
 export interface ProcessCsvConfigurationPayload {
   name: string
-  snapshot_id: string
+  snapshot_id?: string
   standard_rate_formula: string
   standard_rate_rounding: {
     enabled: boolean
@@ -411,15 +411,23 @@ export async function saveProcessCsvConfiguration(
 
   const mappingSnapshot = getMappingSnapshot(payloadWithMappings as Partial<ProcessCsvConfigurationPayload>)
   persistMappingShadow(mappingSnapshot, {
-    snapshotId: payload.snapshot_id,
+    snapshotId: String(payload.snapshot_id ?? "latest"),
     name: payload.name,
   })
 
+  const savePayloadWithoutSnapshot: ProcessCsvConfigurationPayload = {
+    ...payloadWithMappings,
+  }
+  delete (savePayloadWithoutSnapshot as Record<string, unknown>).snapshot_id
+
   const attempts: Array<Record<string, unknown>> = [
     // Preferred: include required top-level fields and payload envelope together.
-    wrappedPayload,
+    {
+      ...savePayloadWithoutSnapshot,
+      payload: savePayloadWithoutSnapshot,
+    },
     // Compatibility: top-level only shape with explicit mapping fields.
-    payloadWithMappings,
+    savePayloadWithoutSnapshot,
   ]
 
   persistProcessCsvDebugSnapshot(PROCESS_CSV_LAST_SAVE_REQUEST_KEY, {
@@ -450,7 +458,7 @@ export async function saveProcessCsvConfiguration(
       const result = await response.json() as { success: boolean; id?: string; name?: string }
       logProcessCsvSaveDebug(`Attempt ${attemptIndex + 1} response`, result)
       persistMappingShadow(mappingSnapshot, {
-        snapshotId: payload.snapshot_id,
+        snapshotId: String(payload.snapshot_id ?? "latest"),
         name: result?.name ?? payload.name,
         id: result?.id,
       })
