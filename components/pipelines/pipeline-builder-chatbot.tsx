@@ -1205,7 +1205,7 @@ export function PipelineBuilderChatbot({
   // Fullpage mode - chatbot as primary interface
   if (mode === 'fullpage') {
     return (
-      <div className="flex flex-col h-[calc(100dvh-4rem)] bg-white">
+      <div className="flex flex-col h-full min-h-screen bg-white">
         {!SAVE_DIALOG_DISABLED && (
           <SavePipelineDialog
             open={showSaveDialog}
