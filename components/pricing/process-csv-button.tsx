@@ -157,6 +157,47 @@ type MappingGroup = {
   columnMappings: MappingGroupColumnMapping[]
 }
 
+function isValidProcessCsvAdjuster(adjuster: unknown): adjuster is Adjuster {
+  if (!adjuster || typeof adjuster !== "object") return false
+  const candidate = adjuster as Record<string, unknown>
+  const type = String(candidate.type ?? "")
+
+  if (type === "competitive") {
+    const priceColumns = candidate.price_columns
+    const aggregation = String(candidate.aggregation ?? "")
+    return (
+      Array.isArray(priceColumns)
+      && priceColumns.every((column) => typeof column === "string")
+      && ["min", "max", "avg"].includes(aggregation)
+    )
+  }
+
+  if (type === "function") {
+    return (
+      typeof candidate.variable === "string"
+      && typeof candidate.function_string === "string"
+      && Number.isFinite(Number(candidate.domain_min))
+      && Number.isFinite(Number(candidate.domain_max))
+    )
+  }
+
+  if (type === "temporal") {
+    const granularity = String(candidate.granularity ?? "")
+    const multipliers = candidate.multipliers
+    if (!Array.isArray(multipliers)) return false
+    if (!multipliers.every((value) => Number.isFinite(Number(value)))) return false
+    const expectedLength = granularity === "weekly" ? 7 : granularity === "monthly" ? 12 : -1
+    return expectedLength > 0 && multipliers.length === expectedLength
+  }
+
+  return false
+}
+
+function sanitizeProcessCsvAdjusters(adjusters: unknown): Adjuster[] {
+  if (!Array.isArray(adjusters)) return []
+  return adjusters.filter(isValidProcessCsvAdjuster)
+}
+
 function toObjectRecord(value: unknown): Record<string, unknown> {
   if (value && typeof value === "object") return value as Record<string, unknown>
   return {}
@@ -3180,9 +3221,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     setStandardRateRoundingOffset(roundingOffset)
     setStandardRateRoundingOffsetInput(String(roundingOffset))
 
-    const nextAdjusters = Array.isArray(config.competitive_adjusters)
-      ? config.competitive_adjusters
-      : []
+    const nextAdjusters = sanitizeProcessCsvAdjusters(config.competitive_adjusters)
     setPopupAdjusters(nextAdjusters)
 
     const levels = config.levels_adjuster
@@ -3378,7 +3417,8 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     const expectedFormula = String(standardRateFunction ?? "")
     const expectedRoundingEnabled = Boolean(standardRateRoundingEnabled)
     const expectedRoundingOffset = standardOffset
-    const expectedAdjustersCount = Array.isArray(popupAdjusters) ? popupAdjusters.length : 0
+    const normalizedAdjusters = sanitizeProcessCsvAdjusters(popupAdjusters)
+    const expectedAdjustersCount = normalizedAdjusters.length
     // Compare against the normalized/serialized payload that is actually posted,
     // not raw draft UI rows (which may include incomplete rows filtered out on save).
     const expectedRulesCount = Array.isArray(serializedMappingRules) ? serializedMappingRules.length : 0
@@ -3392,7 +3432,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
         enabled: expectedRoundingEnabled,
         offset: expectedRoundingOffset,
       },
-      competitive_adjusters: popupAdjusters,
+      competitive_adjusters: normalizedAdjusters,
       levels_adjuster: {
         apply_to_web: Boolean(resolvedAmenityAdjuster.applyToWeb),
         premium: resolvedAmenityAdjuster.premium,
@@ -3972,14 +4012,14 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                         totalSteps={totalProcessAdjusterSteps}
                         onRemove={() => handleRemovePopupAdjuster(idx)}
                       />
-                    ) : (
+                    ) : adj.type === "temporal" ? (
                       <TemporalAdjusterCard
                         adjuster={adj as TemporalAdjuster}
                         stepNumber={idx + 1}
                         totalSteps={totalProcessAdjusterSteps}
                         onRemove={() => handleRemovePopupAdjuster(idx)}
                       />
-                    )}
+                    ) : null}
                   </li>
                 ))}
                 {showLevelsAdjusterPreview ? (
@@ -4032,14 +4072,14 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                         totalSteps={totalProcessAdjusterSteps}
                         onRemove={() => handleRemovePopupAdjuster(idx)}
                       />
-                    ) : (
+                    ) : adj.type === "temporal" ? (
                       <TemporalAdjusterCard
                         adjuster={adj as TemporalAdjuster}
                         stepNumber={idx + 1}
                         totalSteps={totalProcessAdjusterSteps}
                         onRemove={() => handleRemovePopupAdjuster(idx)}
                       />
-                    )}
+                    ) : null}
                   </li>
                 ))}
                 {showLevelsAdjusterPreview ? (
@@ -4935,14 +4975,14 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                         totalSteps={totalProcessAdjusterSteps}
                         onRemove={() => handleRemovePopupAdjuster(idx)}
                       />
-                    ) : (
+                    ) : adj.type === "temporal" ? (
                       <TemporalAdjusterCard
                         adjuster={adj as TemporalAdjuster}
                         stepNumber={idx + 1}
                         totalSteps={totalProcessAdjusterSteps}
                         onRemove={() => handleRemovePopupAdjuster(idx)}
                       />
-                    )}
+                    ) : null}
                   </li>
                 ))}
                 {showLevelsAdjusterPreview ? (
@@ -5005,14 +5045,14 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                         totalSteps={totalProcessAdjusterSteps}
                         onRemove={() => handleRemovePopupAdjuster(idx)}
                       />
-                    ) : (
+                    ) : adj.type === "temporal" ? (
                       <TemporalAdjusterCard
                         adjuster={adj as TemporalAdjuster}
                         stepNumber={idx + 1}
                         totalSteps={totalProcessAdjusterSteps}
                         onRemove={() => handleRemovePopupAdjuster(idx)}
                       />
-                    )}
+                    ) : null}
                   </li>
                 ))}
                 {showLevelsAdjusterPreview ? (
