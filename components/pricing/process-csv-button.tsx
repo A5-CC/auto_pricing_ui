@@ -2046,7 +2046,7 @@ function applyCalculatedPricesToCsv(
 
       const amenitySourceIndex = candidate.unitAmenitiesIndex >= 0
         ? candidate.unitAmenitiesIndex
-        : groupAmenityCsvIndex
+        : (groupAmenityCsvIndex >= 0 ? groupAmenityCsvIndex : defaultUnitAmenitiesIndex)
       const amenitySourceValue = amenitySourceIndex >= 0
         ? getCellValue(row, amenitySourceIndex)
         : ""
@@ -2199,13 +2199,14 @@ function applyCalculatedPricesToCsv(
 
         mappedMatch = candidateMatch
         matchedAreaValue = candidateMatchedAreaValue
-        unitAmenitiesIndex = candidate.unitAmenitiesIndex
+        unitAmenitiesIndex = amenitySourceIndex
         mappedCandidatePipelineName = candidate.pipelineName
         addRowDebugStep("candidate-accepted", {
           candidatePipelineName: candidate.pipelineName,
           matchedCalculatedRowIndex: candidateMatch.calculatedRowIndex,
           matchedPrice: candidateMatch.price,
           matchedAreaValue: candidateMatchedAreaValue,
+          amenitySourceIndex,
         })
         break
       } else {
