@@ -316,6 +316,27 @@ export default function PipelineBundlesPage() {
     normalizeFilterModeKeys,
   ]);
 
+  const calculatedRowsBundle = useMemo(() => {
+    const nameCounts = new Map<string, number>();
+    for (const ctx of selectedPipelineContexts) {
+      const name = String(ctx.pipeline.name ?? "").trim() || "Unnamed pipeline";
+      nameCounts.set(name, (nameCounts.get(name) ?? 0) + 1);
+    }
+
+    return selectedPipelineContexts.map((ctx) => {
+      const baseName = String(ctx.pipeline.name ?? "").trim() || "Unnamed pipeline";
+      const duplicateCount = nameCounts.get(baseName) ?? 0;
+      const suffix = duplicateCount > 1
+        ? ` (${String(ctx.pipeline.id ?? "").slice(0, 8)})`
+        : "";
+
+      return {
+        pipelineName: `${baseName}${suffix}`,
+        rows: ctx.calculatedRowsForCsv,
+      };
+    });
+  }, [selectedPipelineContexts]);
+
   return (
     <main className="px-4 py-6 sm:px-6 space-y-4 sm:space-y-5">
       <h1 className="text-2xl font-bold mb-6">Pipeline Bundles</h1>
@@ -339,10 +360,7 @@ export default function PipelineBundlesPage() {
                 snapshotId={selectedSnapshot}
                 filters={{ competitors: [], locations: [], unit_dimensions: [], unitCategories: [] }}
                 rounding={{ enabled: false, offset: 0 }}
-                calculatedRowsBundle={selectedPipelineContexts.map((ctx) => ({
-                  pipelineName: ctx.pipeline.name,
-                  rows: ctx.calculatedRowsForCsv,
-                }))}
+                calculatedRowsBundle={calculatedRowsBundle}
                 pricingContext={{
                   competitorData: dataResponse?.data ?? [],
                   clientAvailableUnits: clientDataResponse?.data.length || 0,
