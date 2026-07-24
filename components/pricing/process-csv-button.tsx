@@ -2051,18 +2051,25 @@ function applyCalculatedPricesToCsv(
         ? getCellValue(row, amenitySourceIndex)
         : ""
 
-      // If group pair mappings are present for amenities, do not pre-filter lookup
-      // too aggressively by one token; try derived subsets first, then empty fallback.
-      const amenitySubsets = hasGroupAmenityPairMapping
-        ? Array.from(new Set([
-            ...(amenitySourceValue
-              ? buildCsvAmenityTokenSubsets(amenitySourceValue)
-              : [""]),
-            "",
-          ]))
-        : (amenitySourceValue
+      // Levels (Premium/Standard/Economy) tier detection must read the actual
+      // "Unit Amenities" text column only. Unlike amenitySourceIndex above, it
+      // must NOT fall back to other amenity-ish columns (climate control, drive
+      // up access, storage level, etc.) mapped in the group, since those rarely
+      // contain the "standard"/"premium"/"economy" substrings and would cause
+      // the Levels adjuster to silently never match any row.
+      const amenityTierSourceIndex = candidate.unitAmenitiesIndex >= 0
+        ? candidate.unitAmenitiesIndex
+        : defaultUnitAmenitiesIndex
+
+      // Prefer amenity-aware matches first, but always include empty-token fallback
+      // so rows still match when pipeline combinations don't carry amenity tokens.
+      const amenitySubsets = (() => {
+        const prioritized = amenitySourceValue
           ? buildCsvAmenityTokenSubsets(amenitySourceValue)
-          : [""])
+          : [""]
+        const withFallback = [...prioritized, ""]
+        return Array.from(new Set(withFallback))
+      })()
 
       const allowAmenityWildcardLookup = !amenitySourceValue && !hasGroupAmenityPairMapping
       const allowDimensionMatching = true
@@ -2199,7 +2206,7 @@ function applyCalculatedPricesToCsv(
 
         mappedMatch = candidateMatch
         matchedAreaValue = candidateMatchedAreaValue
-        unitAmenitiesIndex = amenitySourceIndex
+        unitAmenitiesIndex = amenityTierSourceIndex
         mappedCandidatePipelineName = candidate.pipelineName
         addRowDebugStep("candidate-accepted", {
           candidatePipelineName: candidate.pipelineName,
