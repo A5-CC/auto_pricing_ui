@@ -28,13 +28,13 @@ export function SavePipelineDialog({
   defaultName = "",
 }: SavePipelineDialogProps) {
   const [name, setName] = useState(defaultName);
-  const [overwriteIfExists, setOverwriteIfExists] = useState(false);
+  const [overwriteIfExists, setOverwriteIfExists] = useState(true);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (open) {
       setName(defaultName);
-      setOverwriteIfExists(false);
+      setOverwriteIfExists(true);
     }
   }, [defaultName, open]);
 
@@ -90,7 +90,7 @@ export function SavePipelineDialog({
               checked={overwriteIfExists}
               onChange={(e) => setOverwriteIfExists(e.target.checked)}
             />
-            Overwrite existing pipeline with same name
+            Replace existing pipeline with same name
           </label>
         </div>
         <DialogFooter>

@@ -103,17 +103,46 @@ export function PipelineSelector({
     };
   }, []);
 
+  const dedupeByName = useCallback((items: Pipeline[]): Pipeline[] => {
+    const latestByName = new Map<string, Pipeline>();
+    for (const pipeline of items) {
+      const key = String(pipeline.name ?? "").trim().toLowerCase();
+      if (!key) continue;
+      const prev = latestByName.get(key);
+      if (!prev) {
+        latestByName.set(key, pipeline);
+        continue;
+      }
+
+      const prevTs = Date.parse(String(prev.updated_at ?? prev.created_at ?? ""));
+      const nextTs = Date.parse(String(pipeline.updated_at ?? pipeline.created_at ?? ""));
+      const prevTime = Number.isFinite(prevTs) ? prevTs : 0;
+      const nextTime = Number.isFinite(nextTs) ? nextTs : 0;
+      if (nextTime >= prevTime) {
+        latestByName.set(key, pipeline);
+      }
+    }
+
+    return Array.from(latestByName.values()).sort((a, b) => {
+      const aTs = Date.parse(String(a.updated_at ?? a.created_at ?? ""));
+      const bTs = Date.parse(String(b.updated_at ?? b.created_at ?? ""));
+      return (Number.isFinite(bTs) ? bTs : 0) - (Number.isFinite(aTs) ? aTs : 0);
+    });
+  }, []);
+
   const loadPipelines = useCallback(async () => {
     try {
       const data = await listPipelines();
       const extras = readLocalExtras();
-      const merged = data.map((pipeline) => normalizePipelineForUi(pipeline, extras[pipeline.id]));
+      const merged = dedupeByName(
+        data.map((pipeline) => normalizePipelineForUi(pipeline, extras[pipeline.id]))
+      );
       setPipelines(merged);
     } catch (error) {
       console.error("Failed to load pipelines:", error);
       // Keep whatever stale pipelines were already seeded from localStorage
     }
-  }, [normalizePipelineForUi, readLocalExtras]);
+  }, [dedupeByName, normalizePipelineForUi, readLocalExtras]);
 
   useEffect(() => {
     loadPipelines();
@@ -169,9 +198,15 @@ export function PipelineSelector({
       };
 
       let newPipeline: Pipeline;
-      if (options?.overwriteIfExists) {
+      const shouldOverwrite = options?.overwriteIfExists ?? true;
+      if (shouldOverwrite) {
         const latest = await listPipelines();
-        const existing = latest.find((pipeline) => String(pipeline.name ?? "").trim().toLowerCase() === name.trim().toLowerCase());
+        const existingCandidates = latest.filter((pipeline) => String(pipeline.name ?? "").trim().toLowerCase() === name.trim().toLowerCase());
+        const existing = existingCandidates.sort((a, b) => {
+          const aTs = Date.parse(String(a.updated_at ?? a.created_at ?? ""));
+          const bTs = Date.parse(String(b.updated_at ?? b.created_at ?? ""));
+          return (Number.isFinite(bTs) ? bTs : 0) - (Number.isFinite(aTs) ? aTs : 0);
+        })[0];
         if (existing?.id) {
           newPipeline = await updatePipeline(existing.id, payload);
         } else {
@@ -191,8 +226,8 @@ export function PipelineSelector({
       writeLocalExtras(extras);
       setPipelines((prev: Pipeline[]) => {
         const normalized = normalizePipelineForUi(newPipeline, extras[newPipeline.id]);
-        const withoutSameId = prev.filter((p: Pipeline) => p.id !== newPipeline.id);
-        return [normalized, ...withoutSameId];
+        const withoutSameName = prev.filter((p: Pipeline) => String(p.name ?? "").trim().toLowerCase() !== String(name).trim().toLowerCase());
+        return dedupeByName([normalized, ...withoutSameName]);
       });
       setSelectedPipelineId(newPipeline.id);
     } catch (error) {
