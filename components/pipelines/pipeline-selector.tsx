@@ -277,6 +277,18 @@ export function PipelineSelector({
           <SelectValue placeholder="Load pipeline..." />
         </SelectTrigger>
         <SelectContent>
+          <div className="flex items-center justify-end border-b px-1 py-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => setNameSortDirection((prev) => (prev === "asc" ? "desc" : "asc"))}
+              aria-label={nameSortDirection === "asc" ? "Sort pipelines Z to A" : "Sort pipelines A to Z"}
+              title={nameSortDirection === "asc" ? "Sorted A to Z. Click to sort Z to A" : "Sorted Z to A. Click to sort A to Z"}
+            >
+              <ArrowUpDown className="h-4 w-4" />
+            </Button>
+          </div>
           <SelectItem value="none">
             <span className="text-muted-foreground">No pipeline</span>
           </SelectItem>
@@ -287,16 +299,6 @@ export function PipelineSelector({
           ))}
         </SelectContent>
       </Select>
-
-      <Button
-        variant="outline"
-        size="icon"
-        onClick={() => setNameSortDirection((prev) => (prev === "asc" ? "desc" : "asc"))}
-        aria-label={nameSortDirection === "asc" ? "Sort pipelines Z to A" : "Sort pipelines A to Z"}
-        title={nameSortDirection === "asc" ? "Sorted A to Z. Click to sort Z to A" : "Sorted Z to A. Click to sort A to Z"}
-      >
-        <ArrowUpDown className="h-4 w-4" />
-      </Button>
 
       <Button
         variant="outline"
