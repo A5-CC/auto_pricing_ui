@@ -11,8 +11,8 @@ import {
 import type { Adjuster } from "@/lib/adjusters";
 import { createPipeline, deletePipeline, listPipelines, updatePipeline } from "@/lib/api/client/pipelines";
 import type { Pipeline } from "@/lib/api/types";
-import { Save, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { ArrowUpDown, Save, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { DeletePipelineDialog } from "./delete-pipeline-dialog";
 import { SavePipelineDialog } from "./save-pipeline-dialog";
 
@@ -58,6 +58,7 @@ export function PipelineSelector({
       return []
     }
   });
+  const [nameSortDirection, setNameSortDirection] = useState<"asc" | "desc">("asc");
   const [selectedPipelineId, setSelectedPipelineId] = useState<string | null>(null);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -256,6 +257,15 @@ export function PipelineSelector({
   };
 
   const selectedPipeline = pipelines.find((p: Pipeline) => p.id === selectedPipelineId);
+  const sortedPipelines = useMemo(() => {
+    const collator = new Intl.Collator(undefined, { sensitivity: "base", numeric: true });
+    return [...pipelines].sort((a, b) => {
+      const aName = String(a.name ?? "").trim();
+      const bName = String(b.name ?? "").trim();
+      const cmp = collator.compare(aName, bName);
+      return nameSortDirection === "asc" ? cmp : -cmp;
+    });
+  }, [nameSortDirection, pipelines]);
 
   return (
     <div className="flex items-center gap-2">
@@ -270,13 +280,23 @@ export function PipelineSelector({
           <SelectItem value="none">
             <span className="text-muted-foreground">No pipeline</span>
           </SelectItem>
-          {pipelines.map((pipeline: Pipeline) => (
+          {sortedPipelines.map((pipeline: Pipeline) => (
             <SelectItem key={pipeline.id} value={pipeline.id}>
               {pipeline.name}
             </SelectItem>
           ))}
         </SelectContent>
       </Select>
+
+      <Button
+        variant="outline"
+        size="icon"
+        onClick={() => setNameSortDirection((prev) => (prev === "asc" ? "desc" : "asc"))}
+        aria-label={nameSortDirection === "asc" ? "Sort pipelines Z to A" : "Sort pipelines A to Z"}
+        title={nameSortDirection === "asc" ? "Sorted A to Z. Click to sort Z to A" : "Sorted Z to A. Click to sort A to Z"}
+      >
+        <ArrowUpDown className="h-4 w-4" />
+      </Button>
 
       <Button
         variant="outline"
