@@ -2,14 +2,14 @@
 
 import { Button } from "@/components/ui/button";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
 } from "@/components/ui/select";
 import type { Adjuster } from "@/lib/adjusters";
-import { createPipeline, deletePipeline, listPipelines } from "@/lib/api/client/pipelines";
+import { createPipeline, deletePipeline, listPipelines, updatePipeline } from "@/lib/api/client/pipelines";
 import type { Pipeline } from "@/lib/api/types";
 import { Save, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
@@ -137,7 +137,7 @@ export function PipelineSelector({
   };
 
 
-  const handleSavePipeline = async (name: string) => {
+  const handleSavePipeline = async (name: string, options?: { overwriteIfExists?: boolean }) => {
     try {
       const mergedFilters = {
         ...currentFilters,
@@ -158,7 +158,7 @@ export function PipelineSelector({
       delete (baseSettings as { filter_modes?: unknown }).filter_modes;
       delete (baseSettings as { universal_filters?: unknown }).universal_filters;
       delete (baseSettings as { filter_settings?: unknown }).filter_settings;
-      const newPipeline = await createPipeline({
+      const payload = {
         name,
         filters: mergedFilters,
         adjusters: currentAdjusters,
@@ -166,7 +166,20 @@ export function PipelineSelector({
           ...baseSettings,
           filter_settings: mergedFilterModes,
         },
-      });
+      };
+
+      let newPipeline: Pipeline;
+      if (options?.overwriteIfExists) {
+        const latest = await listPipelines();
+        const existing = latest.find((pipeline) => String(pipeline.name ?? "").trim().toLowerCase() === name.trim().toLowerCase());
+        if (existing?.id) {
+          newPipeline = await updatePipeline(existing.id, payload);
+        } else {
+          newPipeline = await createPipeline(payload);
+        }
+      } else {
+        newPipeline = await createPipeline(payload);
+      }
       const extras = readLocalExtras();
       extras[newPipeline.id] = {
         filters: mergedFilters,
@@ -176,7 +189,11 @@ export function PipelineSelector({
         } as Record<string, unknown>,
       };
       writeLocalExtras(extras);
-      setPipelines((prev: Pipeline[]) => [normalizePipelineForUi(newPipeline, extras[newPipeline.id]), ...prev]);
+      setPipelines((prev: Pipeline[]) => {
+        const normalized = normalizePipelineForUi(newPipeline, extras[newPipeline.id]);
+        const withoutSameId = prev.filter((p: Pipeline) => p.id !== newPipeline.id);
+        return [normalized, ...withoutSameId];
+      });
       setSelectedPipelineId(newPipeline.id);
     } catch (error) {
       console.error("Failed to save pipeline:", error);

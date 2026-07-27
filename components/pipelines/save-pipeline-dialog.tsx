@@ -17,7 +17,7 @@ import { toast } from "sonner";
 interface SavePipelineDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (name: string) => Promise<void>;
+  onSave: (name: string, options?: { overwriteIfExists?: boolean }) => Promise<void>;
   defaultName?: string;
 }
 
@@ -28,11 +28,13 @@ export function SavePipelineDialog({
   defaultName = "",
 }: SavePipelineDialogProps) {
   const [name, setName] = useState(defaultName);
+  const [overwriteIfExists, setOverwriteIfExists] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (open) {
       setName(defaultName);
+      setOverwriteIfExists(false);
     }
   }, [defaultName, open]);
 
@@ -41,7 +43,7 @@ export function SavePipelineDialog({
 
     setSaving(true);
     try {
-      await onSave(name.trim());
+      await onSave(name.trim(), { overwriteIfExists });
       setName("");
       onOpenChange(false);
     } catch (error) {
@@ -82,6 +84,14 @@ export function SavePipelineDialog({
               autoFocus
             />
           </div>
+          <label className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+            <input
+              type="checkbox"
+              checked={overwriteIfExists}
+              onChange={(e) => setOverwriteIfExists(e.target.checked)}
+            />
+            Overwrite existing pipeline with same name
+          </label>
         </div>
         <DialogFooter>
           <Button
