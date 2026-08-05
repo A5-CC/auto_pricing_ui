@@ -1,25 +1,25 @@
 import { Button } from '@/components/ui/button'
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
 } from '@/components/ui/select'
 import type { CompetitivePriceAdjuster } from '@/lib/adjusters'
 import { DEFAULT_PRICE_FALLBACK_CHAIN } from '@/lib/adjusters'
 import { TrendingDown } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 interface AddCompetitiveAdjusterDialogProps {
   open: boolean
@@ -41,12 +41,22 @@ export function AddCompetitiveAdjusterDialog({
   const [multiplier, setMultiplier] = useState('0.97')
   const [offset, setOffset] = useState('0')
   const [priceColumn, setPriceColumn] = useState<string>(priceColumns[0])
+  const [roundingEnabled, setRoundingEnabled] = useState(false)
+  const [roundingOffset, setRoundingOffset] = useState('0')
+
+  useEffect(() => {
+    setPriceColumn(priceColumns[0])
+  }, [priceColumns])
 
   const handleAdd = () => {
-    const parsedMultiplier = parseFloat(multiplier);
-    const parsedOffset = parseFloat(offset);
-    const safeMultiplier = Number.isFinite(parsedMultiplier) ? Math.max(0.0001, parsedMultiplier) : 1;
-    const safeOffset = Number.isFinite(parsedOffset) ? parsedOffset : 0;
+    const parsedMultiplier = parseFloat(multiplier)
+    const parsedOffset = parseFloat(offset)
+    const parsedRoundingOffset = parseFloat(roundingOffset)
+    const safeMultiplier = Number.isFinite(parsedMultiplier) ? Math.max(0.0001, parsedMultiplier) : 1
+    const safeOffset = Number.isFinite(parsedOffset) ? parsedOffset : 0
+    const safeRoundingOffset = Number.isFinite(parsedRoundingOffset)
+      ? Math.min(1, Math.max(0, parsedRoundingOffset))
+      : 0
 
     const adjuster: CompetitivePriceAdjuster = {
       type: 'competitive',
@@ -54,9 +64,13 @@ export function AddCompetitiveAdjusterDialog({
       aggregation,
       multiplier: safeMultiplier,
       offset: safeOffset,
-    };
-    onAdd(adjuster);
-    onOpenChange(false);
+      rounding: {
+        enabled: roundingEnabled,
+        offset: safeRoundingOffset,
+      },
+    }
+    onAdd(adjuster)
+    onOpenChange(false)
   }
 
   return (
@@ -135,6 +149,41 @@ export function AddCompetitiveAdjusterDialog({
             <p className="text-xs text-muted-foreground">
               Positive adds, negative subtracts.
             </p>
+          </div>
+
+          <div className="space-y-2 rounded-lg border border-blue-200 bg-blue-50/50 p-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <Label>Rounding</Label>
+                <p className="text-xs text-muted-foreground">
+                  Apply a final round after multiplier and offset.
+                </p>
+              </div>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={roundingEnabled}
+                  onChange={(e) => setRoundingEnabled(e.target.checked)}
+                />
+                Enable
+              </label>
+            </div>
+            <div className="space-y-2">
+              <Label>Round to</Label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                max="1"
+                value={roundingOffset}
+                onChange={(e) => setRoundingOffset(e.target.value)}
+                placeholder="0"
+                className="focus:ring-blue-500"
+              />
+              <p className="text-xs text-muted-foreground">
+                Offset from $0.00 to $1.00. Example: $0.95 rounds to prices ending in .95.
+              </p>
+            </div>
           </div>
         </div>
 

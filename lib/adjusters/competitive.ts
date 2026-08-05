@@ -100,6 +100,17 @@ function aggregatePrices(
   }
 }
 
+function applyCompetitiveRounding(
+  value: number,
+  rounding?: { enabled?: boolean; offset?: number }
+): number {
+  if (!rounding?.enabled || !Number.isFinite(value)) return value
+  const offsetRaw = Number(rounding.offset ?? 0)
+  const offset = Number.isFinite(offsetRaw) ? Math.min(1, Math.max(0, offsetRaw)) : 0
+  const rounded = Math.round(value - offset) + offset
+  return Object.is(rounded, -0) ? 0 : rounded
+}
+
 /**
  * Applies competitive price adjuster
  *
@@ -225,7 +236,7 @@ export function applyCompetitiveAdjuster(
         console.log(`[competitive] ... - ${Math.abs(offset)} = $${finalPrice.toFixed(2)}`);
       }
     }
-    return finalPrice;
+    return applyCompetitiveRounding(finalPrice, adjuster.rounding);
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
     console.error(
@@ -321,6 +332,33 @@ export function validateCompetitiveAdjuster(
       valid: false,
       error: `Subtract must be a finite number, got: ${adjuster.subtract}`,
     };
+  }
+  if (typeof adjuster.rounding !== 'undefined') {
+    const rounding = adjuster.rounding
+    if (typeof rounding !== 'object' || rounding === null) {
+      return {
+        valid: false,
+        error: 'Rounding must be an object with enabled/offset fields',
+      }
+    }
+
+    if (typeof rounding.enabled !== 'undefined' && typeof rounding.enabled !== 'boolean') {
+      return {
+        valid: false,
+        error: `Rounding enabled must be a boolean, got: ${String(rounding.enabled)}`,
+      }
+    }
+
+    if (typeof rounding.offset !== 'undefined' && (typeof rounding.offset !== 'number' || !isFinite(rounding.offset))) {
+      return {
+        valid: false,
+        error: `Rounding offset must be a finite number, got: ${String(rounding.offset)}`,
+      }
+    }
+
+    if (typeof rounding.offset === 'number' && (rounding.offset < 0 || rounding.offset > 1)) {
+      warnings.push(`Rounding offset ${rounding.offset} will be clamped to the $0.00-$1.00 range.`)
+    }
   }
 
   return {

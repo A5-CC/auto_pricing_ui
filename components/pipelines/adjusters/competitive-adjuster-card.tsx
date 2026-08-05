@@ -16,6 +16,10 @@ export function CompetitiveAdjusterCard({ adjuster, stepNumber, totalSteps, onRe
     ? adjuster.offset
     : (typeof adjuster.add === 'number' && isFinite(adjuster.add) ? adjuster.add : 0)
       - (typeof adjuster.subtract === 'number' && isFinite(adjuster.subtract) ? adjuster.subtract : 0);
+  const roundingEnabled = Boolean(adjuster.rounding?.enabled)
+  const roundingOffset = typeof adjuster.rounding?.offset === 'number' && isFinite(adjuster.rounding.offset)
+    ? Math.min(1, Math.max(0, adjuster.rounding.offset))
+    : 0
   const sourceColumn = Array.isArray(adjuster.price_columns) && adjuster.price_columns.length > 0
     ? adjuster.price_columns[0]
     : '—';
@@ -59,6 +63,10 @@ export function CompetitiveAdjusterCard({ adjuster, stepNumber, totalSteps, onRe
         <div className="flex items-center justify-between gap-3">
           <dt className="text-muted-foreground">Offset</dt>
           <dd className="font-mono text-base">{offset >= 0 ? `+ $${offset}` : `- $${Math.abs(offset)}`}</dd>
+        </div>
+        <div className="flex items-center justify-between gap-3">
+          <dt className="text-muted-foreground">Rounding</dt>
+          <dd className="font-mono text-sm">{roundingEnabled ? `$${roundingOffset.toFixed(2)}` : 'Off'}</dd>
         </div>
       </dl>
     </AdjusterCardShell>

@@ -78,6 +78,10 @@ export interface CompetitivePriceAdjuster {
   offset?: number;     // default 0 (positive adds, negative subtracts)
   add?: number;        // legacy fallback
   subtract?: number;   // legacy fallback
+  rounding?: {
+    enabled?: boolean
+    offset?: number
+  }
 }
 
 /**

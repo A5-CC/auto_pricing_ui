@@ -30,7 +30,7 @@ type ResolvedAmenityAdjuster = {
   economy?: ResolvedAmenityAdjusterEntry
 }
 
-import { AddFunctionAdjusterDialog } from "@/components/pipelines/adjusters/add-function-adjuster-dialog";
+import { AddCompetitiveAdjusterDialog } from "@/components/pipelines/adjusters/add-competitive-adjuster-dialog";
 import { AdjusterCardShell } from "@/components/pipelines/adjusters/adjuster-card-shell";
 import { CompetitiveAdjusterCard } from "@/components/pipelines/adjusters/competitive-adjuster-card";
 import { FunctionAdjusterCard } from "@/components/pipelines/adjusters/function-adjuster-card";
@@ -52,7 +52,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { Adjuster, CompetitivePriceAdjuster, FunctionBasedAdjuster, TemporalAdjuster } from '@/lib/adjusters';
-import { evaluateSafeFunction } from "@/lib/adjusters";
+import { DEFAULT_PRICE_FALLBACK_CHAIN, evaluateSafeFunction } from "@/lib/adjusters";
 import { deleteProcessCsvConfiguration, listProcessCsvConfigurations, saveProcessCsvConfiguration, type ProcessCsvConfiguration, type ProcessCsvConfigurationPayload } from "@/lib/api/client/pricing";
 import type { E1DataRow } from "@/lib/api/types";
 import { ArrowDown, ArrowUp, ArrowUpDown, FileSpreadsheet, Info, Layers3, Loader2, Save } from "lucide-react";
@@ -165,10 +165,15 @@ function isValidProcessCsvAdjuster(adjuster: unknown): adjuster is Adjuster {
   if (type === "competitive") {
     const priceColumns = candidate.price_columns
     const aggregation = String(candidate.aggregation ?? "")
+    const rounding = toObjectRecord(candidate.rounding)
+    const roundingEnabled = rounding.enabled
+    const roundingOffset = rounding.offset
     return (
       Array.isArray(priceColumns)
       && priceColumns.every((column) => typeof column === "string")
       && ["min", "max", "avg"].includes(aggregation)
+      && (roundingEnabled === undefined || typeof roundingEnabled === "boolean")
+      && (roundingOffset === undefined || Number.isFinite(Number(roundingOffset)))
     )
   }
 
@@ -195,7 +200,30 @@ function isValidProcessCsvAdjuster(adjuster: unknown): adjuster is Adjuster {
 
 function sanitizeProcessCsvAdjusters(adjusters: unknown): Adjuster[] {
   if (!Array.isArray(adjusters)) return []
-  return adjusters.filter(isValidProcessCsvAdjuster)
+  return adjusters
+    .filter(isValidProcessCsvAdjuster)
+    .map((adjuster) => {
+      if (adjuster.type !== "competitive") return adjuster
+
+      const candidate = adjuster as CompetitivePriceAdjuster
+      const rawMultiplier = Number(candidate.multiplier)
+      const rawOffset = Number(candidate.offset)
+      const rawAdd = Number(candidate.add)
+      const rawSubtract = Number(candidate.subtract)
+      const roundingOffsetRaw = Number(candidate.rounding?.offset ?? 0)
+
+      return {
+        ...candidate,
+        multiplier: Number.isFinite(rawMultiplier) && rawMultiplier > 0 ? rawMultiplier : 1,
+        offset: Number.isFinite(rawOffset) ? rawOffset : 0,
+        add: Number.isFinite(rawAdd) ? rawAdd : undefined,
+        subtract: Number.isFinite(rawSubtract) ? rawSubtract : undefined,
+        rounding: {
+          enabled: Boolean(candidate.rounding?.enabled),
+          offset: Number.isFinite(roundingOffsetRaw) ? Math.min(1, Math.max(0, roundingOffsetRaw)) : 0,
+        },
+      } satisfies CompetitivePriceAdjuster
+    })
 }
 
 function toObjectRecord(value: unknown): Record<string, unknown> {
@@ -845,6 +873,49 @@ function applyConfiguredRounding(value: number, rounding?: { enabled: boolean; o
   return Object.is(rounded, -0) ? 0 : rounded
 }
 
+function applyCompetitiveAdjusterToRate(
+  baseRate: number,
+  adjuster: CompetitivePriceAdjuster & { mode?: "multiplier" | "add" | "subtract"; value?: number }
+): number {
+  if (!Number.isFinite(baseRate)) return baseRate
+
+  const hasExplicitArithmetic = [adjuster.multiplier, adjuster.offset, adjuster.add, adjuster.subtract]
+    .some((value) => typeof value === "number" && Number.isFinite(value))
+
+  let nextRate = baseRate
+
+  if (hasExplicitArithmetic) {
+    const multiplier = Number.isFinite(adjuster.multiplier) && adjuster.multiplier! > 0 ? adjuster.multiplier! : 1
+    const add = Number.isFinite(adjuster.add) ? adjuster.add! : 0
+    const subtract = Number.isFinite(adjuster.subtract) ? adjuster.subtract! : 0
+    const offset = Number.isFinite(adjuster.offset)
+      ? adjuster.offset!
+      : add - subtract
+    nextRate = (baseRate * multiplier) + offset
+  } else {
+    const mode = adjuster.mode ?? "multiplier"
+    const rawValue = Number(
+      adjuster.value ??
+      adjuster.multiplier ??
+      (mode === "multiplier" ? 1 : 0)
+    )
+    const value = Number.isFinite(rawValue) ? rawValue : (mode === "multiplier" ? 1 : 0)
+
+    if (mode === "add") {
+      nextRate += value
+    } else if (mode === "subtract") {
+      nextRate -= value
+    } else if (value > 0) {
+      nextRate *= value
+    }
+  }
+
+  return applyConfiguredRounding(nextRate, {
+    enabled: Boolean(adjuster.rounding?.enabled),
+    offset: Number.isFinite(adjuster.rounding?.offset) ? adjuster.rounding!.offset! : 0,
+  })
+}
+
 function parseCurrencyLikeNumber(value: unknown): number {
   const cleaned = String(value ?? "").replace(/[$,%\s,]/g, "")
   return Number(cleaned)
@@ -1158,21 +1229,10 @@ function applyPopupAdjustersToWebRate(
 
   for (const adjuster of popupAdjusters) {
     if (adjuster.type === 'competitive') {
-      const mode = (adjuster as { mode?: "multiplier" | "add" | "subtract" }).mode ?? "multiplier"
-      const rawValue = Number(
-        (adjuster as { value?: number; multiplier?: number }).value ??
-        (adjuster as { multiplier?: number }).multiplier ??
-        (mode === "multiplier" ? 1 : 0)
+      nextRate = applyCompetitiveAdjusterToRate(
+        nextRate,
+        adjuster as CompetitivePriceAdjuster & { mode?: "multiplier" | "add" | "subtract"; value?: number }
       )
-      const value = Number.isFinite(rawValue) ? rawValue : (mode === "multiplier" ? 1 : 0)
-
-      if (mode === "add") {
-        nextRate += value
-      } else if (mode === "subtract") {
-        nextRate -= value
-      } else if (value > 0) {
-        nextRate *= value
-      }
       continue
     }
 
@@ -2389,6 +2449,20 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
   const [amenityAdjuster, setAmenityAdjuster] = useState<AmenityAdjusterState>(createDefaultAmenityAdjusterState)
   const [originalParsed, setOriginalParsed] = useState<ParsedCsv | null>(null)
   const [csvNumericVariables, setCsvNumericVariables] = useState<string[]>([])
+  const availableCompetitivePriceColumns = useMemo(() => {
+    const prioritized = DEFAULT_PRICE_FALLBACK_CHAIN.filter(Boolean)
+    const discovered = new Set<string>(prioritized)
+    for (const row of (pricingContext?.competitorData ?? []).slice(0, 50)) {
+      for (const key of Object.keys(row ?? {})) {
+        if (!key) continue
+        const normalized = normalizeColumnKey(key)
+        if (normalized.includes("price") || normalized.includes("rate") || normalized.includes("rent")) {
+          discovered.add(key)
+        }
+      }
+    }
+    return Array.from(discovered)
+  }, [pricingContext?.competitorData])
   const lastAutoRebuildKeyRef = useRef<string>("")
   const [showMapping, setShowMapping] = useState(false)
   const [mappingRules, setMappingRules] = useState<PipelineMappingRule[]>([])
@@ -3476,7 +3550,8 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     const savedRoundingOffset = Number.isFinite(savedOffsetRaw)
       ? Math.min(1, Math.max(0, savedOffsetRaw))
       : 0
-    const savedAdjustersCount = Array.isArray(savedConfig.competitive_adjusters) ? savedConfig.competitive_adjusters.length : 0
+    const savedNormalizedAdjusters = sanitizeProcessCsvAdjusters(savedConfig.competitive_adjusters)
+    const savedAdjustersCount = savedNormalizedAdjusters.length
     const savedConfigAny = savedConfig as ProcessCsvConfiguration & {
       mapping_rules?: unknown
       mappingRules?: unknown
@@ -3533,6 +3608,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     const formulaMismatch = savedFormula !== expectedFormula
     const roundingMismatch = savedRoundingEnabled !== expectedRoundingEnabled || savedRoundingOffset !== expectedRoundingOffset
     const adjustersMismatch = savedAdjustersCount !== expectedAdjustersCount
+      || JSON.stringify(savedNormalizedAdjusters) !== JSON.stringify(normalizedAdjusters)
     const rulesMismatch = savedRulesCount !== expectedRulesCount
     const pipelineMappingsMismatch = savedPipelineMappingsCount !== expectedPipelineMappingsCount
     const mappingGroupsMismatch = savedMappingGroupsCount !== expectedMappingGroupsCount
@@ -4494,14 +4570,11 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
           </DialogContent>
         </Dialog>
 
-        <AddFunctionAdjusterDialog
+        <AddCompetitiveAdjusterDialog
           open={functionDialog.open}
           onOpenChange={functionDialog.setOpen}
           onAdd={handleAddPopupAdjuster}
-          availableVariables={csvNumericVariables.filter((name: string) => !RATE_VARIABLE_EXCLUSIONS.has(normalizeColumnKey(name)))}
-          competitorData={pricingContext?.competitorData ?? []}
-          clientAvailableUnits={pricingContext?.clientAvailableUnits ?? 0}
-          includeAvailableUnits={false}
+          availablePriceColumns={availableCompetitivePriceColumns}
         />
 
         <Dialog open={Boolean(traceDialogRow)} onOpenChange={(nextOpen) => { if (!nextOpen) setTraceDialogRow(null) }}>
@@ -5234,14 +5307,11 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
         </DialogContent>
       </Dialog>
 
-      <AddFunctionAdjusterDialog
+      <AddCompetitiveAdjusterDialog
         open={functionDialog.open}
         onOpenChange={functionDialog.setOpen}
         onAdd={handleAddPopupAdjuster}
-        availableVariables={csvNumericVariables.filter((name: string) => !RATE_VARIABLE_EXCLUSIONS.has(normalizeColumnKey(name)))}
-        competitorData={pricingContext?.competitorData ?? []}
-        clientAvailableUnits={pricingContext?.clientAvailableUnits ?? 0}
-        includeAvailableUnits={false}
+        availablePriceColumns={availableCompetitivePriceColumns}
       />
 
       <Dialog open={Boolean(traceDialogRow)} onOpenChange={(nextOpen) => { if (!nextOpen) setTraceDialogRow(null) }}>
