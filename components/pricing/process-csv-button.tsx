@@ -618,12 +618,6 @@ const OCCUPIED_COLUMNS = new Set(["occupied"])
 const AVAILABLE_COLUMNS = new Set(["available"])
 const VACANCY_COLUMNS = new Set(["vacancy"])
 const OCCUPANCY_COLUMNS = new Set(["occupancy"])
-const RATE_VARIABLE_EXCLUSIONS = new Set([
-  "currentwebrate",
-  "newwebrate",
-  "currentstandardrate",
-  "newstandardrate",
-])
 
 function normalizeColumnKey(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]/g, "")
@@ -1360,35 +1354,6 @@ function parseCsvText(text: string): string[][] {
   }
 
   return rows
-}
-
-function detectNumericCsvColumns(parsed: ParsedCsv): string[] {
-  if (!parsed.headers.length || !parsed.rows.length) return []
-
-  const numericHeaders: string[] = []
-  for (let col = 0; col < parsed.headers.length; col++) {
-    const header = parsed.headers[col]
-    let seen = 0
-    let numeric = 0
-
-    for (const row of parsed.rows) {
-      const raw = String(row[col] ?? "").trim()
-      if (!raw) continue
-      seen += 1
-
-      const cleaned = raw.replace(/[$,%\s,]/g, "")
-      const n = Number(cleaned)
-      if (Number.isFinite(n)) numeric += 1
-
-      if (seen >= 50) break
-    }
-
-    if (seen > 0 && numeric / seen >= 0.7) {
-      numericHeaders.push(header)
-    }
-  }
-
-  return numericHeaders
 }
 
 function toParsedCsv(text: string): ParsedCsv {
@@ -2448,7 +2413,6 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
   const standardRateDragRef = useRef<{ x: number; y: number } | null>(null)
   const [amenityAdjuster, setAmenityAdjuster] = useState<AmenityAdjusterState>(createDefaultAmenityAdjusterState)
   const [originalParsed, setOriginalParsed] = useState<ParsedCsv | null>(null)
-  const [csvNumericVariables, setCsvNumericVariables] = useState<string[]>([])
   const availableCompetitivePriceColumns = useMemo(() => {
     const prioritized = DEFAULT_PRICE_FALLBACK_CHAIN.filter(Boolean)
     const discovered = new Set<string>(prioritized)
@@ -3056,7 +3020,6 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     setMappingGroups([])
     setPipelineMappingConfigs(mappingPipelineNames.map((name) => createDefaultPipelineMappingConfig(name)))
     setOriginalParsed(null)
-    setCsvNumericVariables([])
     lastAutoRebuildKeyRef.current = ""
   }
 
@@ -3714,7 +3677,6 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
       const originalText = await file.text()
       const original = toParsedCsv(originalText)
       setOriginalParsed(original)
-      setCsvNumericVariables(detectNumericCsvColumns(original))
       const processed = applyCalculatedPricesToCsv(
         original,
         resolvedCalculatedRows.rows,
@@ -3893,7 +3855,6 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
       setMappingGroups([])
       setPipelineMappingConfigs(mappingPipelineNames.map((name) => createDefaultPipelineMappingConfig(name)))
       setOriginalParsed(null)
-      setCsvNumericVariables([])
       lastAutoRebuildKeyRef.current = ""
     }
 
