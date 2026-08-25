@@ -2,6 +2,7 @@
 import type { FilterSelection } from "@/components/pipelines/calculated-price";
 import { calculatePriceTable } from "@/components/pipelines/calculated-price";
 import { ProcessCsvButton } from "@/components/pricing/process-csv-button";
+import { Button } from "@/components/ui/button";
 import { SectionLabel } from "@/components/ui/section-label";
 import { getE1Client, listPipelines } from "@/lib/api/client/pipelines";
 import { getColumnStatistics, getPricingData, getPricingSnapshots } from "@/lib/api/client/pricing";
@@ -18,6 +19,13 @@ const LEGACY_TO_COLUMN: Record<string, string> = {
   dimensions: "unit_dimensions",
   unit_categories: "unit_category",
 };
+
+type BundleCalculationInput = {
+  pipelines: Pipeline[]
+  baseRows: Array<Record<string, unknown>>
+  clientAvailableUnits: number
+  calculatedAt: string
+}
 
 export default function PipelineBundlesPage() {
   const normalizeFilterKeys = useCallback((filters?: Record<string, string[]>) => {
@@ -56,6 +64,7 @@ export default function PipelineBundlesPage() {
   const [dataResponse, setDataResponse] = useState<PricingDataResponse | null>(null);
   const [clientDataResponse, setClientDataResponse] = useState<E1DataResponse | null>(null);
   const [columnsStats, setColumnsStats] = useState<Record<string, ColumnStatistics>>({});
+  const [bundleCalculationInput, setBundleCalculationInput] = useState<BundleCalculationInput | null>(null)
 
   useEffect(() => {
     listPipelines().then(setPipelines);
@@ -87,7 +96,12 @@ export default function PipelineBundlesPage() {
   }, [columnsStats]);
 
   const selectedPipelineContexts = useMemo(() => {
-    const baseRows = (dataResponse?.data ?? []) as Array<Record<string, unknown>>;
+    if (!bundleCalculationInput) return []
+
+    const baseRows = bundleCalculationInput.baseRows;
+    const calcPipelines = bundleCalculationInput.pipelines;
+    const snapshotClientAvailableUnits = bundleCalculationInput.clientAvailableUnits;
+    const calculationDate = new Date(bundleCalculationInput.calculatedAt);
 
     const applyConfiguredRounding = (value: number, rounding?: { enabled?: boolean; offset?: number }) => {
       if (!rounding?.enabled || !Number.isFinite(value)) return value;
@@ -127,7 +141,7 @@ export default function PipelineBundlesPage() {
       return next.length > 0 ? next : values;
     };
 
-    return pipelines.map((pipeline) => {
+    return calcPipelines.map((pipeline) => {
       const adjusters = pipeline.adjusters || [];
       const settings = (pipeline.settings ?? {}) as Record<string, unknown>;
       const nestedFilterSettings = (settings.filter_settings ?? {}) as Record<string, string>
@@ -226,9 +240,9 @@ export default function PipelineBundlesPage() {
       const rowsForCsvCalc = subsetFilteredRows as PricingDataResponse["data"];
       const calculatedRowsForCsv = calculatePriceTable({
         competitorData: rowsForCsvCalc,
-        clientAvailableUnits: clientDataResponse?.data.length || 0,
+        clientAvailableUnits: snapshotClientAvailableUnits,
         adjusters,
-        currentDate,
+        currentDate: calculationDate,
         filters,
         combinatoricFlags: mergedCombinatoricFlags,
       }).rows;
@@ -307,14 +321,25 @@ export default function PipelineBundlesPage() {
       };
     });
   }, [
-    pipelines,
-    dataResponse,
-    clientDataResponse?.data.length,
-    currentDate,
+    bundleCalculationInput,
     normalizeFilterKeys,
     normalizeCombinatoricFlagKeys,
     normalizeFilterModeKeys,
   ]);
+
+  const handleCalculate = useCallback(() => {
+    const clone = <T,>(value: T): T => {
+      if (typeof structuredClone === "function") return structuredClone(value)
+      return JSON.parse(JSON.stringify(value)) as T
+    }
+
+    setBundleCalculationInput({
+      pipelines: clone(pipelines),
+      baseRows: clone((dataResponse?.data ?? []) as Array<Record<string, unknown>>),
+      clientAvailableUnits: clientDataResponse?.data.length || 0,
+      calculatedAt: new Date().toISOString(),
+    })
+  }, [pipelines, dataResponse?.data, clientDataResponse?.data.length])
 
   const calculatedRowsBundle = useMemo(() => {
     const nameCounts = new Map<string, number>();
@@ -354,6 +379,18 @@ export default function PipelineBundlesPage() {
         <div className="flex min-h-[calc(100dvh-16rem)] gap-6">
           <section className="flex w-full min-w-full max-w-full shrink-0 snap-start flex-col space-y-3">
             <SectionLabel text="Effect Pricing" />
+            <div className="flex items-center gap-2">
+              <Button type="button" size="sm" onClick={handleCalculate}>
+                Calculate
+              </Button>
+              {bundleCalculationInput ? (
+                <span className="text-xs text-muted-foreground">
+                  Showing frozen results from {new Date(bundleCalculationInput.calculatedAt).toLocaleString()}. Recalculate to refresh.
+                </span>
+              ) : (
+                <span className="text-xs text-muted-foreground">Click Calculate to build the bundle table.</span>
+              )}
+            </div>
             <div className="min-h-0 flex-1">
               <ProcessCsvButton
                 inline
