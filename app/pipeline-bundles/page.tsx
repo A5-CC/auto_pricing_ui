@@ -4,13 +4,19 @@ import { calculatePriceTable } from "@/components/pipelines/calculated-price";
 import { ProcessCsvButton } from "@/components/pricing/process-csv-button";
 import { Button } from "@/components/ui/button";
 import { SectionLabel } from "@/components/ui/section-label";
+import { getCachedValue } from "@/lib/api/cache";
 import { getE1Client, listPipelines } from "@/lib/api/client/pipelines";
 import { getColumnStatistics, getPricingData, getPricingSnapshots } from "@/lib/api/client/pricing";
 import type { ColumnStatistics, E1DataResponse, Pipeline, PricingDataResponse, PricingSnapshot } from "@/lib/api/types";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PricingOverview } from "../pricing/components/pricing-overview";
 
+const INITIAL_LOAD_LIMIT = 250;
 const FULL_LOAD_LIMIT = 1000;
+const getPricingDataCacheKey = (snapshot: string, limit: number) =>
+  `pricing-data-${snapshot}-limit=${limit}`
+const getE1ClientCacheKey = (snapshot: string, limit: number) =>
+  `e1-client-${snapshot}-limit=${limit}`
 
 const LEGACY_TO_COLUMN: Record<string, string> = {
   competitors: "competitor_name",
@@ -65,21 +71,102 @@ export default function PipelineBundlesPage() {
   const [clientDataResponse, setClientDataResponse] = useState<E1DataResponse | null>(null);
   const [columnsStats, setColumnsStats] = useState<Record<string, ColumnStatistics>>({});
   const [bundleCalculationInput, setBundleCalculationInput] = useState<BundleCalculationInput | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const hasLoadedDataRef = useRef(false)
+  const activeLoadRef = useRef(0)
 
   useEffect(() => {
-    listPipelines().then(setPipelines);
-    getPricingSnapshots().then(setSnapshots);
+    let cancelled = false
+    void (async () => {
+      const [pipelinesResult, snapshotsResult] = await Promise.allSettled([
+        listPipelines(),
+        getPricingSnapshots(),
+      ])
+      if (cancelled) return
+
+      if (pipelinesResult.status === "fulfilled") setPipelines(pipelinesResult.value)
+      if (snapshotsResult.status === "fulfilled") setSnapshots(snapshotsResult.value)
+    })()
+
+    return () => {
+      cancelled = true
+    }
   }, []);
 
   useEffect(() => {
     if (!selectedSnapshot) return;
-    getPricingData(selectedSnapshot, { limit: FULL_LOAD_LIMIT }).then(setDataResponse);
-    getE1Client(selectedSnapshot, { limit: 1000 }).then(setClientDataResponse).catch(() => setClientDataResponse(null));
-    getColumnStatistics(selectedSnapshot).then((stats: ColumnStatistics[]) => {
-      const statsObj: Record<string, ColumnStatistics> = {};
-      stats.forEach((s: ColumnStatistics) => { statsObj[s.column] = s; });
-      setColumnsStats(statsObj);
-    });
+
+    const loadId = ++activeLoadRef.current
+    const cachedInitial = getCachedValue<PricingDataResponse>(
+      getPricingDataCacheKey(selectedSnapshot, INITIAL_LOAD_LIMIT),
+      { persist: true }
+    )
+    if (cachedInitial) {
+      setDataResponse(cachedInitial)
+      hasLoadedDataRef.current = true
+    }
+
+    const cachedClient = getCachedValue<E1DataResponse>(
+      getE1ClientCacheKey(selectedSnapshot, FULL_LOAD_LIMIT),
+      { persist: true }
+    )
+    if (cachedClient) setClientDataResponse(cachedClient)
+
+    setColumnsStats({})
+    const alreadyHasData = hasLoadedDataRef.current || Boolean(cachedInitial)
+    if (alreadyHasData) {
+      setLoading(false)
+      setIsRefreshing(true)
+    } else {
+      setLoading(true)
+    }
+
+    void (async () => {
+      try {
+        const initialRes = await getPricingData(selectedSnapshot, { limit: INITIAL_LOAD_LIMIT })
+        if (loadId !== activeLoadRef.current) return
+        setDataResponse(initialRes)
+        hasLoadedDataRef.current = true
+        setLoading(false)
+        setIsRefreshing(false)
+
+        void (async () => {
+          try {
+            const fullRes = await getPricingData(selectedSnapshot, { limit: FULL_LOAD_LIMIT })
+            if (loadId !== activeLoadRef.current) return
+            setDataResponse(fullRes)
+
+            if (fullRes.columns?.length) {
+              const stats = await getColumnStatistics(selectedSnapshot, fullRes.columns)
+              if (loadId !== activeLoadRef.current) return
+              const statsObj: Record<string, ColumnStatistics> = {}
+              stats.forEach((s: ColumnStatistics) => {
+                statsObj[s.column] = s
+              })
+              setColumnsStats(statsObj)
+            }
+          } catch {
+            // Keep initial payload visible if full payload/statistics fail.
+          }
+        })()
+
+        void (async () => {
+          try {
+            const clientRes = await getE1Client(selectedSnapshot, { limit: FULL_LOAD_LIMIT })
+            if (loadId !== activeLoadRef.current) return
+            setClientDataResponse(clientRes)
+          } catch {
+            if (loadId !== activeLoadRef.current) return
+            setClientDataResponse(null)
+          }
+        })()
+      } catch {
+        if (loadId !== activeLoadRef.current) return
+        setLoading(false)
+        setIsRefreshing(false)
+      }
+    })()
   }, [selectedSnapshot]);
 
   const currentDate = useMemo(() => new Date(), []);
@@ -365,6 +452,14 @@ export default function PipelineBundlesPage() {
   return (
     <main className="px-4 py-6 sm:px-6 space-y-4 sm:space-y-5">
       <h1 className="text-2xl font-bold mb-6">Pipeline Bundles</h1>
+      {isRefreshing && (
+        <div className="text-xs rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-blue-700">
+          Refreshing pricing data in background…
+        </div>
+      )}
+      {loading && !dataResponse && (
+        <div className="text-xs text-muted-foreground">Loading pricing data…</div>
+      )}
       {/* Overview and snapshot selector */}
       <div className="mb-8">
         <PricingOverview
