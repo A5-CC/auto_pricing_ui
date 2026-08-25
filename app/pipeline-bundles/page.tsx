@@ -4,7 +4,7 @@ import { calculatePriceTable } from "@/components/pipelines/calculated-price";
 import { ProcessCsvButton } from "@/components/pricing/process-csv-button";
 import { getCachedValue } from "@/lib/api/cache";
 import { getE1Client, listPipelines } from "@/lib/api/client/pipelines";
-import { getColumnStatistics, getPricingData, getPricingSnapshots } from "@/lib/api/client/pricing";
+import { getAllPricingData, getColumnStatistics, getPricingData, getPricingSnapshots } from "@/lib/api/client/pricing";
 import type { ColumnStatistics, E1DataResponse, Pipeline, PricingDataResponse, PricingSnapshot } from "@/lib/api/types";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PricingOverview } from "../pricing/components/pricing-overview";
@@ -133,7 +133,7 @@ export default function PipelineBundlesPage() {
 
         void (async () => {
           try {
-            const fullRes = await getPricingData(selectedSnapshot, { limit: FULL_LOAD_LIMIT })
+            const fullRes = await getAllPricingData(selectedSnapshot)
             if (loadId !== activeLoadRef.current) return
             setDataResponse(fullRes)
 
@@ -332,6 +332,8 @@ export default function PipelineBundlesPage() {
         currentDate: calculationDate,
         filters,
         combinatoricFlags: mergedCombinatoricFlags,
+        existingCombinationsOnly: true,
+        maxCombinations: Math.max(rowsForCsvCalc.length, 1),
       }).rows;
 
       const roundedCalculatedRowsForCsv = calculatedRowsForCsv.map((row) => {

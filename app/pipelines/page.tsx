@@ -20,7 +20,7 @@ import { getCachedValue } from "@/lib/api/cache";
 import {
     getE1Client,
 } from "@/lib/api/client/pipelines";
-import { getColumnStatistics, getPricingData, getPricingSchemas, getPricingSnapshots } from "@/lib/api/client/pricing";
+import { getAllPricingData, getColumnStatistics, getPricingData, getPricingSchemas, getPricingSnapshots } from "@/lib/api/client/pricing";
 import type {
     ColumnStatistics,
     Pipeline,
@@ -185,7 +185,7 @@ export default function PipelinesPage() {
       // Stage 2a: hydrate full competitor data + stats in background.
       void (async () => {
         try {
-          const fullRes = await getPricingData(selectedSnapshot, { limit: FULL_LOAD_LIMIT })
+          const fullRes = await getAllPricingData(selectedSnapshot)
           if (loadId !== activeLoadRef.current) return
           setDataResponse(fullRes)
 
@@ -834,7 +834,7 @@ export default function PipelinesPage() {
                     filters={calculationSnapshot.filters}
                     combinatoricFlags={calculationSnapshot.combinatoricFlags}
                     existingCombinationsOnly
-                    maxCombinations={100}
+                    maxCombinations={calculationSnapshot.competitorData.length}
                     roundingEnabled={calculationSnapshot.roundingEnabled}
                     roundingOffset={calculationSnapshot.roundingOffset}
                   />

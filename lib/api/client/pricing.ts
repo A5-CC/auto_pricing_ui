@@ -301,6 +301,30 @@ export async function getPricingData(
   )
 }
 
+export async function getAllPricingData(
+  snapshot: string,
+  params?: Omit<NonNullable<Parameters<typeof getPricingData>[1]>, "limit" | "offset">
+): Promise<PricingDataResponse> {
+  const pageSize = 1000
+  const firstPage = await getPricingData(snapshot, { ...params, limit: pageSize, offset: 0 })
+  const totalRows = Number(firstPage.total_rows ?? firstPage.data.length)
+  if (totalRows <= firstPage.data.length) return firstPage
+
+  const offsets: number[] = []
+  for (let offset = pageSize; offset < totalRows; offset += pageSize) offsets.push(offset)
+  const remainingPages = await Promise.all(
+    offsets.map((offset) => getPricingData(snapshot, { ...params, limit: pageSize, offset }))
+  )
+
+  return {
+    ...firstPage,
+    data: [
+      ...firstPage.data,
+      ...remainingPages.flatMap((page) => page.data),
+    ],
+  }
+}
+
 export async function getFacilityPricing(
   snapshot: string,
   location: string,
