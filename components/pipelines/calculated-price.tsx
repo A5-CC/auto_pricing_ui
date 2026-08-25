@@ -22,6 +22,7 @@ export interface CalculatePriceTableParams {
   filters?: Record<string, FilterSelection>
   combinatoricFlags?: Record<string, boolean>
   existingCombinationsOnly?: boolean
+  maxCombinations?: number
 }
 
 export interface CalculatedPriceTableResult {
@@ -44,6 +45,22 @@ function cartesianProduct<T>(arrays: T[][]): T[][] {
   )
 }
 
+function limitedCartesianProduct<T>(arrays: T[][], limit: number): T[][] {
+  let combinations: T[][] = [[]]
+  for (const values of arrays) {
+    const next: T[][] = []
+    for (const combination of combinations) {
+      for (const value of values) {
+        next.push([...combination, value])
+        if (next.length >= limit) return next
+      }
+    }
+    combinations = next
+    if (combinations.length === 0) return []
+  }
+  return combinations
+}
+
 export type FilterSelection<T = FilterValue> =
   | { mode: 'all' }
   | { mode: 'subset'; values: T[] }
@@ -59,6 +76,7 @@ interface CalculatedPriceProps {
   availableFilterValues?: Record<string, FilterValue[]> 
   maxCombinations?: number
   combinatoricFlags?: Record<string, boolean>
+  existingCombinationsOnly?: boolean
   roundingEnabled?: boolean
   roundingOffset?: number
 }
@@ -71,6 +89,7 @@ export function calculatePriceTable({
   filters = {},
   combinatoricFlags = {},
   existingCombinationsOnly = false,
+  maxCombinations = 250,
 }: CalculatePriceTableParams): CalculatedPriceTableResult {
   if (!adjusters || adjusters.length === 0) {
     return { rows: [], headers: ['Price'] }
@@ -155,7 +174,7 @@ export function calculatePriceTable({
 
   const combinations = (() => {
     if (!existingCombinationsOnly) {
-      return cartesianProduct<FilterValue>(arrays)
+      return limitedCartesianProduct<FilterValue>(arrays, maxCombinations)
     }
 
     const pool = applyPreFilters(competitorData)
@@ -178,6 +197,7 @@ export function calculatePriceTable({
     }
 
     for (const row of pool) {
+      if (observed.length >= maxCombinations) break
       const perColumnValues = columnNames.map((col, i) => {
         const cell = (row as Record<string, unknown>)[col]
         return valuesFromCell(cell, selectedSets[i])
@@ -185,12 +205,16 @@ export function calculatePriceTable({
 
       if (perColumnValues.some((vals) => vals.length === 0)) continue
 
-      const combosForRow = cartesianProduct<FilterValue>(perColumnValues)
+      const combosForRow = limitedCartesianProduct<FilterValue>(
+        perColumnValues,
+        maxCombinations - observed.length
+      )
       for (const combo of combosForRow) {
         const key = combo.map((item) => normalizeFilterValue(item)).join("||")
         if (!key || seen.has(key)) continue
         seen.add(key)
         observed.push(combo)
+        if (observed.length >= maxCombinations) break
       }
     }
 
@@ -245,6 +269,8 @@ export function CalculatedPrice({
   currentDate,
   filters = {},
   combinatoricFlags = {},
+  existingCombinationsOnly = false,
+  maxCombinations,
   roundingEnabled = false,
   roundingOffset = 0
 }: CalculatedPriceProps) {
@@ -280,8 +306,10 @@ export function CalculatedPrice({
       currentDate,
       filters,
       combinatoricFlags,
+      existingCombinationsOnly,
+      maxCombinations,
     }),
-    [competitorData, clientAvailableUnits, adjusters, currentDate, filters, combinatoricFlags]
+    [competitorData, clientAvailableUnits, adjusters, currentDate, filters, combinatoricFlags, existingCombinationsOnly, maxCombinations]
   )
 
   const [columnOrder, setColumnOrder] = useState<string[]>(headers)

@@ -119,6 +119,7 @@ export default function PipelinesPage() {
   const [clientDataResponse, setClientDataResponse] =
     useState<PricingDataResponse | null>(null);
   const [calculationSnapshot, setCalculationSnapshot] = useState<CalculationSnapshot | null>(null)
+  const [isCalculating, setIsCalculating] = useState(false)
 
   // column statistics & visible columns
   const [columnsStats, setColumnsStats] = useState<
@@ -575,22 +576,34 @@ export default function PipelinesPage() {
   }
 
   const handleCalculate = useCallback(() => {
+    if (isCalculating) return
+
+    setIsCalculating(true)
+    window.setTimeout(() => {
     const clone = <T,>(value: T): T => {
       if (typeof structuredClone === "function") return structuredClone(value)
       return JSON.parse(JSON.stringify(value)) as T
     }
 
-    setCalculationSnapshot({
-      competitorData: clone(subsetFilteredRows),
-      clientAvailableUnits: clientDataResponse?.data.length || 0,
-      adjusters: clone(localAdjusters),
-      filters: clone(mergedFilters),
-      combinatoricFlags: clone(mergedCombinatoricFlags),
-      roundingEnabled,
-      roundingOffset,
-      calculatedAt: new Date().toISOString(),
-    })
+      try {
+        setCalculationSnapshot({
+          competitorData: clone(subsetFilteredRows),
+          clientAvailableUnits: clientDataResponse?.data.length || 0,
+          adjusters: clone(localAdjusters),
+          filters: clone(mergedFilters),
+          combinatoricFlags: clone(mergedCombinatoricFlags),
+          roundingEnabled,
+          roundingOffset,
+          calculatedAt: new Date().toISOString(),
+        })
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Unable to prepare the price calculation")
+      } finally {
+        window.requestAnimationFrame(() => setIsCalculating(false))
+      }
+    }, 0)
   }, [
+    isCalculating,
     subsetFilteredRows,
     clientDataResponse?.data.length,
     localAdjusters,
@@ -795,8 +808,8 @@ export default function PipelinesPage() {
 
               <div className="min-h-0 overflow-x-auto">
                 <div className="mb-3 flex items-center gap-2">
-                  <Button type="button" size="sm" onClick={handleCalculate} disabled={loading}>
-                    Calculate
+                  <Button type="button" size="sm" onClick={handleCalculate} disabled={loading || isCalculating}>
+                    {isCalculating ? "Calculating…" : "Calculate"}
                   </Button>
                   {calculationSnapshot ? (
                     <span className="text-xs text-muted-foreground">
@@ -810,7 +823,9 @@ export default function PipelinesPage() {
                   )}
                 </div>
 
-                {calculationSnapshot ? (
+                {isCalculating ? (
+                  <p className="text-sm text-muted-foreground">Calculating the price table…</p>
+                ) : calculationSnapshot ? (
                   <CalculatedPrice
                     competitorData={calculationSnapshot.competitorData}
                     clientAvailableUnits={calculationSnapshot.clientAvailableUnits}
@@ -818,6 +833,8 @@ export default function PipelinesPage() {
                     currentDate={currentDate}
                     filters={calculationSnapshot.filters}
                     combinatoricFlags={calculationSnapshot.combinatoricFlags}
+                    existingCombinationsOnly
+                    maxCombinations={100}
                     roundingEnabled={calculationSnapshot.roundingEnabled}
                     roundingOffset={calculationSnapshot.roundingOffset}
                   />
