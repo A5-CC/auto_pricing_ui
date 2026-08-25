@@ -90,16 +90,16 @@ export function PipelineSelector({
     pipeline: Pipeline,
     extra?: LocalPipelineExtra
   ): Pipeline => {
-    const mergedFilters = {
-      ...((pipeline.filters as Record<string, string[]> | undefined) ?? {}),
-      ...(extra?.filters ?? {}),
-    };
+    const serverFilters = (pipeline.filters as Record<string, string[]> | undefined) ?? {}
+    const serverSettings = (pipeline.settings as Record<string, unknown> | undefined) ?? {}
+    const hasServerFilters = Object.keys(serverFilters).length > 0
+    const hasServerSettings = Object.keys(serverSettings).length > 0
+
     return {
       ...pipeline,
-      filters: mergedFilters,
+      filters: hasServerFilters ? serverFilters : (extra?.filters ?? {}),
       settings: {
-        ...pipeline.settings,
-        ...extra?.settings,
+        ...(hasServerSettings ? serverSettings : extra?.settings),
       },
     };
   }, []);
