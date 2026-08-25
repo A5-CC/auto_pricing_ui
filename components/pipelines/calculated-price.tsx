@@ -38,13 +38,6 @@ function rowMatchesValue(cell: unknown, selected: FilterValue): boolean {
   return normalizeFilterValue(cell) === target
 }
 
-function cartesianProduct<T>(arrays: T[][]): T[][] {
-  return arrays.reduce<T[][]>(
-    (acc, curr) => acc.flatMap(a => curr.map(b => [...a, b])),
-    [[]]
-  )
-}
-
 function limitedCartesianProduct<T>(arrays: T[][], limit: number): T[][] {
   let combinations: T[][] = [[]]
   for (const values of arrays) {
