@@ -2,8 +2,6 @@
 import type { FilterSelection } from "@/components/pipelines/calculated-price";
 import { calculatePriceTable } from "@/components/pipelines/calculated-price";
 import { ProcessCsvButton } from "@/components/pricing/process-csv-button";
-import { Button } from "@/components/ui/button";
-import { SectionLabel } from "@/components/ui/section-label";
 import { getCachedValue } from "@/lib/api/cache";
 import { getE1Client, listPipelines } from "@/lib/api/client/pipelines";
 import { getColumnStatistics, getPricingData, getPricingSnapshots } from "@/lib/api/client/pricing";
@@ -96,6 +94,8 @@ export default function PipelineBundlesPage() {
 
   useEffect(() => {
     if (!selectedSnapshot) return;
+
+    setBundleCalculationInput(null)
 
     const loadId = ++activeLoadRef.current
     const cachedInitial = getCachedValue<PricingDataResponse>(
@@ -414,7 +414,7 @@ export default function PipelineBundlesPage() {
     normalizeFilterModeKeys,
   ]);
 
-  const handleCalculate = useCallback(() => {
+  const prepareBundleCalculation = useCallback(() => {
     const clone = <T,>(value: T): T => {
       if (typeof structuredClone === "function") return structuredClone(value)
       return JSON.parse(JSON.stringify(value)) as T
@@ -473,19 +473,6 @@ export default function PipelineBundlesPage() {
       <div className="mb-2 overflow-x-auto snap-x snap-mandatory">
         <div className="flex min-h-[calc(100dvh-16rem)] gap-6">
           <section className="flex w-full min-w-full max-w-full shrink-0 snap-start flex-col space-y-3">
-            <SectionLabel text="Effect Pricing" />
-            <div className="flex items-center gap-2">
-              <Button type="button" size="sm" onClick={handleCalculate}>
-                Calculate
-              </Button>
-              {bundleCalculationInput ? (
-                <span className="text-xs text-muted-foreground">
-                  Showing frozen results from {new Date(bundleCalculationInput.calculatedAt).toLocaleString()}. Recalculate to refresh.
-                </span>
-              ) : (
-                <span className="text-xs text-muted-foreground">Click Calculate to build the bundle table.</span>
-              )}
-            </div>
             <div className="min-h-0 flex-1">
               <ProcessCsvButton
                 inline
@@ -493,6 +480,9 @@ export default function PipelineBundlesPage() {
                 filters={{ competitors: [], locations: [], unit_dimensions: [], unitCategories: [] }}
                 rounding={{ enabled: false, offset: 0 }}
                 calculatedRowsBundle={calculatedRowsBundle}
+                onCsvFileSelected={(file) => {
+                  if (file) prepareBundleCalculation()
+                }}
                 pricingContext={{
                   competitorData: dataResponse?.data ?? [],
                   clientAvailableUnits: clientDataResponse?.data.length || 0,

@@ -95,6 +95,8 @@ interface ProcessCsvButtonProps {
   }
   /** When true, renders as an inline panel instead of a dialog button */
   inline?: boolean
+  /** Optional parent hook for preparing calculated rows after a CSV is selected. */
+  onCsvFileSelected?: (file: File | null) => void
 }
 
 type ResolvedCalculatedRows = {
@@ -646,6 +648,20 @@ function normalizeMatchValue(value: unknown): string {
     .replace(/\s+/g, " ")
 }
 
+function normalizePipelineScopeValue(value: unknown): string {
+  const normalized = normalizeMatchValue(value)
+  if (!normalized) return ""
+  return normalized.replace(/\s+\([^)]*\)$/, "").trim()
+}
+
+function pipelineScopeMatches(a: unknown, b: unknown): boolean {
+  const left = normalizeMatchValue(a)
+  const right = normalizeMatchValue(b)
+  if (!left || !right) return false
+  if (left === right) return true
+  return normalizePipelineScopeValue(left) === normalizePipelineScopeValue(right)
+}
+
 function extractLeadingDimensionPair(value: unknown): string {
   const raw = String(value ?? "").toLowerCase().replace(/×/g, "x")
   const match = raw.match(/(\d+(?:\.\d+)?)\s*x\s*(\d+(?:\.\d+)?)/)
@@ -810,14 +826,14 @@ function findLookupByAmenitySubsets(
   amenitySubsets: string[],
   selectedPipelineName?: string
 ): { price: number; calculatedRowIndex: number } | undefined {
-  const normalizedSelectedPipeline = String(selectedPipelineName ?? "").trim().toLowerCase()
+  const normalizedSelectedPipeline = normalizeMatchValue(selectedPipelineName)
 
   for (const subset of amenitySubsets) {
     const key = buildPriceLookupKey(place, dimensionOrAreaToken, subset || undefined)
     const matches = map.get(key)
     if (!matches || matches.length === 0) continue
     if (normalizedSelectedPipeline) {
-      const scoped = matches.find((candidate) => String(candidate.pipelineName ?? "").trim().toLowerCase() === normalizedSelectedPipeline)
+      const scoped = matches.find((candidate) => pipelineScopeMatches(candidate.pipelineName, normalizedSelectedPipeline))
       if (scoped) return scoped
       continue
     }
@@ -832,14 +848,14 @@ function findLookupIgnoringAmenityToken(
   dimensionOrAreaToken: string,
   selectedPipelineName?: string
 ): { price: number; calculatedRowIndex: number } | undefined {
-  const normalizedSelectedPipeline = String(selectedPipelineName ?? "").trim().toLowerCase()
+  const normalizedSelectedPipeline = normalizeMatchValue(selectedPipelineName)
   const prefix = `${place}__${dimensionOrAreaToken}`
 
   // Prefer exact key without amenity token if present.
   const exact = map.get(prefix)
   if (exact && exact.length > 0) {
     if (!normalizedSelectedPipeline) return exact[0]
-    const scopedExact = exact.find((candidate) => String(candidate.pipelineName ?? "").trim().toLowerCase() === normalizedSelectedPipeline)
+    const scopedExact = exact.find((candidate) => pipelineScopeMatches(candidate.pipelineName, normalizedSelectedPipeline))
     if (scopedExact) return scopedExact
   }
 
@@ -847,7 +863,7 @@ function findLookupIgnoringAmenityToken(
     if (!key.startsWith(`${prefix}__`)) continue
     if (!Array.isArray(matches) || matches.length === 0) continue
     if (!normalizedSelectedPipeline) return matches[0]
-    const scoped = matches.find((candidate) => String(candidate.pipelineName ?? "").trim().toLowerCase() === normalizedSelectedPipeline)
+    const scoped = matches.find((candidate) => pipelineScopeMatches(candidate.pipelineName, normalizedSelectedPipeline))
     if (scoped) return scoped
   }
 
@@ -2163,7 +2179,7 @@ function applyCalculatedPricesToCsv(
             if (!bucket.startsWith("__")) {
               const areaCandidates = (areaLookup.get(bucket) ?? []) as Array<{ area: number; price: number; delta?: number; calculatedRowIndex: number; amenityRequirementToken?: string; pipelineName?: string }>
               for (const c of areaCandidates) {
-                if (candidate.pipelineName && c.pipelineName !== candidate.pipelineName) continue
+                if (candidate.pipelineName && !pipelineScopeMatches(c.pipelineName, candidate.pipelineName)) continue
                 if (!allowAmenityWildcardLookup && !amenitySubsets.includes(c.amenityRequirementToken ?? "")) continue
                 const delta = Math.abs(c.area - targetArea)
                 if (delta > 3) continue
@@ -2377,7 +2393,7 @@ function applyCalculatedPricesToCsv(
   return { headers, rows, traceByCsvRowIndex, traceDetailsByCsvRowIndex }
 }
 
-export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], calculatedRowsBundle, rounding, pricingContext, inline = false }: ProcessCsvButtonProps) {
+export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], calculatedRowsBundle, rounding, pricingContext, inline = false, onCsvFileSelected }: ProcessCsvButtonProps) {
   const [open, setOpen] = useState(false)
   const csvUploadInputRef = useRef<HTMLInputElement | null>(null)
   const [file, setFile] = useState<File | null>(null)
@@ -3641,6 +3657,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     setReviewData(null)
     setApprovedChanges({})
     setTraceDialogRow(null)
+    onCsvFileSelected?.(nextFile)
   }
 
   const handleProcess = async () => {
