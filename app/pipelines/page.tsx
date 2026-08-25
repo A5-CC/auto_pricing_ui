@@ -42,6 +42,17 @@ const getPricingDataCacheKey = (snapshot: string, limit: number) =>
 const getE1ClientCacheKey = (snapshot: string, limit: number) =>
   `e1-client-${snapshot}-limit=${limit}`
 
+type CalculationSnapshot = {
+  competitorData: PricingDataResponse["data"]
+  clientAvailableUnits: number
+  adjusters: Adjuster[]
+  filters: Record<string, { mode: 'subset'; values: string[] }>
+  combinatoricFlags: Record<string, boolean>
+  roundingEnabled: boolean
+  roundingOffset: number
+  calculatedAt: string
+}
+
 export default function PipelinesPage() {
   const LEGACY_TO_COLUMN: Record<string, string> = {
     competitors: 'competitor_name',
@@ -107,6 +118,7 @@ export default function PipelinesPage() {
   const hasLoadedDataRef = useRef(false)
   const [clientDataResponse, setClientDataResponse] =
     useState<PricingDataResponse | null>(null);
+  const [calculationSnapshot, setCalculationSnapshot] = useState<CalculationSnapshot | null>(null)
 
   // column statistics & visible columns
   const [columnsStats, setColumnsStats] = useState<
@@ -562,6 +574,32 @@ export default function PipelinesPage() {
     setRoundingOffset(clamped)
   }
 
+  const handleCalculate = useCallback(() => {
+    const clone = <T,>(value: T): T => {
+      if (typeof structuredClone === "function") return structuredClone(value)
+      return JSON.parse(JSON.stringify(value)) as T
+    }
+
+    setCalculationSnapshot({
+      competitorData: clone(subsetFilteredRows),
+      clientAvailableUnits: clientDataResponse?.data.length || 0,
+      adjusters: clone(localAdjusters),
+      filters: clone(mergedFilters),
+      combinatoricFlags: clone(mergedCombinatoricFlags),
+      roundingEnabled,
+      roundingOffset,
+      calculatedAt: new Date().toISOString(),
+    })
+  }, [
+    subsetFilteredRows,
+    clientDataResponse?.data.length,
+    localAdjusters,
+    mergedFilters,
+    mergedCombinatoricFlags,
+    roundingEnabled,
+    roundingOffset,
+  ])
+
   return (
     <main className="px-4 py-6 sm:px-6 space-y-4 sm:space-y-5">
           <div className="flex items-center justify-between mb-6">
@@ -756,16 +794,36 @@ export default function PipelinesPage() {
               />
 
               <div className="min-h-0 overflow-x-auto">
-                <CalculatedPrice
-                  competitorData={subsetFilteredRows}
-                  clientAvailableUnits={clientDataResponse?.data.length || 0}
-                  adjusters={localAdjusters}
-                  currentDate={currentDate}
-                  filters={mergedFilters}
-                  combinatoricFlags={mergedCombinatoricFlags}
-                  roundingEnabled={roundingEnabled}
-                  roundingOffset={roundingOffset}
-                />
+                <div className="mb-3 flex items-center gap-2">
+                  <Button type="button" size="sm" onClick={handleCalculate} disabled={loading}>
+                    Calculate
+                  </Button>
+                  {calculationSnapshot ? (
+                    <span className="text-xs text-muted-foreground">
+                      Showing last calculation from {new Date(calculationSnapshot.calculatedAt).toLocaleString()}.
+                      Values update only when Calculate is clicked.
+                    </span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">
+                      Click Calculate to build the table.
+                    </span>
+                  )}
+                </div>
+
+                {calculationSnapshot ? (
+                  <CalculatedPrice
+                    competitorData={calculationSnapshot.competitorData}
+                    clientAvailableUnits={calculationSnapshot.clientAvailableUnits}
+                    adjusters={calculationSnapshot.adjusters}
+                    currentDate={currentDate}
+                    filters={calculationSnapshot.filters}
+                    combinatoricFlags={calculationSnapshot.combinatoricFlags}
+                    roundingEnabled={calculationSnapshot.roundingEnabled}
+                    roundingOffset={calculationSnapshot.roundingOffset}
+                  />
+                ) : (
+                  <p className="text-sm text-muted-foreground">No calculated table yet.</p>
+                )}
               </div>
             </div>
           </section>
