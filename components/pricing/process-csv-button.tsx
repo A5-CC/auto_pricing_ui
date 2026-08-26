@@ -594,6 +594,7 @@ type ReviewRow = {
   amenityLevel: "Premium" | "Standard" | "Economy" | ""
   currentWebRate: string
   proposedWebRate: string
+  webRateChangePercent: number | null
   currentStandardRate: string
   proposedStandardRate: string
   webRateChange: CsvRateChange | null
@@ -626,6 +627,7 @@ type ReviewSortColumn =
   | "amenityLevel"
   | "currentWebRate"
   | "proposedWebRate"
+  | "webRateChangePercent"
   | "webDecision"
   | "currentStandardRate"
   | "proposedStandardRate"
@@ -1525,6 +1527,13 @@ function buildReviewRows(
 
   const byRow = new Map<number, ReviewRow>()
 
+  const getWebRateChangePercent = (currentRate: string, proposedRate: string): number | null => {
+    const current = parseCurrencyLikeNumber(currentRate)
+    const proposed = parseCurrencyLikeNumber(proposedRate)
+    if (!Number.isFinite(current) || !Number.isFinite(proposed) || current === 0) return null
+    return ((proposed - current) / current) * 100
+  }
+
   for (const change of changes) {
     const originalRow = original.rows[change.rowIndex] ?? []
     const processedRow = processed.rows[change.rowIndex] ?? []
@@ -1561,6 +1570,7 @@ function buildReviewRows(
       })(),
       currentWebRate: getCellValue(originalRow, currentWebRateIndex) || getCellValue(originalRow, currentRentRateIndex),
       proposedWebRate: getCellValue(processedRow, newWebRateIndex),
+      webRateChangePercent: null,
       currentStandardRate: getCellValue(originalRow, currentStandardRateIndex),
       proposedStandardRate: getCellValue(processedRow, newStandardRateIndex),
       webRateChange: null,
@@ -1571,6 +1581,7 @@ function buildReviewRows(
     if (normalizedColumn === "newwebrate" || normalizedColumn === "newrentrate") {
       baseRow.webRateChange = change
       baseRow.proposedWebRate = change.processedValue
+      baseRow.webRateChangePercent = getWebRateChangePercent(baseRow.currentWebRate, change.processedValue)
     }
 
     if (normalizedColumn === "newstandardrate") {
