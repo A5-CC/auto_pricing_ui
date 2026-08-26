@@ -3464,6 +3464,15 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
       economy: toEntry(levels?.economy),
     })
 
+    const accessFeatures = config.access_feature_adjuster
+    setAccessFeatureAdjuster({
+      applyToWeb: Boolean(accessFeatures?.apply_to_web ?? false),
+      elevator: toEntry(accessFeatures?.elevator),
+      driveUp: toEntry(accessFeatures?.drive_up),
+      firstFloor: toEntry(accessFeatures?.first_floor),
+      climateControlled: toEntry(accessFeatures?.climate_controlled),
+    })
+
     const loadedRulesRaw = (config as ProcessCsvConfiguration & { mapping_rules?: unknown; mapping?: { mapping_rules?: unknown } }).mapping_rules
       ?? (config as ProcessCsvConfiguration & { mapping?: { mapping_rules?: unknown } }).mapping?.mapping_rules
     const fallbackMappingShadow = readConfigMappingShadow(String(config.name ?? ""))
@@ -3662,6 +3671,13 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
         standard: resolvedAmenityAdjuster.standard,
         economy: resolvedAmenityAdjuster.economy,
       },
+      access_feature_adjuster: {
+        apply_to_web: Boolean(resolvedAccessFeatureAdjuster.applyToWeb),
+        elevator: resolvedAccessFeatureAdjuster.elevator,
+        drive_up: resolvedAccessFeatureAdjuster.driveUp,
+        first_floor: resolvedAccessFeatureAdjuster.firstFloor,
+        climate_controlled: resolvedAccessFeatureAdjuster.climateControlled,
+      },
       mapping_rules: serializedMappingRules,
       pipeline_mappings: serializedPipelineMappings,
       mapping_groups: serializedMappingGroups,
@@ -3776,6 +3792,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     persistConfigMappingShadow,
     persistMappingDraft,
     resolvedAmenityAdjuster,
+    resolvedAccessFeatureAdjuster,
     snapshotId,
     standardRateFunction,
     standardRateRoundingEnabled,

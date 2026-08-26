@@ -25,6 +25,13 @@ export interface ProcessCsvConfigurationPayload {
     standard?: { multiplier: number; offset: number }
     economy?: { multiplier: number; offset: number }
   }
+  access_feature_adjuster?: {
+    apply_to_web: boolean
+    elevator?: { multiplier: number; offset: number }
+    drive_up?: { multiplier: number; offset: number }
+    first_floor?: { multiplier: number; offset: number }
+    climate_controlled?: { multiplier: number; offset: number }
+  }
   mapping_rules?: Array<{
     id: string
     pipelineName: string
@@ -603,6 +610,7 @@ export async function listProcessCsvConfigurations(
       standard_rate_rounding: ((payload as ProcessCsvConfigurationPayload).standard_rate_rounding ?? item?.standard_rate_rounding ?? { enabled: false, offset: 0 }) as ProcessCsvConfigurationPayload["standard_rate_rounding"],
       competitive_adjusters: (((payload as ProcessCsvConfigurationPayload).competitive_adjusters ?? item?.competitive_adjusters ?? []) as Adjuster[]),
       levels_adjuster: (((payload as ProcessCsvConfigurationPayload).levels_adjuster ?? item?.levels_adjuster ?? { apply_to_web: true }) as ProcessCsvConfigurationPayload["levels_adjuster"]),
+      access_feature_adjuster: (((payload as ProcessCsvConfigurationPayload).access_feature_adjuster ?? item?.access_feature_adjuster ?? { apply_to_web: false }) as ProcessCsvConfigurationPayload["access_feature_adjuster"]),
       mapping_rules: effectiveMappingRules,
       pipeline_mappings: effectivePipelineMappings,
       mapping_groups: effectiveMappingGroups,
