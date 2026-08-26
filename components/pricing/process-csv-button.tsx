@@ -2601,6 +2601,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     mappingRules: PipelineMappingRule[]
     pipelineMappingConfigs: PipelineMappingConfig[]
     mappingGroups: MappingGroup[]
+    accessFeatureAdjuster?: ProcessCsvConfigurationPayload["access_feature_adjuster"]
   }) => {
     try {
       window.localStorage.setItem(
@@ -2610,6 +2611,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
           mapping_rules: snapshot.mappingRules,
           pipeline_mappings: snapshot.pipelineMappingConfigs,
           mapping_groups: snapshot.mappingGroups,
+          access_feature_adjuster: snapshot.accessFeatureAdjuster,
         })
       )
     } catch {
@@ -2625,11 +2627,13 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
         mapping_rules?: unknown
         pipeline_mappings?: unknown
         mapping_groups?: unknown
+        access_feature_adjuster?: ProcessCsvConfigurationPayload["access_feature_adjuster"]
       }
       return {
         mapping_rules: Array.isArray(parsed?.mapping_rules) ? parsed.mapping_rules : [],
         pipeline_mappings: Array.isArray(parsed?.pipeline_mappings) ? parsed.pipeline_mappings : [],
         mapping_groups: Array.isArray(parsed?.mapping_groups) ? parsed.mapping_groups : [],
+        access_feature_adjuster: parsed?.access_feature_adjuster,
       }
     } catch {
       return null
@@ -3464,7 +3468,21 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
       economy: toEntry(levels?.economy),
     })
 
-    const accessFeatures = config.access_feature_adjuster
+    const loadedRulesRaw = (config as ProcessCsvConfiguration & { mapping_rules?: unknown; mapping?: { mapping_rules?: unknown } }).mapping_rules
+      ?? (config as ProcessCsvConfiguration & { mapping?: { mapping_rules?: unknown } }).mapping?.mapping_rules
+    const fallbackMappingShadow = readConfigMappingShadow(String(config.name ?? ""))
+
+    const loadedAccessFeatures = config.access_feature_adjuster
+    const isAccessFeatureConfigured = (access?: typeof loadedAccessFeatures): boolean => {
+      if (!access) return false
+      if (access.apply_to_web) return true
+      return [access.elevator, access.drive_up, access.first_floor, access.climate_controlled].some(
+        (entry) => entry && (Number(entry.multiplier) !== 1 || Number(entry.offset) !== 0)
+      )
+    }
+    const accessFeatures = isAccessFeatureConfigured(loadedAccessFeatures)
+      ? loadedAccessFeatures
+      : (fallbackMappingShadow?.access_feature_adjuster ?? loadedAccessFeatures)
     setAccessFeatureAdjuster({
       applyToWeb: Boolean(accessFeatures?.apply_to_web ?? false),
       elevator: toEntry(accessFeatures?.elevator),
@@ -3472,10 +3490,6 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
       firstFloor: toEntry(accessFeatures?.first_floor),
       climateControlled: toEntry(accessFeatures?.climate_controlled),
     })
-
-    const loadedRulesRaw = (config as ProcessCsvConfiguration & { mapping_rules?: unknown; mapping?: { mapping_rules?: unknown } }).mapping_rules
-      ?? (config as ProcessCsvConfiguration & { mapping?: { mapping_rules?: unknown } }).mapping?.mapping_rules
-    const fallbackMappingShadow = readConfigMappingShadow(String(config.name ?? ""))
 
     const normalizeRulesFromUnknown = (source: unknown): PipelineMappingRule[] => {
       if (!Array.isArray(source)) return []
@@ -3639,6 +3653,13 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
       mappingRules: currentMappingRules,
       pipelineMappingConfigs: currentPipelineMappings,
       mappingGroups: currentMappingGroups,
+      accessFeatureAdjuster: {
+        apply_to_web: Boolean(resolvedAccessFeatureAdjuster.applyToWeb),
+        elevator: resolvedAccessFeatureAdjuster.elevator,
+        drive_up: resolvedAccessFeatureAdjuster.driveUp,
+        first_floor: resolvedAccessFeatureAdjuster.firstFloor,
+        climate_controlled: resolvedAccessFeatureAdjuster.climateControlled,
+      },
     })
 
     const standardOffsetRaw = Number(standardRateRoundingOffset)

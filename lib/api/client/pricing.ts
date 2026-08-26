@@ -95,6 +95,7 @@ type ProcessCsvMappingShadow = {
   mapping_rules: NonNullable<ProcessCsvConfigurationPayload["mapping_rules"]>
   pipeline_mappings: NonNullable<ProcessCsvConfigurationPayload["pipeline_mappings"]>
   mapping_groups: NonNullable<ProcessCsvConfigurationPayload["mapping_groups"]>
+  access_feature_adjuster?: ProcessCsvConfigurationPayload["access_feature_adjuster"]
   updated_at: string
 }
 
@@ -159,12 +160,24 @@ function getMappingSnapshot(payload: Partial<ProcessCsvConfigurationPayload>): P
     mapping_rules: Array.isArray(mapping_rules) ? mapping_rules : [],
     pipeline_mappings: Array.isArray(pipeline_mappings) ? pipeline_mappings : [],
     mapping_groups: Array.isArray(mapping_groups) ? mapping_groups : [],
+    access_feature_adjuster: payload.access_feature_adjuster,
     updated_at: new Date().toISOString(),
   }
 }
 
+function hasConfiguredAccessFeatureShadow(access?: ProcessCsvConfigurationPayload["access_feature_adjuster"]): boolean {
+  if (!access) return false
+  if (access.apply_to_web) return true
+  return [access.elevator, access.drive_up, access.first_floor, access.climate_controlled].some(
+    (entry) => entry && (Number(entry.multiplier) !== 1 || Number(entry.offset) !== 0)
+  )
+}
+
 function hasAnyMapping(snapshot: ProcessCsvMappingShadow): boolean {
-  return snapshot.mapping_rules.length > 0 || snapshot.pipeline_mappings.length > 0 || snapshot.mapping_groups.length > 0
+  return snapshot.mapping_rules.length > 0
+    || snapshot.pipeline_mappings.length > 0
+    || snapshot.mapping_groups.length > 0
+    || hasConfiguredAccessFeatureShadow(snapshot.access_feature_adjuster)
 }
 
 function readMappingShadowStore(): Record<string, ProcessCsvMappingShadow> {
@@ -598,6 +611,12 @@ export async function listProcessCsvConfigurations(
       ? normalizedMappingGroups
       : (mappingFallback?.mapping_groups ?? [])
 
+    const payloadAccessFeatureAdjuster = (payload as ProcessCsvConfigurationPayload).access_feature_adjuster
+      ?? item?.access_feature_adjuster
+    const effectiveAccessFeatureAdjuster = hasConfiguredAccessFeatureShadow(payloadAccessFeatureAdjuster)
+      ? payloadAccessFeatureAdjuster
+      : (mappingFallback?.access_feature_adjuster ?? payloadAccessFeatureAdjuster ?? { apply_to_web: false })
+
     return {
       ...(payload as ProcessCsvConfigurationPayload),
       ...(item as Partial<ProcessCsvConfiguration>),
@@ -610,7 +629,7 @@ export async function listProcessCsvConfigurations(
       standard_rate_rounding: ((payload as ProcessCsvConfigurationPayload).standard_rate_rounding ?? item?.standard_rate_rounding ?? { enabled: false, offset: 0 }) as ProcessCsvConfigurationPayload["standard_rate_rounding"],
       competitive_adjusters: (((payload as ProcessCsvConfigurationPayload).competitive_adjusters ?? item?.competitive_adjusters ?? []) as Adjuster[]),
       levels_adjuster: (((payload as ProcessCsvConfigurationPayload).levels_adjuster ?? item?.levels_adjuster ?? { apply_to_web: true }) as ProcessCsvConfigurationPayload["levels_adjuster"]),
-      access_feature_adjuster: (((payload as ProcessCsvConfigurationPayload).access_feature_adjuster ?? item?.access_feature_adjuster ?? { apply_to_web: false }) as ProcessCsvConfigurationPayload["access_feature_adjuster"]),
+      access_feature_adjuster: effectiveAccessFeatureAdjuster as ProcessCsvConfigurationPayload["access_feature_adjuster"],
       mapping_rules: effectiveMappingRules,
       pipeline_mappings: effectivePipelineMappings,
       mapping_groups: effectiveMappingGroups,
