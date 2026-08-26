@@ -56,6 +56,7 @@ import { FunctionAdjusterCard } from "@/components/pipelines/adjusters/function-
 import { TemporalAdjusterCard } from "@/components/pipelines/adjusters/temporal-adjuster-card";
 import { useAdjusterDialog } from "@/components/pipelines/adjusters/use-adjuster-dialog";
 import type { CalculatedPriceRow } from "@/components/pipelines/calculated-price";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -3986,6 +3987,34 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     </th>
   )
 
+  const renderWebRateChangeBadge = (percent: number | null) => {
+    if (percent === null || !Number.isFinite(percent)) {
+      return <span className="text-muted-foreground">—</span>
+    }
+    const rounded = Math.round(percent * 10) / 10
+    if (rounded > 0) {
+      return (
+        <Badge variant="outline" className="gap-1 border-green-200 bg-green-50 text-green-700">
+          <ArrowUp className="size-3" />
+          {rounded.toFixed(1)}%
+        </Badge>
+      )
+    }
+    if (rounded < 0) {
+      return (
+        <Badge variant="outline" className="gap-1 border-red-200 bg-red-50 text-red-700">
+          <ArrowDown className="size-3" />
+          {Math.abs(rounded).toFixed(1)}%
+        </Badge>
+      )
+    }
+    return (
+      <Badge variant="outline" className="gap-1 text-muted-foreground">
+        0.0%
+      </Badge>
+    )
+  }
+
   // ── Inline panel render ──────────────────────────────────────────────────
   if (inline) {
     const inlineResetState = () => {
@@ -4320,6 +4349,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                       {renderReviewSortableHeader("Level", "amenityLevel", "Derived from CSV Unit Amenities tier keywords: Premium, Standard, Economy.")}
                       {renderReviewSortableHeader("Current Web", "currentWebRate", "Read from CSV Current Web Rate (or Current Rent Rate fallback).")}
                       {renderReviewSortableHeader("New Web", "proposedWebRate", "Calculated from matched pipeline web price, then popup/levels adjusters and rounding are applied.")}
+                      {renderReviewSortableHeader("Web Change", "webRateChangePercent", "Percent change from Current Web to New Web.")}
                       {renderReviewSortableHeader("Web Decision", "webDecision")}
                       {renderReviewSortableHeader("Current Standard", "currentStandardRate", "Read from CSV Current Standard Rate.")}
                       {renderReviewSortableHeader("New Standard", "proposedStandardRate", "Calculated from the standard-rate function using New Web as input, then standard rounding is applied.")}
@@ -4353,6 +4383,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                         <td className="px-3 py-2 align-top">{row.amenityLevel || ""}</td>
                         <td className="px-3 py-2 align-top text-muted-foreground">{row.currentWebRate || "—"}</td>
                         <td className="px-3 py-2 align-top">{row.proposedWebRate || "—"}</td>
+                        <td className="px-3 py-2 align-top">{renderWebRateChangeBadge(row.webRateChangePercent)}</td>
                         <td className="px-3 py-2 align-top">
                           {row.webRateChange ? (
                             <div className="flex items-center gap-2">
@@ -5389,6 +5420,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                       {renderReviewSortableHeader("Level", "amenityLevel", "Derived from CSV Unit Amenities tier keywords: Premium, Standard, Economy.")}
                       {renderReviewSortableHeader("Current Web", "currentWebRate", "Read from CSV Current Web Rate (or Current Rent Rate fallback).")}
                       {renderReviewSortableHeader("New Web", "proposedWebRate", "Calculated from matched pipeline web price, then popup/levels adjusters and rounding are applied.")}
+                      {renderReviewSortableHeader("Web Change", "webRateChangePercent", "Percent change from Current Web to New Web.")}
                       {renderReviewSortableHeader("Web Decision", "webDecision")}
                       {renderReviewSortableHeader("Current Standard", "currentStandardRate", "Read from CSV Current Standard Rate.")}
                       {renderReviewSortableHeader("New Standard", "proposedStandardRate", "Calculated from the standard-rate function using New Web as input, then standard rounding is applied.")}
@@ -5422,6 +5454,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                         <td className="px-3 py-2 align-top">{row.amenityLevel || ""}</td>
                         <td className="px-3 py-2 align-top text-muted-foreground">{row.currentWebRate || "—"}</td>
                         <td className="px-3 py-2 align-top">{row.proposedWebRate || "—"}</td>
+                        <td className="px-3 py-2 align-top">{renderWebRateChangeBadge(row.webRateChangePercent)}</td>
                         <td className="px-3 py-2 align-top">
                           {row.webRateChange ? (
                             <div className="flex items-center gap-2">
