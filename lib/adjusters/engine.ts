@@ -150,6 +150,14 @@ export function calculatePrice(input: CalculatePriceInput): CalculatePriceResult
           `[engine] After function adjuster (×${multiplier.toFixed(3)}): $${currentPrice.toFixed(2)}`
         )
 
+        if (adjuster.rounding?.enabled) {
+          const roundingOffsetRaw = Number(adjuster.rounding.offset ?? 0)
+          const roundingOffset = Number.isFinite(roundingOffsetRaw) ? Math.min(1, Math.max(0, roundingOffsetRaw)) : 0
+          currentPrice = Math.round(currentPrice - roundingOffset) + roundingOffset
+          if (Object.is(currentPrice, -0)) currentPrice = 0
+          console.log(`[engine] After function adjuster rounding: $${currentPrice.toFixed(2)}`)
+        }
+
       } else if (adjuster.type === 'temporal') {
         // Temporal adjuster applies multiplier to current price
         if (currentPrice === null) {

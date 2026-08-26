@@ -10,6 +10,11 @@ interface FunctionAdjusterCardProps {
 }
 
 export function FunctionAdjusterCard({ adjuster, stepNumber, totalSteps, onRemove }: FunctionAdjusterCardProps) {
+  const roundingEnabled = Boolean(adjuster.rounding?.enabled)
+  const roundingOffset = typeof adjuster.rounding?.offset === 'number' && isFinite(adjuster.rounding.offset)
+    ? Math.min(1, Math.max(0, adjuster.rounding.offset))
+    : 0
+
   return (
     <AdjusterCardShell
       stepNumber={stepNumber}
@@ -41,6 +46,10 @@ export function FunctionAdjusterCard({ adjuster, stepNumber, totalSteps, onRemov
           <dd className="mt-1 font-mono">
             [{adjuster.domain_min}, {adjuster.domain_max}]
           </dd>
+        </div>
+        <div>
+          <dt className="text-muted-foreground">Rounding</dt>
+          <dd className="mt-1 font-mono">{roundingEnabled ? `$${roundingOffset.toFixed(2)}` : 'Off'}</dd>
         </div>
       </dl>
     </AdjusterCardShell>

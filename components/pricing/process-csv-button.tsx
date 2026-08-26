@@ -75,7 +75,7 @@ import type { Adjuster, CompetitivePriceAdjuster, FunctionBasedAdjuster, Tempora
 import { DEFAULT_PRICE_FALLBACK_CHAIN, evaluateSafeFunction } from "@/lib/adjusters";
 import { deleteProcessCsvConfiguration, listProcessCsvConfigurations, saveProcessCsvConfiguration, type ProcessCsvConfiguration, type ProcessCsvConfigurationPayload } from "@/lib/api/client/pricing";
 import type { E1DataRow } from "@/lib/api/types";
-import { ArrowDown, ArrowUp, ArrowUpDown, FileSpreadsheet, Info, Layers3, Loader2, Save } from "lucide-react";
+import { Accessibility, ArrowDown, ArrowUp, ArrowUpDown, FileSpreadsheet, Info, Layers3, Loader2, Save } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { toast } from "sonner";
 
@@ -1068,6 +1068,49 @@ function hasConfiguredLevelsAdjuster(amenityAdjuster: AmenityAdjusterState): boo
   )
 }
 
+function AccessFeatureAdjusterPreviewCard({ accessFeatureAdjuster, onRemove, stepNumber, totalSteps }: { accessFeatureAdjuster: AccessFeatureAdjusterState; onRemove?: () => void; stepNumber?: number; totalSteps?: number }) {
+  const features = [
+    { key: "elevator", label: "Elevator Access", value: accessFeatureAdjuster.elevator },
+    { key: "driveUp", label: "Drive Up", value: accessFeatureAdjuster.driveUp },
+    { key: "firstFloor", label: "1st Floor", value: accessFeatureAdjuster.firstFloor },
+    { key: "climateControlled", label: "Climate Controlled", value: accessFeatureAdjuster.climateControlled },
+  ] as const
+
+  const formatOffset = (value: string) => {
+    const n = Number(value)
+    if (!Number.isFinite(n)) return "$0"
+    return n >= 0 ? `+ $${n}` : `- $${Math.abs(n)}`
+  }
+
+  return (
+    <AdjusterCardShell
+      stepNumber={stepNumber}
+      totalSteps={totalSteps}
+      accentColor="#0f766e"
+      className="border-teal-100/80 bg-white"
+      onRemove={onRemove}
+      badge={
+        <div className="inline-flex items-center gap-1.5 rounded-full bg-teal-100/80 px-3 py-1 text-xs font-semibold text-teal-800">
+          <Accessibility className="h-4 w-4" />
+          Access Features
+        </div>
+      }
+    >
+      <div className="rounded-2xl border border-teal-100/70 bg-teal-50/60 px-3 py-2 -ml-2">
+        <div className="grid grid-cols-2 gap-2 text-center text-xs">
+          {features.map((feature) => (
+            <div key={feature.key} className="rounded-xl bg-white/90 px-2 py-2 shadow-sm">
+              <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{feature.label}</div>
+              <div className="mt-1 font-mono text-sm text-foreground">× {feature.value.multiplier || "1"}</div>
+              <div className="mt-0.5 font-mono text-xs text-muted-foreground">{formatOffset(feature.value.offset)}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </AdjusterCardShell>
+  )
+}
+
 function hasConfiguredAccessFeatureAdjuster(adjuster: AccessFeatureAdjusterState): boolean {
   return (Object.keys(adjuster) as Array<keyof AccessFeatureAdjusterState>)
     .filter((key): key is AccessFeatureKey => key !== "applyToWeb")
@@ -1301,7 +1344,7 @@ function applyPopupAdjustersToWebRate(
     }
 
     if (adjuster.type === 'function') {
-      const fn = adjuster as { variable?: string; function_string?: string }
+      const fn = adjuster as { variable?: string; function_string?: string; rounding?: { enabled?: boolean; offset?: number } }
       const variable = String(fn.variable ?? "")
       const functionString = String(fn.function_string ?? "")
       if (!variable || !functionString) continue
@@ -1322,6 +1365,10 @@ function applyPopupAdjustersToWebRate(
       const evaluated = evaluateSafeFunction(functionString, x)
       if (evaluated.success && typeof evaluated.value === 'number' && Number.isFinite(evaluated.value)) {
         nextRate *= evaluated.value
+        nextRate = applyConfiguredRounding(nextRate, {
+          enabled: Boolean(fn.rounding?.enabled),
+          offset: Number(fn.rounding?.offset ?? 0),
+        })
       }
     }
   }
@@ -4200,7 +4247,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
               <span className="text-sm font-medium">Adjusters</span>
               {allowCompetitiveAdjuster && <Button type="button" size="sm" variant="outline" onClick={functionDialog.handleOpen}>Competitive</Button>}
               <Button type="button" size="sm" variant="outline" onClick={csvVariableDialog.handleOpen} disabled={csvVariableHeaders.length === 0}>
-                CSV Variable
+                Functional
               </Button>
               <Button type="button" size="sm" variant="outline" onClick={() => setShowLevels(true)}>Levels</Button>
               <Button type="button" size="sm" variant="outline" onClick={() => setShowAccessFeatures(true)}>Access Features</Button>
@@ -4255,6 +4302,16 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                     />
                   </li>
                 ) : null}
+                {showAccessFeatureAdjusterPreview ? (
+                  <li className="h-full">
+                    <AccessFeatureAdjusterPreviewCard
+                      accessFeatureAdjuster={accessFeatureAdjuster}
+                      onRemove={handleRemoveAccessFeatureAdjuster}
+                      stepNumber={popupAdjusters.length + (showLevelsAdjusterPreview ? 2 : 1)}
+                      totalSteps={totalProcessAdjusterSteps}
+                    />
+                  </li>
+                ) : null}
               </ol>
             </div>
           </div>
@@ -4264,7 +4321,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
               <span className="text-sm font-medium">Adjusters</span>
               {allowCompetitiveAdjuster && <Button type="button" size="sm" variant="outline" onClick={functionDialog.handleOpen}>Competitive</Button>}
               <Button type="button" size="sm" variant="outline" onClick={csvVariableDialog.handleOpen} disabled={csvVariableHeaders.length === 0}>
-                CSV Variable
+                Functional
               </Button>
               <Button type="button" size="sm" variant="outline" onClick={() => setShowLevels(true)}>Levels</Button>
               <Button type="button" size="sm" variant="outline" onClick={() => setShowAccessFeatures(true)}>Access Features</Button>
@@ -4315,6 +4372,16 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                       amenityAdjuster={amenityAdjuster}
                       onRemove={handleRemoveLevelsAdjuster}
                       stepNumber={popupAdjusters.length + 1}
+                      totalSteps={totalProcessAdjusterSteps}
+                    />
+                  </li>
+                ) : null}
+                {showAccessFeatureAdjusterPreview ? (
+                  <li className="h-full">
+                    <AccessFeatureAdjusterPreviewCard
+                      accessFeatureAdjuster={accessFeatureAdjuster}
+                      onRemove={handleRemoveAccessFeatureAdjuster}
+                      stepNumber={popupAdjusters.length + (showLevelsAdjusterPreview ? 2 : 1)}
                       totalSteps={totalProcessAdjusterSteps}
                     />
                   </li>
@@ -5234,7 +5301,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                 </Button>
               )}
               <Button type="button" size="sm" variant="outline" onClick={csvVariableDialog.handleOpen} disabled={csvVariableHeaders.length === 0}>
-                CSV Variable
+                Functional
               </Button>
               <Button
                 type="button"
@@ -5296,6 +5363,16 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                     />
                   </li>
                 ) : null}
+                {showAccessFeatureAdjusterPreview ? (
+                  <li className="h-full">
+                    <AccessFeatureAdjusterPreviewCard
+                      accessFeatureAdjuster={accessFeatureAdjuster}
+                      onRemove={handleRemoveAccessFeatureAdjuster}
+                      stepNumber={popupAdjusters.length + (showLevelsAdjusterPreview ? 2 : 1)}
+                      totalSteps={totalProcessAdjusterSteps}
+                    />
+                  </li>
+                ) : null}
               </ol>
             </div>
           </div>
@@ -5309,7 +5386,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                 </Button>
               )}
               <Button type="button" size="sm" variant="outline" onClick={csvVariableDialog.handleOpen} disabled={csvVariableHeaders.length === 0}>
-                CSV Variable
+                Functional
               </Button>
               <Button
                 type="button"
@@ -5367,6 +5444,16 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                       amenityAdjuster={amenityAdjuster}
                       onRemove={handleRemoveLevelsAdjuster}
                       stepNumber={popupAdjusters.length + 1}
+                      totalSteps={totalProcessAdjusterSteps}
+                    />
+                  </li>
+                ) : null}
+                {showAccessFeatureAdjusterPreview ? (
+                  <li className="h-full">
+                    <AccessFeatureAdjusterPreviewCard
+                      accessFeatureAdjuster={accessFeatureAdjuster}
+                      onRemove={handleRemoveAccessFeatureAdjuster}
+                      stepNumber={popupAdjusters.length + (showLevelsAdjusterPreview ? 2 : 1)}
                       totalSteps={totalProcessAdjusterSteps}
                     />
                   </li>

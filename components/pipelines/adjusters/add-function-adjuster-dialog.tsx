@@ -59,6 +59,8 @@ export function AddFunctionAdjusterDialog({
   const [committedFunction, setCommittedFunction] = useState('1.0 - 0.005*x')
   const [domainMin, setDomainMin] = useState('0')
   const [domainMax, setDomainMax] = useState('100')
+  const [roundingEnabled, setRoundingEnabled] = useState(false)
+  const [roundingOffset, setRoundingOffset] = useState('0')
 
   // Auto-detect domain min/max from dataset when variable changes
   useEffect(() => {
@@ -201,12 +203,21 @@ export function AddFunctionAdjusterDialog({
       return
     }
 
+    const parsedRoundingOffset = parseFloat(roundingOffset)
+    const safeRoundingOffset = Number.isFinite(parsedRoundingOffset)
+      ? Math.min(1, Math.max(0, parsedRoundingOffset))
+      : 0
+
     const adjuster: FunctionBasedAdjuster = {
       type: 'function',
       variable,
       function_string: functionString,
       domain_min: min,
       domain_max: max,
+      rounding: {
+        enabled: roundingEnabled,
+        offset: safeRoundingOffset,
+      },
     }
     onAdd(adjuster)
     onOpenChange(false)
@@ -383,6 +394,41 @@ export function AddFunctionAdjusterDialog({
                 </ChartContainer>
               </div>
             ) : null}
+          </div>
+
+          <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50/50 p-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <Label>Rounding</Label>
+                <p className="text-xs text-muted-foreground">
+                  Apply a round after the function&apos;s multiplier is applied.
+                </p>
+              </div>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={roundingEnabled}
+                  onChange={(e) => setRoundingEnabled(e.target.checked)}
+                />
+                Enable
+              </label>
+            </div>
+            <div className="space-y-2">
+              <Label>Round to</Label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                max="1"
+                value={roundingOffset}
+                onChange={(e) => setRoundingOffset(e.target.value)}
+                placeholder="0"
+                className="focus:ring-amber-500"
+              />
+              <p className="text-xs text-muted-foreground">
+                Offset from $0.00 to $1.00. Example: $0.95 rounds to prices ending in .95.
+              </p>
+            </div>
           </div>
         </div>
 

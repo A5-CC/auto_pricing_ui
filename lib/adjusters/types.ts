@@ -28,6 +28,10 @@ export interface FunctionBasedAdjuster {
   function_string: string   // Math expression using 'x' as variable (e.g., "1.0 - 0.005*x", "0.8 + 0.02*x")
   domain_min: number        // Expected minimum value for variable (for validation/UI)
   domain_max: number        // Expected maximum value for variable (for validation/UI)
+  rounding?: {
+    enabled?: boolean
+    offset?: number
+  }
 }
 
 /**
