@@ -26,6 +26,7 @@ interface AddCompetitiveAdjusterDialogProps {
   onOpenChange: (open: boolean) => void
   onAdd: (adjuster: CompetitivePriceAdjuster) => void
   availablePriceColumns?: string[]
+  hidePriceSource?: boolean
 }
 
 export function AddCompetitiveAdjusterDialog({
@@ -33,6 +34,7 @@ export function AddCompetitiveAdjusterDialog({
   onOpenChange,
   onAdd,
   availablePriceColumns,
+  hidePriceSource = false,
 }: AddCompetitiveAdjusterDialogProps) {
   const priceColumns = availablePriceColumns && availablePriceColumns.length > 0
     ? availablePriceColumns
@@ -85,41 +87,47 @@ export function AddCompetitiveAdjusterDialog({
           </div>
           <div className="h-1 w-12 bg-blue-500 rounded-full mb-2"></div>
           <DialogDescription>
-            Set your base price from competitor prices. Choose how to aggregate their prices (minimum, maximum, or average), then apply a multiplier to position yourself relative to the market.
+            {hidePriceSource
+              ? "Adjust the matched pipeline price with a multiplier, offset, and optional rounding."
+              : "Set your base price from competitor prices. Choose how to aggregate their prices (minimum, maximum, or average), then apply a multiplier to position yourself relative to the market."}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          <div className="space-y-2">
-            <Label>Price source column</Label>
-            <Select value={priceColumn} onValueChange={setPriceColumn}>
-              <SelectTrigger className="focus:ring-blue-500">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                  {priceColumns.map((column) => (
-                  <SelectItem key={column} value={column}>{column}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">
-              One column only. Aggregation is applied across competitors for this selected column.
-            </p>
-          </div>
+          {!hidePriceSource && (
+            <>
+              <div className="space-y-2">
+                <Label>Price source column</Label>
+                <Select value={priceColumn} onValueChange={setPriceColumn}>
+                  <SelectTrigger className="focus:ring-blue-500">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {priceColumns.map((column) => (
+                      <SelectItem key={column} value={column}>{column}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  One column only. Aggregation is applied across competitors for this selected column.
+                </p>
+              </div>
 
-          <div className="space-y-2">
-            <Label>Aggregation</Label>
-            <Select value={aggregation} onValueChange={(v) => setAggregation(v as 'min' | 'max' | 'avg')}>
-              <SelectTrigger className="focus:ring-blue-500">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="min">Minimum (undercut competitors)</SelectItem>
-                <SelectItem value="max">Maximum (match highest competitor)</SelectItem>
-                <SelectItem value="avg">Average (middle ground)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+              <div className="space-y-2">
+                <Label>Aggregation</Label>
+                <Select value={aggregation} onValueChange={(v) => setAggregation(v as 'min' | 'max' | 'avg')}>
+                  <SelectTrigger className="focus:ring-blue-500">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="min">Minimum (undercut competitors)</SelectItem>
+                    <SelectItem value="max">Maximum (match highest competitor)</SelectItem>
+                    <SelectItem value="avg">Average (middle ground)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </>
+          )}
 
           <div className="space-y-2">
             <Label>Multiplier</Label>

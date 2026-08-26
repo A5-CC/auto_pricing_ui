@@ -481,6 +481,7 @@ export default function PipelineBundlesPage() {
                 snapshotId={selectedSnapshot}
                 filters={{ competitors: [], locations: [], unit_dimensions: [], unitCategories: [] }}
                 rounding={{ enabled: false, offset: 0 }}
+                allowCompetitiveAdjuster={false}
                 calculatedRowsBundle={calculatedRowsBundle}
                 onCsvFileSelected={(file) => {
                   if (file) prepareBundleCalculation()

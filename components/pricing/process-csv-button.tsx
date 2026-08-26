@@ -30,7 +30,26 @@ type ResolvedAmenityAdjuster = {
   economy?: ResolvedAmenityAdjusterEntry
 }
 
+type AccessFeatureKey = "elevator" | "driveUp" | "firstFloor" | "climateControlled"
+
+type AccessFeatureAdjusterState = {
+  applyToWeb: boolean
+  elevator: AmenityAdjusterEntry
+  driveUp: AmenityAdjusterEntry
+  firstFloor: AmenityAdjusterEntry
+  climateControlled: AmenityAdjusterEntry
+}
+
+type ResolvedAccessFeatureAdjuster = {
+  applyToWeb: boolean
+  elevator?: ResolvedAmenityAdjusterEntry
+  driveUp?: ResolvedAmenityAdjusterEntry
+  firstFloor?: ResolvedAmenityAdjusterEntry
+  climateControlled?: ResolvedAmenityAdjusterEntry
+}
+
 import { AddCompetitiveAdjusterDialog } from "@/components/pipelines/adjusters/add-competitive-adjuster-dialog";
+import { AddFunctionAdjusterDialog } from "@/components/pipelines/adjusters/add-function-adjuster-dialog";
 import { AdjusterCardShell } from "@/components/pipelines/adjusters/adjuster-card-shell";
 import { CompetitiveAdjusterCard } from "@/components/pipelines/adjusters/competitive-adjuster-card";
 import { FunctionAdjusterCard } from "@/components/pipelines/adjusters/function-adjuster-card";
@@ -95,6 +114,8 @@ interface ProcessCsvButtonProps {
   }
   /** When true, renders as an inline panel instead of a dialog button */
   inline?: boolean
+  /** Whether to show the competitor-price adjustment control. */
+  allowCompetitiveAdjuster?: boolean
   /** Optional parent hook for preparing calculated rows after a CSV is selected. */
   onCsvFileSelected?: (file: File | null) => void
 }
@@ -158,6 +179,17 @@ type MappingGroup = {
   dimensionMode: "full" | "first_two"
   columnMappings: MappingGroupColumnMapping[]
 }
+
+const CSV_NUMERIC_ADJUSTER_COLUMNS = [
+  "Area",
+  "Total Units",
+  "Occupied",
+  "Available",
+  "Vacancy",
+  "Occupancy",
+  "Days Since Last Move-In",
+  "Average Rent",
+]
 
 function isValidProcessCsvAdjuster(adjuster: unknown): adjuster is Adjuster {
   if (!adjuster || typeof adjuster !== "object") return false
@@ -513,6 +545,16 @@ function createDefaultAmenityAdjusterState(): AmenityAdjusterState {
     premium: { multiplier: "1", offset: "0" },
     standard: { multiplier: "1", offset: "0" },
     economy: { multiplier: "1", offset: "0" },
+  }
+}
+
+function createDefaultAccessFeatureAdjusterState(): AccessFeatureAdjusterState {
+  return {
+    applyToWeb: true,
+    elevator: { multiplier: "1", offset: "0" },
+    driveUp: { multiplier: "1", offset: "0" },
+    firstFloor: { multiplier: "1", offset: "0" },
+    climateControlled: { multiplier: "1", offset: "0" },
   }
 }
 
@@ -1021,6 +1063,15 @@ function hasConfiguredLevelsAdjuster(amenityAdjuster: AmenityAdjusterState): boo
     standardOffset !== 0 ||
     economyOffset !== 0
   )
+}
+
+function hasConfiguredAccessFeatureAdjuster(adjuster: AccessFeatureAdjusterState): boolean {
+  return (Object.keys(adjuster) as Array<keyof AccessFeatureAdjusterState>)
+    .filter((key): key is AccessFeatureKey => key !== "applyToWeb")
+    .some((key) => {
+      const entry = adjuster[key]
+      return Number(entry.multiplier) !== 1 || Number(entry.offset) !== 0
+    })
 }
 
 function resolveStandardRateValue(webRate: number, functionBody?: string): number {
@@ -1549,6 +1600,7 @@ function applyCalculatedPricesToCsv(
   },
   popupAdjusters: Adjuster[] = [],
   amenityAdjuster?: ResolvedAmenityAdjuster,
+  accessFeatureAdjuster?: ResolvedAccessFeatureAdjuster,
   standardRateFunction?: string,
   mappingRules: PipelineMappingRule[] = [],
   pipelineMappingConfigs: PipelineMappingConfig[] = [],
@@ -2293,6 +2345,19 @@ function applyCalculatedPricesToCsv(
       effectiveWebRate = applyAmenityAdjustment(effectiveWebRate, amenityConfig)
     }
 
+    if (accessFeatureAdjuster?.applyToWeb) {
+      const accessFeatureSource = amenitySourceIndex >= 0 ? getCellValue(row, amenitySourceIndex) : ""
+      const applicableFeatures: Array<[boolean, ResolvedAmenityAdjusterEntry | undefined]> = [
+        [hasElevatorAccessAmenity(accessFeatureSource), accessFeatureAdjuster.elevator],
+        [normalizeDriveUpAccessValue(accessFeatureSource) === "true", accessFeatureAdjuster.driveUp],
+        [hasFirstFloorAmenity(accessFeatureSource), accessFeatureAdjuster.firstFloor],
+        [hasClimateControlledAmenity(accessFeatureSource), accessFeatureAdjuster.climateControlled],
+      ]
+      for (const [isPresent, featureConfig] of applicableFeatures) {
+        if (isPresent && featureConfig) effectiveWebRate = applyAmenityAdjustment(effectiveWebRate, featureConfig)
+      }
+    }
+
     const roundedEffectiveWebRate = applyConfiguredRounding(effectiveWebRate, webRounding)
     const finalWebRate = formatCurrency(roundedEffectiveWebRate)
     const standardRateFallback = getCellValue(row, findColumnIndex(headers, CURRENT_STANDARD_RATE_COLUMNS))
@@ -2393,7 +2458,7 @@ function applyCalculatedPricesToCsv(
   return { headers, rows, traceByCsvRowIndex, traceDetailsByCsvRowIndex }
 }
 
-export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], calculatedRowsBundle, rounding, pricingContext, inline = false, onCsvFileSelected }: ProcessCsvButtonProps) {
+export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], calculatedRowsBundle, rounding, pricingContext, inline = false, allowCompetitiveAdjuster = true, onCsvFileSelected }: ProcessCsvButtonProps) {
   const [open, setOpen] = useState(false)
   const csvUploadInputRef = useRef<HTMLInputElement | null>(null)
   const [file, setFile] = useState<File | null>(null)
@@ -2405,6 +2470,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
   const [traceDialogRow, setTraceDialogRow] = useState<ReviewRow | null>(null)
   const [popupAdjusters, setPopupAdjusters] = useState<Adjuster[]>([])
   const [showLevels, setShowLevels] = useState(false)
+  const [showAccessFeatures, setShowAccessFeatures] = useState(false)
   const [isSavingProcessConfig, setIsSavingProcessConfig] = useState(false)
   const [isLoadingProcessConfig, setIsLoadingProcessConfig] = useState(false)
   const [deletingProcessConfigId, setDeletingProcessConfigId] = useState<string | null>(null)
@@ -2428,7 +2494,9 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
   const [standardRatePanY, setStandardRatePanY] = useState(0)
   const standardRateDragRef = useRef<{ x: number; y: number } | null>(null)
   const [amenityAdjuster, setAmenityAdjuster] = useState<AmenityAdjusterState>(createDefaultAmenityAdjusterState)
+  const [accessFeatureAdjuster, setAccessFeatureAdjuster] = useState<AccessFeatureAdjusterState>(createDefaultAccessFeatureAdjusterState)
   const [originalParsed, setOriginalParsed] = useState<ParsedCsv | null>(null)
+  const [csvVariableHeaders, setCsvVariableHeaders] = useState<string[]>([])
   const availableCompetitivePriceColumns = useMemo(() => {
     const prioritized = DEFAULT_PRICE_FALLBACK_CHAIN.filter(Boolean)
     const discovered = new Set<string>(prioritized)
@@ -2537,8 +2605,10 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
   }, [mappingRules, pipelineMappingConfigs, mappingGroups, persistMappingDraft])
 
   const functionDialog = useAdjusterDialog()
+  const csvVariableDialog = useAdjusterDialog()
   const showLevelsAdjusterPreview = useMemo(() => hasConfiguredLevelsAdjuster(amenityAdjuster), [amenityAdjuster])
-  const totalProcessAdjusterSteps = popupAdjusters.length + (showLevelsAdjusterPreview ? 1 : 0)
+  const showAccessFeatureAdjusterPreview = useMemo(() => hasConfiguredAccessFeatureAdjuster(accessFeatureAdjuster), [accessFeatureAdjuster])
+  const totalProcessAdjusterSteps = popupAdjusters.length + (showLevelsAdjusterPreview ? 1 : 0) + (showAccessFeatureAdjusterPreview ? 1 : 0)
   const mappingPipelineNames = useMemo(
     () => Array.from(new Set((calculatedRowsBundle ?? []).map((entry) => entry.pipelineName).filter(Boolean))),
     [calculatedRowsBundle]
@@ -2873,6 +2943,22 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     };
   }, [amenityAdjuster]);
 
+  const resolvedAccessFeatureAdjuster = useMemo<ResolvedAccessFeatureAdjuster>(() => {
+    const parseEntry = (entry: AmenityAdjusterEntry): ResolvedAmenityAdjusterEntry | undefined => {
+      const multiplier = Number(entry.multiplier.trim())
+      const offset = Number(entry.offset.trim())
+      if (!Number.isFinite(multiplier) && !Number.isFinite(offset)) return undefined
+      return { multiplier: Number.isFinite(multiplier) ? multiplier : 1, offset: Number.isFinite(offset) ? offset : 0 }
+    }
+    return {
+      applyToWeb: accessFeatureAdjuster.applyToWeb,
+      elevator: parseEntry(accessFeatureAdjuster.elevator),
+      driveUp: parseEntry(accessFeatureAdjuster.driveUp),
+      firstFloor: parseEntry(accessFeatureAdjuster.firstFloor),
+      climateControlled: parseEntry(accessFeatureAdjuster.climateControlled),
+    }
+  }, [accessFeatureAdjuster])
+
   useEffect(() => {
     const nextEnabled = Boolean(rounding?.standard?.enabled ?? false)
     const rawOffset = Number(rounding?.standard?.offset ?? 0)
@@ -3032,6 +3118,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     setTraceDialogRow(null)
     setPopupAdjusters([])
     setAmenityAdjuster(createDefaultAmenityAdjusterState())
+    setAccessFeatureAdjuster(createDefaultAccessFeatureAdjusterState())
     setMappingRules([])
     setMappingGroups([])
     setPipelineMappingConfigs(mappingPipelineNames.map((name) => createDefaultPipelineMappingConfig(name)))
@@ -3060,6 +3147,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
       effectiveRounding,
       nextAdjusters,
       resolvedAmenityAdjuster,
+      resolvedAccessFeatureAdjuster,
       standardRateFunction,
       mappingRules,
       pipelineMappingConfigs,
@@ -3085,6 +3173,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     resolvedCalculatedRows.rows,
     effectiveRounding,
     resolvedAmenityAdjuster,
+    resolvedAccessFeatureAdjuster,
     standardRateFunction,
     mappingRules,
     pipelineMappingConfigs,
@@ -3123,9 +3212,14 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     setAmenityAdjuster(createDefaultAmenityAdjusterState())
   }
 
+  const handleRemoveAccessFeatureAdjuster = () => {
+    setAccessFeatureAdjuster(createDefaultAccessFeatureAdjusterState())
+  }
+
   const handleClearProcessCsvConfig = () => {
     setPopupAdjusters([])
     setAmenityAdjuster(createDefaultAmenityAdjusterState())
+    setAccessFeatureAdjuster(createDefaultAccessFeatureAdjusterState())
     setMappingRules([])
     setMappingGroups([])
     setPipelineMappingConfigs(mappingPipelineNames.map((name) => createDefaultPipelineMappingConfig(name)))
@@ -3179,11 +3273,17 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
       amenityAdjuster.economy.multiplier,
       amenityAdjuster.economy.offset,
     ].join("|")
+    const accessFeatureKey = [
+      accessFeatureAdjuster.applyToWeb ? "1" : "0",
+      ...(["elevator", "driveUp", "firstFloor", "climateControlled"] as AccessFeatureKey[])
+        .flatMap((key) => [accessFeatureAdjuster[key].multiplier, accessFeatureAdjuster[key].offset]),
+    ].join("|")
 
     return [
       originalParsed ? "1" : "0",
       popupAdjusters.length,
       amenityKey,
+      accessFeatureKey,
       standardRateFunction,
       standardRateRoundingEnabled ? "1" : "0",
       standardRateRoundingOffset,
@@ -3195,6 +3295,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     ].join("::")
   }, [
     amenityAdjuster,
+    accessFeatureAdjuster,
     mappingRules,
     pipelineMappingConfigs,
     mappingGroups,
@@ -3654,10 +3755,23 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
   const handleCsvFileSelected = (event: ChangeEvent<HTMLInputElement>) => {
     const nextFile = event.target.files?.[0] || null
     setFile(nextFile)
+    setCsvVariableHeaders([])
     setReviewData(null)
     setApprovedChanges({})
     setTraceDialogRow(null)
     onCsvFileSelected?.(nextFile)
+
+    if (nextFile) {
+      void nextFile.text().then((text) => {
+        const parsed = toParsedCsv(text)
+        const headersByKey = new Map(parsed.headers.map((header) => [normalizeColumnKey(header), header]))
+        setCsvVariableHeaders(
+          CSV_NUMERIC_ADJUSTER_COLUMNS
+            .map((column) => headersByKey.get(normalizeColumnKey(column)))
+            .filter((header): header is string => Boolean(header))
+        )
+      }).catch(() => setCsvVariableHeaders([]))
+    }
   }
 
   const handleProcess = async () => {
@@ -3700,6 +3814,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
         effectiveRounding,
         popupAdjusters,
         resolvedAmenityAdjuster,
+        resolvedAccessFeatureAdjuster,
         standardRateFunction,
         mappingRules,
         pipelineMappingConfigs,
@@ -4041,8 +4156,12 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
           <div className="flex flex-1 min-h-0 flex-col gap-3 overflow-hidden">
             <div className="flex w-full flex-wrap items-start gap-2">
               <span className="text-sm font-medium">Adjusters</span>
-              <Button type="button" size="sm" variant="outline" onClick={functionDialog.handleOpen}>Competitive</Button>
+              {allowCompetitiveAdjuster && <Button type="button" size="sm" variant="outline" onClick={functionDialog.handleOpen}>Competitive</Button>}
+              <Button type="button" size="sm" variant="outline" onClick={csvVariableDialog.handleOpen} disabled={csvVariableHeaders.length === 0}>
+                CSV Variable
+              </Button>
               <Button type="button" size="sm" variant="outline" onClick={() => setShowLevels(true)}>Levels</Button>
+              <Button type="button" size="sm" variant="outline" onClick={() => setShowAccessFeatures(true)}>Access Features</Button>
               <div className="ml-auto flex shrink-0 flex-col items-end gap-1 self-start">
                 <Button type="button" size="sm" className="h-8" variant="outline" onClick={() => setStandardRateOpen(true)}>
                   Standard Rate Function
@@ -4054,7 +4173,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
             </div>
             <div className="rounded-md border p-3 space-y-3">
               {popupAdjusters.length === 0 ? (
-                <p className="text-xs text-muted-foreground">No competitive adjusters configured.</p>
+                <p className="text-xs text-muted-foreground">No adjusters configured.</p>
               ) : null}
               <ol className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {popupAdjusters.map((adj: Adjuster, idx: number) => (
@@ -4101,8 +4220,12 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
           <div className="space-y-3 flex-1 min-h-0 overflow-hidden">
             <div className="flex w-full flex-wrap items-start gap-2">
               <span className="text-sm font-medium">Adjusters</span>
-              <Button type="button" size="sm" variant="outline" onClick={functionDialog.handleOpen}>Competitive</Button>
+              {allowCompetitiveAdjuster && <Button type="button" size="sm" variant="outline" onClick={functionDialog.handleOpen}>Competitive</Button>}
+              <Button type="button" size="sm" variant="outline" onClick={csvVariableDialog.handleOpen} disabled={csvVariableHeaders.length === 0}>
+                CSV Variable
+              </Button>
               <Button type="button" size="sm" variant="outline" onClick={() => setShowLevels(true)}>Levels</Button>
+              <Button type="button" size="sm" variant="outline" onClick={() => setShowAccessFeatures(true)}>Access Features</Button>
               <div className="ml-auto flex shrink-0 flex-col items-end gap-1 self-start">
                 <Button type="button" size="sm" className="h-8" variant="outline" onClick={() => setStandardRateOpen(true)}>
                   Standard Rate Function
@@ -4114,7 +4237,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
             </div>
             <div className="rounded-md border p-3 space-y-3">
               {popupAdjusters.length === 0 ? (
-                <p className="text-xs text-muted-foreground">No competitive adjusters configured.</p>
+                <p className="text-xs text-muted-foreground">No adjusters configured.</p>
               ) : null}
               <ol className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {popupAdjusters.map((adj: Adjuster, idx: number) => (
@@ -4548,11 +4671,21 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
           </DialogContent>
         </Dialog>
 
-        <AddCompetitiveAdjusterDialog
-          open={functionDialog.open}
-          onOpenChange={functionDialog.setOpen}
+        {allowCompetitiveAdjuster && (
+          <AddCompetitiveAdjusterDialog
+            open={functionDialog.open}
+            onOpenChange={functionDialog.setOpen}
+            onAdd={handleAddPopupAdjuster}
+            availablePriceColumns={availableCompetitivePriceColumns}
+            hidePriceSource
+          />
+        )}
+        <AddFunctionAdjusterDialog
+          open={csvVariableDialog.open}
+          onOpenChange={csvVariableDialog.setOpen}
           onAdd={handleAddPopupAdjuster}
-          availablePriceColumns={availableCompetitivePriceColumns}
+          availableVariables={csvVariableHeaders}
+          includeAvailableUnits={false}
         />
 
         <Dialog open={Boolean(traceDialogRow)} onOpenChange={(nextOpen) => { if (!nextOpen) setTraceDialogRow(null) }}>
@@ -4628,6 +4761,66 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setShowLevels(false)}>Done</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={showAccessFeatures} onOpenChange={setShowAccessFeatures}>
+          <DialogContent className="sm:max-w-[600px]">
+            <DialogHeader>
+              <DialogTitle>Access Features</DialogTitle>
+              <DialogDescription>
+                Apply a separate multiplier and offset when a calculated review row has each access feature.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3">
+              <label className="inline-flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={accessFeatureAdjuster.applyToWeb}
+                  onChange={(event) => setAccessFeatureAdjuster((previous) => ({ ...previous, applyToWeb: event.target.checked }))}
+                />
+                Apply to web rate
+              </label>
+              <div className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-[1fr_130px_130px]">
+                <div className="font-medium text-muted-foreground">Feature</div>
+                <div className="font-medium text-muted-foreground">Multiplier</div>
+                <div className="font-medium text-muted-foreground">Offset</div>
+                {([
+                  { key: "elevator", label: "Elevator Access" },
+                  { key: "driveUp", label: "Drive Up" },
+                  { key: "firstFloor", label: "1st Floor" },
+                  { key: "climateControlled", label: "Climate Controlled" },
+                ] as Array<{ key: AccessFeatureKey; label: string }>).map((feature) => (
+                  <div key={feature.key} className="contents">
+                    <div className="flex items-center">{feature.label}</div>
+                    <Input
+                      className="h-8"
+                      inputMode="decimal"
+                      placeholder="1"
+                      value={accessFeatureAdjuster[feature.key].multiplier}
+                      onChange={(event) => setAccessFeatureAdjuster((previous) => ({
+                        ...previous,
+                        [feature.key]: { ...previous[feature.key], multiplier: event.target.value },
+                      }))}
+                    />
+                    <Input
+                      className="h-8"
+                      inputMode="decimal"
+                      placeholder="0"
+                      value={accessFeatureAdjuster[feature.key].offset}
+                      onChange={(event) => setAccessFeatureAdjuster((previous) => ({
+                        ...previous,
+                        [feature.key]: { ...previous[feature.key], offset: event.target.value },
+                      }))}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={handleRemoveAccessFeatureAdjuster}>Reset</Button>
+              <Button type="button" onClick={() => setShowAccessFeatures(false)}>Done</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -4991,8 +5184,13 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
           <div className="flex flex-1 min-h-0 flex-col gap-3 overflow-hidden pr-1">
             <div className="flex w-full flex-wrap items-start gap-2">
               <span className="text-sm font-medium">Adjusters</span>
-              <Button type="button" size="sm" variant="outline" onClick={functionDialog.handleOpen}>
-                Competitive
+              {allowCompetitiveAdjuster && (
+                <Button type="button" size="sm" variant="outline" onClick={functionDialog.handleOpen}>
+                  Competitive
+                </Button>
+              )}
+              <Button type="button" size="sm" variant="outline" onClick={csvVariableDialog.handleOpen} disabled={csvVariableHeaders.length === 0}>
+                CSV Variable
               </Button>
               <Button
                 type="button"
@@ -5014,7 +5212,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
 
             <div className="rounded-md border p-3 space-y-3">
               {popupAdjusters.length === 0 ? (
-                <p className="text-xs text-muted-foreground">No competitive adjusters configured.</p>
+                <p className="text-xs text-muted-foreground">No adjusters configured.</p>
               ) : null}
               <ol className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {popupAdjusters.map((adj: Adjuster, idx: number) => (
@@ -5061,8 +5259,13 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
           <div className="space-y-3 flex-1 min-h-0 overflow-auto pr-1">
             <div className="flex w-full flex-wrap items-start gap-2">
               <span className="text-sm font-medium">Adjusters</span>
-              <Button type="button" size="sm" variant="outline" onClick={functionDialog.handleOpen}>
-                Competitive
+              {allowCompetitiveAdjuster && (
+                <Button type="button" size="sm" variant="outline" onClick={functionDialog.handleOpen}>
+                  Competitive
+                </Button>
+              )}
+              <Button type="button" size="sm" variant="outline" onClick={csvVariableDialog.handleOpen} disabled={csvVariableHeaders.length === 0}>
+                CSV Variable
               </Button>
               <Button
                 type="button"
@@ -5084,7 +5287,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
 
             <div className="rounded-md border p-3 space-y-3">
               {popupAdjusters.length === 0 ? (
-                <p className="text-xs text-muted-foreground">No competitive adjusters configured.</p>
+                <p className="text-xs text-muted-foreground">No adjusters configured.</p>
               ) : null}
               <ol className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {popupAdjusters.map((adj: Adjuster, idx: number) => (
@@ -5285,11 +5488,21 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
         </DialogContent>
       </Dialog>
 
-      <AddCompetitiveAdjusterDialog
-        open={functionDialog.open}
-        onOpenChange={functionDialog.setOpen}
+      {allowCompetitiveAdjuster && (
+        <AddCompetitiveAdjusterDialog
+          open={functionDialog.open}
+          onOpenChange={functionDialog.setOpen}
+          onAdd={handleAddPopupAdjuster}
+          availablePriceColumns={availableCompetitivePriceColumns}
+          hidePriceSource
+        />
+      )}
+      <AddFunctionAdjusterDialog
+        open={csvVariableDialog.open}
+        onOpenChange={csvVariableDialog.setOpen}
         onAdd={handleAddPopupAdjuster}
-        availablePriceColumns={availableCompetitivePriceColumns}
+        availableVariables={csvVariableHeaders}
+        includeAvailableUnits={false}
       />
 
       <Dialog open={Boolean(traceDialogRow)} onOpenChange={(nextOpen) => { if (!nextOpen) setTraceDialogRow(null) }}>
