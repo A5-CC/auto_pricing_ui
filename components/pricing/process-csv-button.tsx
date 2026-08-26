@@ -2077,6 +2077,7 @@ function applyCalculatedPricesToCsv(
     let mappedMatch: { price: number; calculatedRowIndex: number } | undefined
     let matchedAreaValue = ""
     let unitAmenitiesIndex = -1
+    let matchedAmenitySourceIndex = -1
     let mappedCandidatePipelineName = ""
 
     for (const candidate of candidates) {
@@ -2311,6 +2312,7 @@ function applyCalculatedPricesToCsv(
         mappedMatch = candidateMatch
         matchedAreaValue = candidateMatchedAreaValue
         unitAmenitiesIndex = amenityTierSourceIndex
+        matchedAmenitySourceIndex = amenitySourceIndex
         mappedCandidatePipelineName = candidate.pipelineName
         addRowDebugStep("candidate-accepted", {
           candidatePipelineName: candidate.pipelineName,
@@ -2357,7 +2359,7 @@ function applyCalculatedPricesToCsv(
     }
 
     if (accessFeatureAdjuster?.applyToWeb) {
-      const accessFeatureSource = amenitySourceIndex >= 0 ? getCellValue(row, amenitySourceIndex) : ""
+      const accessFeatureSource = matchedAmenitySourceIndex >= 0 ? getCellValue(row, matchedAmenitySourceIndex) : ""
       const applicableFeatures: Array<[boolean, ResolvedAmenityAdjusterEntry | undefined]> = [
         [hasElevatorAccessAmenity(accessFeatureSource), accessFeatureAdjuster.elevator],
         [normalizeDriveUpAccessValue(accessFeatureSource) === "true", accessFeatureAdjuster.driveUp],
