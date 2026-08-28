@@ -261,6 +261,57 @@ function sanitizeProcessCsvAdjusters(adjusters: unknown): Adjuster[] {
     })
 }
 
+// The backend's config schema silently drops unrecognized top-level/nested keys
+// (confirmed: an `access_feature_adjuster` top-level field and even extra nested
+// keys inside `levels_adjuster` are stripped server-side), but items inside
+// `competitive_adjusters` are stored as opaque JSON with no schema validation at
+// all (confirmed: arbitrary `type` values and extra fields round-trip untouched).
+// So Access Features is smuggled through as a marked, non-adjuster entry in that
+// array and filtered back out on load, rather than as its own top-level field.
+const ACCESS_FEATURE_SHADOW_ADJUSTER_TYPE = "__access_features_shadow__"
+
+function buildAccessFeatureShadowItem(
+  accessFeatureAdjuster: ProcessCsvConfigurationPayload["access_feature_adjuster"]
+): Record<string, unknown> {
+  return {
+    type: ACCESS_FEATURE_SHADOW_ADJUSTER_TYPE,
+    apply_to_web: Boolean(accessFeatureAdjuster?.apply_to_web),
+    elevator: accessFeatureAdjuster?.elevator,
+    drive_up: accessFeatureAdjuster?.drive_up,
+    first_floor: accessFeatureAdjuster?.first_floor,
+    climate_controlled: accessFeatureAdjuster?.climate_controlled,
+  }
+}
+
+function extractAccessFeatureShadowItem(
+  adjusters: unknown
+): ProcessCsvConfigurationPayload["access_feature_adjuster"] | null {
+  if (!Array.isArray(adjusters)) return null
+  const match = adjusters.find(
+    (item) => item && typeof item === "object" && (item as Record<string, unknown>).type === ACCESS_FEATURE_SHADOW_ADJUSTER_TYPE
+  ) as Record<string, unknown> | undefined
+  if (!match) return null
+
+  const toEntry = (raw: unknown): { multiplier: number; offset: number } | undefined => {
+    if (!raw || typeof raw !== "object") return undefined
+    const rec = raw as Record<string, unknown>
+    const multiplier = Number(rec.multiplier)
+    const offset = Number(rec.offset)
+    return {
+      multiplier: Number.isFinite(multiplier) ? multiplier : 1,
+      offset: Number.isFinite(offset) ? offset : 0,
+    }
+  }
+
+  return {
+    apply_to_web: Boolean(match.apply_to_web),
+    elevator: toEntry(match.elevator),
+    drive_up: toEntry(match.drive_up),
+    first_floor: toEntry(match.first_floor),
+    climate_controlled: toEntry(match.climate_controlled),
+  }
+}
+
 function toObjectRecord(value: unknown): Record<string, unknown> {
   if (value && typeof value === "object") return value as Record<string, unknown>
   return {}
@@ -3473,6 +3524,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     const fallbackMappingShadow = readConfigMappingShadow(String(config.name ?? ""))
 
     const loadedAccessFeatures = config.access_feature_adjuster
+    const embeddedAccessFeatures = extractAccessFeatureShadowItem(config.competitive_adjusters)
     const isAccessFeatureConfigured = (access?: typeof loadedAccessFeatures): boolean => {
       if (!access) return false
       if (access.apply_to_web) return true
@@ -3480,9 +3532,12 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
         (entry) => entry && (Number(entry.multiplier) !== 1 || Number(entry.offset) !== 0)
       )
     }
+    // The backend doesn't persist a top-level access_feature_adjuster field, so
+    // the entry embedded in competitive_adjusters (see ACCESS_FEATURE_SHADOW_ADJUSTER_TYPE)
+    // is the reliable source; the localStorage shadow is a last-resort fallback.
     const accessFeatures = isAccessFeatureConfigured(loadedAccessFeatures)
       ? loadedAccessFeatures
-      : (fallbackMappingShadow?.access_feature_adjuster ?? loadedAccessFeatures)
+      : (embeddedAccessFeatures ?? fallbackMappingShadow?.access_feature_adjuster ?? loadedAccessFeatures)
     setAccessFeatureAdjuster({
       applyToWeb: Boolean(accessFeatures?.apply_to_web ?? false),
       elevator: toEntry(accessFeatures?.elevator),
@@ -3649,17 +3704,19 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     const serializedPipelineMappings = serializePipelineMappingsForSave(currentPipelineMappings)
     const serializedMappingGroups = serializeMappingGroupsForSave(currentMappingGroups)
 
+    const accessFeaturePayload: NonNullable<ProcessCsvConfigurationPayload["access_feature_adjuster"]> = {
+      apply_to_web: Boolean(resolvedAccessFeatureAdjuster.applyToWeb),
+      elevator: resolvedAccessFeatureAdjuster.elevator,
+      drive_up: resolvedAccessFeatureAdjuster.driveUp,
+      first_floor: resolvedAccessFeatureAdjuster.firstFloor,
+      climate_controlled: resolvedAccessFeatureAdjuster.climateControlled,
+    }
+
     persistConfigMappingShadow(name, {
       mappingRules: currentMappingRules,
       pipelineMappingConfigs: currentPipelineMappings,
       mappingGroups: currentMappingGroups,
-      accessFeatureAdjuster: {
-        apply_to_web: Boolean(resolvedAccessFeatureAdjuster.applyToWeb),
-        elevator: resolvedAccessFeatureAdjuster.elevator,
-        drive_up: resolvedAccessFeatureAdjuster.driveUp,
-        first_floor: resolvedAccessFeatureAdjuster.firstFloor,
-        climate_controlled: resolvedAccessFeatureAdjuster.climateControlled,
-      },
+      accessFeatureAdjuster: accessFeaturePayload,
     })
 
     const standardOffsetRaw = Number(standardRateRoundingOffset)
@@ -3672,6 +3729,14 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     const expectedRoundingOffset = standardOffset
     const normalizedAdjusters = sanitizeProcessCsvAdjusters(popupAdjusters)
     const expectedAdjustersCount = normalizedAdjusters.length
+    // competitive_adjusters is the only field the backend stores without schema
+    // validation, so Access Features rides along as a marked extra entry there
+    // (see ACCESS_FEATURE_SHADOW_ADJUSTER_TYPE) in addition to the top-level
+    // access_feature_adjuster field, in case the backend adds real support later.
+    const outboundAdjusters: Adjuster[] = [
+      ...normalizedAdjusters,
+      buildAccessFeatureShadowItem(accessFeaturePayload) as unknown as Adjuster,
+    ]
     // Compare against the normalized/serialized payload that is actually posted,
     // not raw draft UI rows (which may include incomplete rows filtered out on save).
     const expectedRulesCount = Array.isArray(serializedMappingRules) ? serializedMappingRules.length : 0
@@ -3685,20 +3750,14 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
         enabled: expectedRoundingEnabled,
         offset: expectedRoundingOffset,
       },
-      competitive_adjusters: normalizedAdjusters,
+      competitive_adjusters: outboundAdjusters,
       levels_adjuster: {
         apply_to_web: Boolean(resolvedAmenityAdjuster.applyToWeb),
         premium: resolvedAmenityAdjuster.premium,
         standard: resolvedAmenityAdjuster.standard,
         economy: resolvedAmenityAdjuster.economy,
       },
-      access_feature_adjuster: {
-        apply_to_web: Boolean(resolvedAccessFeatureAdjuster.applyToWeb),
-        elevator: resolvedAccessFeatureAdjuster.elevator,
-        drive_up: resolvedAccessFeatureAdjuster.driveUp,
-        first_floor: resolvedAccessFeatureAdjuster.firstFloor,
-        climate_controlled: resolvedAccessFeatureAdjuster.climateControlled,
-      },
+      access_feature_adjuster: accessFeaturePayload,
       mapping_rules: serializedMappingRules,
       pipeline_mappings: serializedPipelineMappings,
       mapping_groups: serializedMappingGroups,

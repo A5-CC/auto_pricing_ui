@@ -459,6 +459,7 @@ export default function PipelineBundlesPage() {
           Refreshing pricing data in background…
         </div>
       )}
+      
       {loading && !dataResponse && (
         <div className="text-xs text-muted-foreground">Loading pricing data…</div>
       )}
