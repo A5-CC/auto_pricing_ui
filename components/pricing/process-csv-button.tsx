@@ -4020,6 +4020,62 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
     setApprovedChanges(next)
   }
 
+  const applyNewWebRateOverride = (rowIndex: number, value: number) => {
+    if (!reviewData || !Number.isFinite(value) || value < 0) return
+
+    const newWebRateIndex = findColumnIndex(reviewData.headers, NEW_WEB_RATE_COLUMNS)
+    const newStandardRateIndex = findColumnIndex(reviewData.headers, NEW_STANDARD_RATE_COLUMNS)
+    if (newWebRateIndex < 0 || newStandardRateIndex < 0) return
+
+    const roundedWebRate = applyConfiguredRounding(value, effectiveRounding)
+    const calculatedStandardRate = resolveStandardRateValue(roundedWebRate, standardRateFunction)
+    const roundedStandardRate = applyConfiguredRounding(calculatedStandardRate, {
+      enabled: standardRateRoundingEnabled,
+      offset: standardRateRoundingOffset,
+    })
+
+    if (!Number.isFinite(roundedStandardRate)) {
+      toast.error("Unable to calculate a standard rate for that web-rate override.")
+      return
+    }
+
+    const processedRows = reviewData.processedRows.map((row) => [...row])
+    const processedRow = processedRows[rowIndex]
+    if (!processedRow) return
+
+    processedRow[newWebRateIndex] = formatCurrency(roundedWebRate)
+    processedRow[newStandardRateIndex] = formatCurrency(roundedStandardRate)
+
+    const processed: ParsedCsv = { headers: reviewData.headers, rows: processedRows }
+    const original: ParsedCsv = { headers: reviewData.headers, rows: reviewData.originalRows }
+    const changes = buildChanges(original, processed)
+    const traceByCsvRowIndex = Object.fromEntries(
+      reviewData.reviewRows
+        .filter((row) => row.traceCalculatedRowIndex !== null)
+        .map((row) => [row.rowIndex, row.traceCalculatedRowIndex as number])
+    )
+    const traceDetailsByCsvRowIndex = Object.fromEntries(
+      reviewData.reviewRows
+        .filter((row) => row.traceDetails !== null)
+        .map((row) => [row.rowIndex, row.traceDetails!])
+    )
+    const reviewRows = buildReviewRows(original, processed, changes, traceByCsvRowIndex, traceDetailsByCsvRowIndex)
+    const newWebRateChangeId = `${rowIndex}-${newWebRateIndex}`
+    const newStandardRateChangeId = `${rowIndex}-${newStandardRateIndex}`
+
+    setReviewData({
+      ...reviewData,
+      processedRows,
+      changes,
+      reviewRows,
+    })
+    setApprovedChanges((previous) => ({
+      ...previous,
+      [newWebRateChangeId]: true,
+      [newStandardRateChangeId]: true,
+    }))
+  }
+
   const handleDownloadApproved = () => {
     if (!reviewData) return
 
@@ -4512,7 +4568,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                       {renderReviewSortableHeader("Climate Controlled", "hasClimateControlledAmenity", "Derived from CSV Unit Amenities climate-controlled text.")}
                       {renderReviewSortableHeader("Level", "amenityLevel", "Derived from CSV Unit Amenities tier keywords: Premium, Standard, Economy.")}
                       {renderReviewSortableHeader("Current Web", "currentWebRate", "Read from CSV Current Web Rate (or Current Rent Rate fallback).")}
-                      {renderReviewSortableHeader("New Web", "proposedWebRate", "Calculated from matched pipeline web price, then popup/levels adjusters and rounding are applied.")}
+                      {renderReviewSortableHeader("New Web", "proposedWebRate", "Calculated from matched pipeline web price, then popup/levels adjusters and rounding are applied. Enter an override to recalculate New Standard from that web rate.")}
                       {renderReviewSortableHeader("Web Change", "webRateChangePercent", "Percent change from Current Web to New Web.")}
                       {renderReviewSortableHeader("Web Decision", "webDecision")}
                       {renderReviewSortableHeader("Current Standard", "currentStandardRate", "Read from CSV Current Standard Rate.")}
@@ -4546,7 +4602,25 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                         <td className="px-3 py-2 align-top">{row.hasClimateControlledAmenity ? "✓" : ""}</td>
                         <td className="px-3 py-2 align-top">{row.amenityLevel || ""}</td>
                         <td className="px-3 py-2 align-top text-muted-foreground">{row.currentWebRate || "—"}</td>
-                        <td className="px-3 py-2 align-top">{row.proposedWebRate || "—"}</td>
+                        <td className="px-3 py-2 align-top">
+                          {row.proposedWebRate ? (
+                            <Input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              aria-label={`New web rate override for ${row.facilityName || `CSV row ${row.rowIndex + 2}`}`}
+                              value={parseCurrencyLikeNumber(row.proposedWebRate)}
+                              onChange={(event) => {
+                                if (event.target.value.trim() === "") return
+                                const overrideValue = Number(event.target.value)
+                                if (Number.isFinite(overrideValue) && overrideValue >= 0) {
+                                  applyNewWebRateOverride(row.rowIndex, overrideValue)
+                                }
+                              }}
+                              className="h-8 min-w-[7rem]"
+                            />
+                          ) : <span className="text-muted-foreground">—</span>}
+                        </td>
                         <td className="px-3 py-2 align-top">{renderWebRateChangeBadge(row.webRateChangePercent)}</td>
                         <td className="px-3 py-2 align-top">
                           {row.webRateChange ? (
@@ -4557,7 +4631,10 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                           ) : <span className="text-muted-foreground">—</span>}
                         </td>
                         <td className="px-3 py-2 align-top text-muted-foreground">{row.currentStandardRate || "—"}</td>
-                        <td className="px-3 py-2 align-top">{row.proposedStandardRate || "—"}</td>
+                        <td className="px-3 py-2 align-top">
+                          <div>{row.proposedStandardRate || "—"}</div>
+                          {row.proposedStandardRate ? <div className="mt-1 text-xs text-muted-foreground">Recalculated from New Web</div> : null}
+                        </td>
                         <td className="px-3 py-2 align-top">
                           {row.standardRateChange ? (
                             <div className="flex items-center gap-2">
