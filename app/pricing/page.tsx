@@ -11,7 +11,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { SectionLabel } from "@/components/ui/section-label";
 import { useSortableRows } from "@/hooks/useSortableRows";
-import { getCachedValue } from "@/lib/api/cache";
 import {
     exportPricingCSV,
     getColumnStatistics,
@@ -28,22 +27,20 @@ import type {
 } from "@/lib/api/types";
 import { getCanonicalLabel } from "@/lib/pricing/column-labels";
 import { getCompetitorColor } from "@/lib/pricing/formatters";
+import { Loader2 } from "lucide-react";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PricingFilters } from "./components/pricing-filters";
 import { PricingOverview } from "./components/pricing-overview";
 
-const INITIAL_LOAD_LIMIT = 250
 const FULL_LOAD_LIMIT = 1000
 const DEFAULT_COLUMN_WIDTH = 180
 const MIN_COLUMN_WIDTH = 120
-const getPricingDataCacheKey = (snapshot: string, limit: number) =>
-  `pricing-data-${snapshot}-limit=${limit}`
 
 export default function PricingPage() {
   const [snapshots, setSnapshots] = useState<PricingSnapshot[]>([]);
   const [selectedSnapshot, setSelectedSnapshot] = useState<string>("latest");
-  const [loading, setLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [calculating, setCalculating] = useState(false);
+  const [hasCalculated, setHasCalculated] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   
@@ -60,7 +57,6 @@ export default function PricingPage() {
   const [showSparseColumns, setShowSparseColumns] = useState(false);
   const sparseThreshold = 85; // 85% fill-rate (backend returns 0-100, not 0-1)
   const activeLoadRef = useRef(0)
-  const hasLoadedDataRef = useRef(false)
 
   const [selectedFilters, setSelectedFilters] = useState<Record<string, string[]>>({})
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>({
@@ -210,47 +206,46 @@ export default function PricingPage() {
     loadSchemas();
   }, []);
 
-  const loadData = useCallback(async () => {
-    const loadId = ++activeLoadRef.current
-    const cachedInitial = getCachedValue<PricingDataResponse>(
-      getPricingDataCacheKey(selectedSnapshot, INITIAL_LOAD_LIMIT),
-      { persist: true }
-    )
-
-    if (cachedInitial) {
-      setDataResponse(cachedInitial)
-      hasLoadedDataRef.current = true
-      if (cachedInitial.columns?.length) {
-        const fixedColumns = [
-          "competitor_name",
-          "competitor_address",
-          "client_location",
-          "snapshot_date",
-          "unit_dimensions",
-        ]
-        const filteredColumns = cachedInitial.columns.filter(
-          (col) => !fixedColumns.includes(col)
-        )
-        setVisibleColumns((prev) => (prev.length ? prev : filteredColumns))
-      }
-    }
-
-    setError(null);
-    setColumnsStats({})
-    if (cachedInitial || hasLoadedDataRef.current) {
-      setLoading(false)
-      setIsRefreshing(true)
-    } else {
-      setLoading(true)
-    }
+  // Column statistics (type badges) only need the snapshot + schema, not the
+  // row-level data — fetch them independently so they don't wait on Calculate.
+  const loadColumnStats = useCallback(async () => {
     try {
-      // Stage 1: fetch a smaller slice so the table renders quickly.
-      const initialRes = await getPricingData(selectedSnapshot, { limit: INITIAL_LOAD_LIMIT });
-      if (loadId !== activeLoadRef.current) return
+      const stats = await getColumnStatistics(selectedSnapshot);
+      const byName = Object.fromEntries(stats.map((s) => [s.column, s]));
+      setColumnsStats(byName);
+    } catch {
+      // Type badges just won't show; not worth surfacing an error for this.
+    }
+  }, [selectedSnapshot]);
 
-      setDataResponse(initialRes);
-      hasLoadedDataRef.current = true
-      if (initialRes.columns?.length) {
+  useEffect(() => {
+    setColumnsStats({});
+    loadColumnStats();
+  }, [loadColumnStats]);
+
+  // The row-level table is the one genuinely heavy call. It no longer fires
+  // automatically — it's gated behind the "Calculate" button so the rest of
+  // the page (snapshot picker, Overview stats, column-type badges) is never
+  // blocked on it. Reset to the empty/prompt state whenever the snapshot
+  // changes, so stale rows from a previous snapshot are never shown as current.
+  useEffect(() => {
+    setDataResponse(null);
+    setHasCalculated(false);
+    setVisibleColumns([]);
+    setError(null);
+  }, [selectedSnapshot]);
+
+  const handleCalculate = useCallback(async () => {
+    const loadId = ++activeLoadRef.current;
+    setError(null);
+    setCalculating(true);
+    try {
+      const res = await getPricingData(selectedSnapshot, { limit: FULL_LOAD_LIMIT });
+      if (loadId !== activeLoadRef.current) return;
+
+      setDataResponse(res);
+      setHasCalculated(true);
+      if (res.columns?.length) {
         const fixedColumns = [
           "competitor_name",
           "competitor_address",
@@ -258,58 +253,15 @@ export default function PricingPage() {
           "snapshot_date",
           "unit_dimensions",
         ];
-        const filteredColumns = initialRes.columns.filter(
-          (col) => !fixedColumns.includes(col)
-        );
-        setVisibleColumns((prev) => (prev.length ? prev : filteredColumns));
+        setVisibleColumns(res.columns.filter((col) => !fixedColumns.includes(col)));
       }
-
-      setLoading(false);
-      setIsRefreshing(false)
-
-      // Stage 2: hydrate full data + stats in background.
-      void (async () => {
-        try {
-          const fullRes = await getPricingData(selectedSnapshot, { limit: FULL_LOAD_LIMIT })
-          if (loadId !== activeLoadRef.current) return
-
-          setDataResponse(fullRes)
-
-          if (fullRes.columns?.length) {
-            const fixedColumns = [
-              "competitor_name",
-              "competitor_address",
-              "client_location",
-              "snapshot_date",
-              "unit_dimensions",
-            ];
-            const filteredColumns = fullRes.columns.filter(
-              (col) => !fixedColumns.includes(col)
-            );
-            setVisibleColumns((prev) => (prev.length ? prev : filteredColumns));
-
-            const stats = await getColumnStatistics(selectedSnapshot, fullRes.columns)
-            if (loadId !== activeLoadRef.current) return
-            const byName = Object.fromEntries(stats.map((s) => [s.column, s]));
-            setColumnsStats(byName)
-          }
-        } catch {
-          // Keep the initial fast load; don't block the page on background hydration errors.
-        }
-      })()
     } catch {
-      if (loadId !== activeLoadRef.current) return
+      if (loadId !== activeLoadRef.current) return;
       setError("Failed to load pricing data");
-      setLoading(false);
-      setIsRefreshing(false)
+    } finally {
+      if (loadId === activeLoadRef.current) setCalculating(false);
     }
   }, [selectedSnapshot]);
-
-  // Reload when snapshot changes
-  useEffect(() => {
-    loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedSnapshot]); // Only depend on selectedSnapshot to avoid duplicate calls
 
   const onExport = async () => {
     if (!selectedSnapshot) return;
@@ -333,12 +285,6 @@ export default function PricingPage() {
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 space-y-4 sm:space-y-5">
-      {isRefreshing && (
-        <div className="flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
-          <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-blue-400 border-t-transparent" />
-          Refreshing competitor pricing data…
-        </div>
-      )}
       <header>
         <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
           <div className="flex items-center gap-2">
@@ -349,6 +295,14 @@ export default function PricingPage() {
               disabled={!dataResponse}
             >
               Export CSV
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleCalculate}
+              disabled={!selectedSnapshot || calculating}
+            >
+              {calculating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {calculating ? "Calculating…" : "Calculate"}
             </Button>
           </div>
         </div>
@@ -605,7 +559,11 @@ export default function PricingPage() {
                     className="px-4 py-6 text-center text-muted-foreground"
                     colSpan={3 + (displayColumns.length || 0)}
                   >
-                    {loading ? "Loading pricing data…" : "No results. Broaden filters."}
+                    {calculating
+                      ? "Loading pricing data…"
+                      : !hasCalculated
+                      ? "Click Calculate to load pricing data for this snapshot."
+                      : "No results. Broaden filters."}
                   </td>
                 </tr>
               )}

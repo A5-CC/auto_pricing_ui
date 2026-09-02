@@ -23,6 +23,14 @@ export function PricingOverview({
   columnsStats,
   onSnapshotChange,
 }: PricingOverviewProps) {
+  // Prefer the lightweight snapshot-list entry (already fetched on mount,
+  // independent of the row-level data fetch) so Rows/Facilities/Columns
+  // render instantly instead of waiting on the heavy data payload.
+  const snapshotMeta = snapshots.find((s) => s.date === selectedSnapshot)
+  const totalRows = snapshotMeta?.rows ?? dataResponse?.total_rows
+  const totalFacilities = snapshotMeta?.facilities ?? dataResponse?.total_facilities
+  const totalColumns = snapshotMeta?.columns ?? dataResponse?.columns?.length
+
   return (
     <>
       <SectionLabel
@@ -48,17 +56,19 @@ export function PricingOverview({
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
           <div className="text-muted-foreground">Snapshot</div>
           <div className="font-medium">
-            {formatSnapshotDate(selectedSnapshot, dataResponse?.snapshot_date)}
+            {selectedSnapshot === "latest" && !dataResponse
+              ? "Latest"
+              : formatSnapshotDate(selectedSnapshot, dataResponse?.snapshot_date)}
           </div>
           <div className="hidden sm:block h-4 w-px bg-border" />
           <div className="text-muted-foreground">Rows</div>
-          <div className="font-medium tabular-nums">{dataResponse ? dataResponse.total_rows.toLocaleString() : "—"}</div>
+          <div className="font-medium tabular-nums">{totalRows !== undefined ? totalRows.toLocaleString() : "—"}</div>
           <div className="hidden sm:block h-4 w-px bg-border" />
           <div className="text-muted-foreground">Facilities</div>
-          <div className="font-medium tabular-nums">{dataResponse ? dataResponse.total_facilities.toLocaleString() : "—"}</div>
+          <div className="font-medium tabular-nums">{totalFacilities !== undefined ? totalFacilities.toLocaleString() : "—"}</div>
           <div className="hidden sm:block h-4 w-px bg-border" />
           <div className="text-muted-foreground">Columns</div>
-          <div className="font-medium tabular-nums">{dataResponse?.columns?.length ?? "—"}</div>
+          <div className="font-medium tabular-nums">{totalColumns ?? "—"}</div>
           {!!Object.keys(columnsStats).length && (
             <div className="hidden md:flex items-center gap-1">
               {getTypeCounts(columnsStats).slice(0, 4).map(([type, count]) => (

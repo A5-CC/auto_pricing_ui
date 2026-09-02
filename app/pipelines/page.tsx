@@ -148,7 +148,6 @@ export default function PipelinesPage() {
     }
 
     setError(null);
-    setColumnsStats({})
 
     // If we already have data (from a previous load or stale cache), show it
     // immediately and only show the refreshing banner.
@@ -169,19 +168,14 @@ export default function PipelinesPage() {
       setLoading(false);
       setIsRefreshing(false);
 
-      // Stage 2a: hydrate full competitor data + stats in background.
+      // Stage 2a: hydrate full competitor data in background. Column stats
+      // are fetched independently (see loadColumnStats below) so the type
+      // badges don't wait on this — they only need the snapshot, not the rows.
       void (async () => {
         try {
           const fullRes = await getPricingData(selectedSnapshot, { limit: FULL_LOAD_LIMIT })
           if (loadId !== activeLoadRef.current) return
           setDataResponse(fullRes)
-
-          if (fullRes.columns?.length) {
-            const stats = await getColumnStatistics(selectedSnapshot, fullRes.columns)
-            if (loadId !== activeLoadRef.current) return
-            const byName = Object.fromEntries(stats.map((s) => [s.column, s]));
-            setColumnsStats(byName)
-          }
         } catch {
           // keep initial dataset visible
         }
@@ -221,6 +215,23 @@ export default function PipelinesPage() {
       }
     })();
   }, []);
+
+  // Column statistics (type badges) only need the snapshot, not the row-level
+  // data — fetch them independently so they're never gated on the big fetch.
+  const loadColumnStats = useCallback(async () => {
+    try {
+      const stats = await getColumnStatistics(selectedSnapshot);
+      const byName = Object.fromEntries(stats.map((s) => [s.column, s]));
+      setColumnsStats(byName);
+    } catch {
+      // Type badges just won't show; not worth surfacing an error for this.
+    }
+  }, [selectedSnapshot]);
+
+  useEffect(() => {
+    setColumnsStats({});
+    loadColumnStats();
+  }, [loadColumnStats]);
 
   // Reload when snapshot changes
   useEffect(() => {
