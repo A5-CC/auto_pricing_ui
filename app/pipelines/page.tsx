@@ -2,7 +2,6 @@
 
 import { AdjustersList } from "@/components/pipelines/adjusters-list";
 import { AddCompetitiveAdjusterDialog } from "@/components/pipelines/adjusters/add-competitive-adjuster-dialog";
-import { AddFunctionAdjusterDialog } from "@/components/pipelines/adjusters/add-function-adjuster-dialog";
 import { AddTemporalAdjusterDialog } from "@/components/pipelines/adjusters/add-temporal-adjuster-dialog";
 import { useAdjusterDialog } from "@/components/pipelines/adjusters/use-adjuster-dialog";
 import { CalculatedPrice } from "@/components/pipelines/calculated-price";
@@ -30,10 +29,22 @@ import type {
 } from "@/lib/api/types";
 import { normalizeFilterValue } from "@/lib/pricing/filter-value-normalization";
 import { Calculator, Clock, Plus, TrendingDown } from "lucide-react";
+import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { UniversalPipelineFilters } from "../pipelines/components/universal-pipeline-filters";
 import { PricingOverview } from "../pricing/components/pricing-overview";
+
+// Only mounted when the user opens it, and it drags in recharts (~the largest
+// single chunk on this route). Load it on demand so it stays out of the initial
+// bundle.
+const AddFunctionAdjusterDialog = dynamic(
+  () =>
+    import("@/components/pipelines/adjusters/add-function-adjuster-dialog").then(
+      (m) => m.AddFunctionAdjusterDialog
+    ),
+  { ssr: false }
+);
 
 const INITIAL_LOAD_LIMIT = 250
 const FULL_LOAD_LIMIT = 1000
