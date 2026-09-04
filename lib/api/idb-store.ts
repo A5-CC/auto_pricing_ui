@@ -24,23 +24,44 @@ function idbAvailable(): boolean {
   return typeof indexedDB !== 'undefined'
 }
 
+// Hard cap so a stalled IndexedDB open (blocked DB, browser quirk) can never
+// hang callers that await this — they just fall through to the network.
+const OPEN_TIMEOUT_MS = 2_000
+
 let dbPromise: Promise<IDBDatabase | null> | null = null
 
 function openDb(): Promise<IDBDatabase | null> {
   if (!idbAvailable()) return Promise.resolve(null)
   if (dbPromise) return dbPromise
   dbPromise = new Promise((resolve) => {
+    let settled = false
+    const done = (db: IDBDatabase | null) => {
+      if (settled) return
+      settled = true
+      resolve(db)
+    }
+    const timer = setTimeout(() => done(null), OPEN_TIMEOUT_MS)
     try {
       const req = indexedDB.open(DB_NAME, DB_VERSION)
       req.onupgradeneeded = () => {
         const db = req.result
         if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE)
       }
-      req.onsuccess = () => resolve(req.result)
-      req.onerror = () => resolve(null)
-      req.onblocked = () => resolve(null)
+      req.onsuccess = () => {
+        clearTimeout(timer)
+        done(req.result)
+      }
+      req.onerror = () => {
+        clearTimeout(timer)
+        done(null)
+      }
+      req.onblocked = () => {
+        clearTimeout(timer)
+        done(null)
+      }
     } catch {
-      resolve(null)
+      clearTimeout(timer)
+      done(null)
     }
   })
   return dbPromise

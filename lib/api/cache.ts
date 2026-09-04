@@ -211,9 +211,8 @@ export async function cachedFetch<T>(
     return data
   }
 
-  // 1. In-memory hit (fast, unexpired). After hydration this also covers large
-  //    payloads restored from IndexedDB.
-  if (persist) await ensureHydrated()
+  // 1. In-memory hit (fast, unexpired). Session hydration (kicked off at module
+  //    load, fire-and-forget) folds IndexedDB-persisted payloads in here too.
   const cached = apiCache.get<T>(key)
   if (cached !== null) {
     return cached
@@ -229,7 +228,7 @@ export async function cachedFetch<T>(
     }
 
     // 3. IndexedDB hit (stale-while-revalidate) — large payloads that never
-    //    fit in localStorage.
+    //    fit in localStorage. idb-store caps its own open() so this can't hang.
     const idbStale = await idbGet<T>(key)
     if (idbStale && Date.now() - idbStale.ts <= IDB_TTL) {
       apiCache.set(key, idbStale.data)
