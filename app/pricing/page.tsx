@@ -28,7 +28,7 @@ import type {
 import { getCanonicalLabel } from "@/lib/pricing/column-labels";
 import { getCompetitorColor } from "@/lib/pricing/formatters";
 import { Loader2 } from "lucide-react";
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { PricingFilters } from "./components/pricing-filters";
 import { PricingOverview } from "./components/pricing-overview";
 
@@ -100,12 +100,15 @@ export default function PricingPage() {
     }
   }, [])
 
-  // Client-side filtering (generic filters)
+  // Client-side filtering (generic filters). Deferred so that typing/toggling in
+  // a filter keeps the control responsive — the (potentially 1000-row) refilter
+  // runs at a lower priority instead of blocking the keystroke.
+  const deferredFilters = useDeferredValue(selectedFilters)
   const filteredRows = useMemo(() => {
     const rows = dataResponse?.data ?? [] as PricingDataRow[]
-    if (!rows || Object.keys(selectedFilters).length === 0) return rows
+    if (!rows || Object.keys(deferredFilters).length === 0) return rows
     let out: PricingDataRow[] = rows
-    for (const [col, vals] of Object.entries(selectedFilters)) {
+    for (const [col, vals] of Object.entries(deferredFilters)) {
       if (!vals || vals.length === 0) continue
       const sel = new Set(vals)
       out = out.filter((r) => {
@@ -116,7 +119,7 @@ export default function PricingPage() {
       })
     }
     return out
-  }, [dataResponse, selectedFilters])
+  }, [dataResponse, deferredFilters])
 
   const {
     sortedRows: displayedRows,
@@ -159,6 +162,33 @@ export default function PricingPage() {
       return !stats || stats.fill_rate >= sparseThreshold;
     });
   }, [visibleColumns, columnsStats, showSparseColumns, sparseThreshold]);
+
+  // Progressive row rendering: mounting ~1000 <tr> in one commit blocks the main
+  // thread for hundreds of ms right after Calculate. Render a first slice, then
+  // top up one chunk per animation frame until the whole set is on screen. The
+  // grouped view renders its own way (and is already chunked by collapsed
+  // groups), so it opts out and shows everything.
+  const ROW_RENDER_INITIAL = 150;
+  const ROW_RENDER_STEP = 200;
+  const [rowRenderLimit, setRowRenderLimit] = useState(ROW_RENDER_INITIAL);
+
+  useEffect(() => {
+    setRowRenderLimit(ROW_RENDER_INITIAL);
+  }, [dataResponse, deferredFilters, groupBy, sortBy, sortDir]);
+
+  useEffect(() => {
+    if (groupBy) return;
+    if (rowRenderLimit >= displayedRows.length) return;
+    const id = requestAnimationFrame(() => {
+      setRowRenderLimit((n) => Math.min(n + ROW_RENDER_STEP, displayedRows.length));
+    });
+    return () => cancelAnimationFrame(id);
+  }, [groupBy, rowRenderLimit, displayedRows.length]);
+
+  const cappedRows = useMemo(
+    () => displayedRows.slice(0, rowRenderLimit),
+    [displayedRows, rowRenderLimit]
+  );
 
   // Auto-expand groups only when grouping mode changes
   useEffect(() => {
@@ -311,7 +341,17 @@ export default function PricingPage() {
       {error && (
         <Alert variant="destructive">
           <AlertTitle>Error</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+            <span>{error}</span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleCalculate}
+              disabled={calculating}
+            >
+              Retry
+            </Button>
+          </AlertDescription>
         </Alert>
       )}
 
@@ -504,7 +544,8 @@ export default function PricingPage() {
                   </Fragment>
                 ))
               ) : displayedRows?.length ? (
-                displayedRows.map((row, idx) => (
+                <>
+                {cappedRows.map((row, idx) => (
                   <tr
                     key={`${row.client_location}-${idx}`}
                     className="border-t align-top"
@@ -552,7 +593,19 @@ export default function PricingPage() {
                       </td>
                     ))}
                   </tr>
-                ))
+                ))}
+                {!groupBy && displayedRows.length > rowRenderLimit && (
+                  <tr>
+                    <td
+                      className="px-4 py-3 text-center text-xs text-muted-foreground"
+                      colSpan={3 + (displayColumns.length || 0)}
+                    >
+                      Rendering rows… {rowRenderLimit.toLocaleString()} /{" "}
+                      {displayedRows.length.toLocaleString()}
+                    </td>
+                  </tr>
+                )}
+                </>
               ) : (
                 <tr>
                   <td
