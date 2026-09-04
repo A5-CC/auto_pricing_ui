@@ -1,5 +1,62 @@
 # Changelog
 
+## [Unreleased] — 2026-09-04
+
+### Context
+
+Follow-up frontend-only performance pass on top of the 2026-09-02 work (branch `bugfix/frontend_data_loading_2`, off `a2c523c`). Goal: cut the time-to-usable page and the post-`Calculate` main-thread stall without touching the backend. Some changes were tried, found to break against the live backend, and reverted — documented below so they aren't attempted again the same way.
+
+### Changed (shipped)
+
+- **`app/layout.tsx`**
+  - Emits `<link rel="preconnect">` + `<link rel="dns-prefetch">` for the `NEXT_PUBLIC_API_URL` origin (resolved at build time).
+    - *Rationale*: the API is a raw IP behind sslip.io; doing the DNS + TLS handshake while the app JS is still parsing takes it off the critical path of the first data request.
+
+- **`lib/api/cache.ts` + `lib/api/idb-store.ts` (new)**
+  - Added an IndexedDB tier to the persistent API cache. `cachedFetch` now has an IndexedDB stale-while-revalidate branch (6h TTL) after the localStorage one; `persistWrite` writes through to both tiers; the in-memory cache is hydrated from IndexedDB once per session (fire-and-forget at module load) so the synchronous `getCachedValue()` path also serves large payloads.
+    - *Rationale*: a full `pricing-data` snapshot (~1000 rows × 30-50 columns) is well over the ~5MB localStorage quota, so the existing localStorage-backed SWR silently no-op'd for exactly the payload that most needs caching — every reload paid the full recompute again.
+  - `lib/api/idb-store.ts` is a dependency-free promise wrapper over IndexedDB. `openDb()` is capped at 2s and every operation degrades to a no-op / `null` when IndexedDB is unavailable (SSR prerender, blocked DB), so it can never hang a caller.
+  - Strictly additive: small payloads still round-trip localStorage exactly as before.
+
+- **`app/pricing/page.tsx`**
+  - `selectedFilters` is passed through `useDeferredValue` before the (up to 1000-row) client-side refilter.
+    - *Rationale*: interacting with a filter no longer blocks on the re-render; the refilter runs at a lower priority.
+  - Non-grouped table body renders a 150-row slice first, then tops up 200 rows per animation frame until the full sorted/filtered set is mounted, with a `Rendering rows… N / M` line while it catches up.
+    - *Rationale*: mounting ~1000 `<tr>` in one commit blocked the main thread for hundreds of ms right after `Calculate`. Grouped view is unchanged (already chunked by collapsed groups).
+  - Error alert gained a **Retry** button wired to `handleCalculate`.
+  - Hoisted the fixed identity-column list to a module constant (`FIXED_COLUMNS`).
+
+- **`app/pipelines/page.tsx`**
+  - `AddFunctionAdjusterDialog` is now loaded via `next/dynamic` (`ssr: false`).
+    - *Rationale*: it pulls in `recharts` (the single largest chunk on the route) but only renders once the user opens it. `/pipelines` First Load JS drops from 488 kB to 382 kB with no behavior change.
+
+### Tried and reverted
+
+- **`min_fill_rate` on the `Calculate` request** (`getPricingData(snapshot, { limit: 1000, min_fill_rate: 0.85 })`). Intent was to have the API drop mid-fill-rate columns the client hides anyway, shrinking transfer + render.
+  - *Why reverted*: on any snapshot where the identity columns (`client_location`, `competitor_name`, `competitor_address`) are under 85% filled, the backend dropped them too and then failed to read the snapshot at all — `"None of [Index(['client_location', 'competitor_name', 'competitor_address'])] are in the [columns]"`. The `min_fill_rate` query param is a 0-1 fraction with backend default 0.25; 0.85 is far too aggressive. Any future column-trimming must be proven against real snapshots first.
+
+- **25s `AbortController` timeout in `fetchWithError`.** Intent was to turn a hung connection into an `ApiError` instead of an indefinite spinner.
+  - *Why reverted*: the metadata endpoints (`/pricing-data/snapshots`, `/pricing-schemas`, `.../statistics`) currently respond in **>25s**, so the timeout cancelled slow-but-valid responses at exactly 25.00s and the pages rendered with no data. `fetchWithError` is back to a plain `fetch` with no timeout.
+
+- **Hover/focus prefetch of pricing metadata in `components/navigation/menu-drawer.tsx`.**
+  - *Why reverted*: `cachedFetch` does not dedupe in-flight requests, so the prefetch fired `getPricingSnapshots()` / `getPricingSchemas()` a second time on top of the page-mount calls — visible as duplicated `(cancelled)` request pairs. `menu-drawer.tsx` is back to the `a2c523c` baseline.
+
+### Not attempted (deferred)
+
+- **Service worker (SWR cache for pricing GET endpoints)**: high blast radius on a static GitHub Pages host and not verifiable from this machine (cross-origin API caching, `basePath` scope). The IndexedDB tier already covers repeat-load speed. Needs a dedicated test pass on the deployed environment.
+- **Code-splitting `mathjs`**: it sits on the synchronous price-calc path in the adjuster engine; lazy-loading forces an async refactor rippling through `evaluateSafeFunction` / `validateFunctionSyntax` and every caller.
+- **Server-side pre-filter by location/competitor**: the UI filters are multi-select but the API params are single-value; wiring it risks surprising refetch/reset behavior against the `Calculate` flow.
+- **Idle warm-up of the heavy `pricing-data` call on the pricing page**: would hit the expensive endpoint on every visit — the server load the SOW explicitly wanted to avoid.
+
+### Known issue (backend, not addressed here)
+
+`/pricing-data/snapshots`, `/pricing-schemas` and `.../statistics` are responding in >25s. Backend logs show the snapshot enumeration choking on malformed snapshots (e.g. `2026-07-10-1353`, `2026-07-11-1250`: `Could not read snapshot … "None of [Index(['client_location', 'competitor_name', 'competitor_address'])] are in the [columns]"`). The reverts above mean the frontend no longer cancels or worsens these, but the page stays slow until the backend / those snapshots are fixed.
+
+### Verified
+
+- `npm run type-check`, `npm run lint`, `npm run build` (static export, 18 routes): clean after every commit.
+- Could not validate end-to-end against the backend from this machine (pre-existing local SSL certificate error talking to S3).
+
 ## [Unreleased] — 2026-09-02
 
 ### Context
