@@ -36,6 +36,16 @@ const FULL_LOAD_LIMIT = 1000
 const DEFAULT_COLUMN_WIDTH = 180
 const MIN_COLUMN_WIDTH = 120
 
+// Rendered in their own fixed leftmost cells, so they're kept out of the
+// dynamic column list.
+const FIXED_COLUMNS = [
+  "competitor_name",
+  "competitor_address",
+  "client_location",
+  "snapshot_date",
+  "unit_dimensions",
+]
+
 export default function PricingPage() {
   const [snapshots, setSnapshots] = useState<PricingSnapshot[]>([]);
   const [selectedSnapshot, setSelectedSnapshot] = useState<string>("latest");
@@ -56,6 +66,12 @@ export default function PricingPage() {
   );
   const [showSparseColumns, setShowSparseColumns] = useState(false);
   const sparseThreshold = 85; // 85% fill-rate (backend returns 0-100, not 0-1)
+  // Ask the API to drop columns below the fill-rate we'd hide client-side anyway
+  // (query param is a 0-1 fraction; sparseThreshold is 0-100). Smaller payload
+  // and fewer <td> per row. The "Show sparse columns" toggle pulls the fuller
+  // set on demand — see the effect below.
+  const denseMinFillRate = sparseThreshold / 100;
+  const [densePayloadOnly, setDensePayloadOnly] = useState(false);
   const activeLoadRef = useRef(0)
 
   const [selectedFilters, setSelectedFilters] = useState<Record<string, string[]>>({})
@@ -262,6 +278,7 @@ export default function PricingPage() {
     setDataResponse(null);
     setHasCalculated(false);
     setVisibleColumns([]);
+    setDensePayloadOnly(false);
     setError(null);
   }, [selectedSnapshot]);
 
@@ -270,20 +287,17 @@ export default function PricingPage() {
     setError(null);
     setCalculating(true);
     try {
-      const res = await getPricingData(selectedSnapshot, { limit: FULL_LOAD_LIMIT });
+      const res = await getPricingData(selectedSnapshot, {
+        limit: FULL_LOAD_LIMIT,
+        min_fill_rate: denseMinFillRate,
+      });
       if (loadId !== activeLoadRef.current) return;
 
       setDataResponse(res);
       setHasCalculated(true);
+      setDensePayloadOnly(true);
       if (res.columns?.length) {
-        const fixedColumns = [
-          "competitor_name",
-          "competitor_address",
-          "client_location",
-          "snapshot_date",
-          "unit_dimensions",
-        ];
-        setVisibleColumns(res.columns.filter((col) => !fixedColumns.includes(col)));
+        setVisibleColumns(res.columns.filter((col) => !FIXED_COLUMNS.includes(col)));
       }
     } catch {
       if (loadId !== activeLoadRef.current) return;
@@ -291,7 +305,33 @@ export default function PricingPage() {
     } finally {
       if (loadId === activeLoadRef.current) setCalculating(false);
     }
-  }, [selectedSnapshot]);
+  }, [selectedSnapshot, denseMinFillRate]);
+
+  // The dense payload above omits mid-fill-rate columns. If the user turns on
+  // "Show sparse columns", pull the fuller set once (backend default fill-rate
+  // cut) so those columns become available to the client-side display filter.
+  useEffect(() => {
+    if (!showSparseColumns || !densePayloadOnly) return;
+    if (!hasCalculated || calculating) return;
+    const loadId = ++activeLoadRef.current;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await getPricingData(selectedSnapshot, { limit: FULL_LOAD_LIMIT });
+        if (cancelled || loadId !== activeLoadRef.current) return;
+        setDataResponse(res);
+        setDensePayloadOnly(false);
+        if (res.columns?.length) {
+          setVisibleColumns(res.columns.filter((col) => !FIXED_COLUMNS.includes(col)));
+        }
+      } catch {
+        // keep the dense set already on screen
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [showSparseColumns, densePayloadOnly, hasCalculated, calculating, selectedSnapshot]);
 
   const onExport = async () => {
     if (!selectedSnapshot) return;

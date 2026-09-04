@@ -9,6 +9,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet';
+import { getPricingSchemas, getPricingSnapshots } from '@/lib/api/client/pricing';
 import { cn } from '@/lib/utils';
 import {
   Activity,
@@ -81,6 +82,20 @@ if (process.env.NODE_ENV === 'development') {
   });
 }
 
+// Warm the cheap, cacheable metadata for a route the moment the user signals
+// intent (hover/focus on its menu entry), so its shell paints with no wait.
+// Intentionally leaves the heavy pricing-data endpoint alone — that stays
+// behind the explicit Calculate action on the page itself.
+const warmedRoutes = new Set<string>();
+function warmRoute(href: string) {
+  if (warmedRoutes.has(href)) return;
+  warmedRoutes.add(href);
+  if (href === '/pricing') {
+    void getPricingSnapshots().catch(() => {});
+    void getPricingSchemas().catch(() => {});
+  }
+}
+
 export function MenuDrawer({ children }: MenuDrawerProps) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
@@ -118,6 +133,8 @@ export function MenuDrawer({ children }: MenuDrawerProps) {
                     key={item.href}
                     href={item.href}
                     onClick={() => setOpen(false)}
+                    onMouseEnter={() => warmRoute(item.href)}
+                    onFocus={() => warmRoute(item.href)}
                     className={cn(
                       'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',
                       isActive(item.href)
