@@ -243,6 +243,7 @@ export function PipelineSelector({
     }
 
     await Promise.all(matchingIds.map((pipelineId) => deletePipeline(pipelineId)));
+    setDeleteDialogOpen(false)
 
     const extras = readLocalExtras();
     let extrasChanged = false
