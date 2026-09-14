@@ -483,6 +483,7 @@ export default function PipelineBundlesPage() {
                 filters={{ competitors: [], locations: [], unit_dimensions: [], unitCategories: [] }}
                 rounding={{ enabled: false, offset: 0 }}
                 allowCompetitiveAdjuster={false}
+                mappingDialogClassName="sm:max-w-[92vw] lg:max-w-[1400px]"
                 calculatedRowsBundle={calculatedRowsBundle}
                 onCsvFileSelected={(file) => {
                   if (file) prepareBundleCalculation()

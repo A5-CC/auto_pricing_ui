@@ -75,6 +75,7 @@ import type { Adjuster, CompetitivePriceAdjuster, FunctionBasedAdjuster, Tempora
 import { DEFAULT_PRICE_FALLBACK_CHAIN, evaluateSafeFunction } from "@/lib/adjusters";
 import { deleteProcessCsvConfiguration, listProcessCsvConfigurations, saveProcessCsvConfiguration, type ProcessCsvConfiguration, type ProcessCsvConfigurationPayload } from "@/lib/api/client/pricing";
 import type { E1DataRow } from "@/lib/api/types";
+import { cn } from "@/lib/utils";
 import { Accessibility, ArrowDown, ArrowUp, ArrowUpDown, FileSpreadsheet, Info, Layers3, Loader2, Save } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { toast } from "sonner";
@@ -119,6 +120,8 @@ interface ProcessCsvButtonProps {
   allowCompetitiveAdjuster?: boolean
   /** Optional parent hook for preparing calculated rows after a CSV is selected. */
   onCsvFileSelected?: (file: File | null) => void
+  /** Optional class override for the mapping dialog content. */
+  mappingDialogClassName?: string
 }
 
 type ResolvedCalculatedRows = {
@@ -2570,7 +2573,7 @@ function applyCalculatedPricesToCsv(
   return { headers, rows, traceByCsvRowIndex, traceDetailsByCsvRowIndex }
 }
 
-export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], calculatedRowsBundle, rounding, pricingContext, inline = false, allowCompetitiveAdjuster = true, onCsvFileSelected }: ProcessCsvButtonProps) {
+export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], calculatedRowsBundle, rounding, pricingContext, inline = false, allowCompetitiveAdjuster = true, onCsvFileSelected, mappingDialogClassName }: ProcessCsvButtonProps) {
   const [open, setOpen] = useState(false)
   const csvUploadInputRef = useRef<HTMLInputElement | null>(null)
   const [file, setFile] = useState<File | null>(null)
@@ -4748,7 +4751,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
         </Dialog>
 
         <Dialog open={showMapping} onOpenChange={handleMappingDialogOpenChange}>
-          <DialogContent className="sm:max-w-[760px]">
+          <DialogContent className={cn("sm:max-w-[760px]", mappingDialogClassName)}>
             <DialogHeader>
               <DialogTitle>Mapping</DialogTitle>
             </DialogHeader>
