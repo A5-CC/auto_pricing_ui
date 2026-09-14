@@ -9,10 +9,11 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import type { Adjuster } from "@/lib/adjusters";
-import { createPipeline, dedupePipelinesByName, deletePipeline, listPipelines, updatePipeline } from "@/lib/api/client/pipelines";
+import { createPipeline, dedupePipelinesByName, deletePipeline, invalidatePipelinesListCache, listPipelines, updatePipeline } from "@/lib/api/client/pipelines";
 import type { Pipeline } from "@/lib/api/types";
 import { ArrowUpDown, Save, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import { DeletePipelineDialog } from "./delete-pipeline-dialog";
 import { SavePipelineDialog } from "./save-pipeline-dialog";
 
@@ -104,19 +105,25 @@ export function PipelineSelector({
     };
   }, []);
 
+  const refreshPipelines = useCallback(async () => {
+    invalidatePipelinesListCache()
+    const data = await listPipelines()
+    const extras = readLocalExtras()
+    const merged = dedupePipelinesByName(
+      data.map((pipeline) => normalizePipelineForUi(pipeline, extras[pipeline.id]))
+    )
+    setPipelines(merged)
+    return merged
+  }, [normalizePipelineForUi, readLocalExtras])
+
   const loadPipelines = useCallback(async () => {
     try {
-      const data = await listPipelines();
-      const extras = readLocalExtras();
-      const merged = dedupePipelinesByName(
-        data.map((pipeline) => normalizePipelineForUi(pipeline, extras[pipeline.id]))
-      );
-      setPipelines(merged);
+      await refreshPipelines()
     } catch (error) {
       console.error("Failed to load pipelines:", error);
       // Keep whatever stale pipelines were already seeded from localStorage
     }
-  }, [normalizePipelineForUi, readLocalExtras]);
+  }, [refreshPipelines]);
 
   useEffect(() => {
     loadPipelines();
@@ -142,6 +149,7 @@ export function PipelineSelector({
 
   const handleSavePipeline = async (name: string, options?: { overwriteIfExists?: boolean }) => {
     try {
+      const normalizedName = name.trim().toLowerCase()
       const mergedFilters = {
         ...currentFilters,
       };
@@ -173,9 +181,10 @@ export function PipelineSelector({
 
       let newPipeline: Pipeline;
       const shouldOverwrite = options?.overwriteIfExists ?? true;
+      invalidatePipelinesListCache()
+      const latest = await listPipelines();
       if (shouldOverwrite) {
-        const latest = await listPipelines();
-        const existingCandidates = latest.filter((pipeline) => String(pipeline.name ?? "").trim().toLowerCase() === name.trim().toLowerCase());
+        const existingCandidates = latest.filter((pipeline) => String(pipeline.name ?? "").trim().toLowerCase() === normalizedName);
         const existing = existingCandidates.sort((a, b) => {
           const aTs = Date.parse(String(a.updated_at ?? a.created_at ?? ""));
           const bTs = Date.parse(String(b.updated_at ?? b.created_at ?? ""));
@@ -185,6 +194,14 @@ export function PipelineSelector({
           newPipeline = await updatePipeline(existing.id, payload);
         } else {
           newPipeline = await createPipeline(payload);
+        }
+
+        const duplicateIds = existingCandidates
+          .map((pipeline) => pipeline.id)
+          .filter((pipelineId) => pipelineId && pipelineId !== newPipeline.id)
+
+        if (duplicateIds.length > 0) {
+          await Promise.allSettled(duplicateIds.map((pipelineId) => deletePipeline(pipelineId)))
         }
       } else {
         newPipeline = await createPipeline(payload);
@@ -198,27 +215,47 @@ export function PipelineSelector({
         } as Record<string, unknown>,
       };
       writeLocalExtras(extras);
-      setPipelines((prev: Pipeline[]) => {
-        const normalized = normalizePipelineForUi(newPipeline, extras[newPipeline.id]);
-        const withoutSameName = prev.filter((p: Pipeline) => String(p.name ?? "").trim().toLowerCase() !== String(name).trim().toLowerCase());
-        return dedupePipelinesByName([normalized, ...withoutSameName]);
-      });
+      await refreshPipelines()
       setSelectedPipelineId(newPipeline.id);
+      toast.success("Pipeline saved", {
+        description: `Saved ${newPipeline.name || "pipeline"}.`,
+      })
     } catch (error) {
       console.error("Failed to save pipeline:", error);
       throw error;
     }
   };
 
+  const selectedPipeline = pipelines.find((p: Pipeline) => p.id === selectedPipelineId);
+
   const handleDeletePipeline = async () => {
-    if (!selectedPipelineId) return;
-    await deletePipeline(selectedPipelineId);
-    const extras = readLocalExtras();
-    if (extras[selectedPipelineId]) {
-      delete extras[selectedPipelineId];
-      writeLocalExtras(extras);
+    if (!selectedPipelineId || !selectedPipeline) return;
+    const selectedName = String(selectedPipeline.name ?? "").trim().toLowerCase()
+
+    invalidatePipelinesListCache()
+    const latest = await listPipelines()
+    const matchingIds = latest
+      .filter((pipeline) => String(pipeline.name ?? "").trim().toLowerCase() === selectedName)
+      .map((pipeline) => pipeline.id)
+
+    if (matchingIds.length === 0) {
+      matchingIds.push(selectedPipelineId)
     }
-    setPipelines((prev: Pipeline[]) => prev.filter((p: Pipeline) => p.id !== selectedPipelineId));
+
+    await Promise.all(matchingIds.map((pipelineId) => deletePipeline(pipelineId)));
+
+    const extras = readLocalExtras();
+    let extrasChanged = false
+    for (const pipelineId of matchingIds) {
+      if (!extras[pipelineId]) continue
+      delete extras[pipelineId]
+      extrasChanged = true
+    }
+    if (extrasChanged) {
+      writeLocalExtras(extras)
+    }
+
+    await refreshPipelines()
     setSelectedPipelineId(null);
     onLoadPipeline({
       competitors: [],
@@ -227,9 +264,10 @@ export function PipelineSelector({
       unit_categories: [],
     });
     onPipelineChange?.(null);
+    toast.success("Pipeline deleted", {
+      description: `Removed ${selectedPipeline.name || "pipeline"}.`,
+    })
   };
-
-  const selectedPipeline = pipelines.find((p: Pipeline) => p.id === selectedPipelineId);
   const sortedPipelines = useMemo(() => {
     const collator = new Intl.Collator(undefined, { sensitivity: "base", numeric: true });
     return [...pipelines].sort((a, b) => {
