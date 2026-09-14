@@ -3,7 +3,7 @@ import type { FilterSelection } from "@/components/pipelines/calculated-price";
 import { calculatePriceTable } from "@/components/pipelines/calculated-price";
 import { ProcessCsvButton } from "@/components/pricing/process-csv-button";
 import { getCachedValue } from "@/lib/api/cache";
-import { getE1Client, listPipelines } from "@/lib/api/client/pipelines";
+import { dedupePipelinesByName, getE1Client, listPipelines } from "@/lib/api/client/pipelines";
 import { getAllPricingData, getColumnStatistics, getPricingData, getPricingSnapshots } from "@/lib/api/client/pricing";
 import type { ColumnStatistics, E1DataResponse, Pipeline, PricingDataResponse, PricingSnapshot } from "@/lib/api/types";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -83,7 +83,7 @@ export default function PipelineBundlesPage() {
       ])
       if (cancelled) return
 
-      if (pipelinesResult.status === "fulfilled") setPipelines(pipelinesResult.value)
+      if (pipelinesResult.status === "fulfilled") setPipelines(dedupePipelinesByName(pipelinesResult.value))
       if (snapshotsResult.status === "fulfilled") setSnapshots(snapshotsResult.value)
     })()
 
@@ -431,21 +431,9 @@ export default function PipelineBundlesPage() {
   }, [pipelines, dataResponse?.data, clientDataResponse?.data.length])
 
   const calculatedRowsBundle = useMemo(() => {
-    const nameCounts = new Map<string, number>();
-    for (const ctx of selectedPipelineContexts) {
-      const name = String(ctx.pipeline.name ?? "").trim() || "Unnamed pipeline";
-      nameCounts.set(name, (nameCounts.get(name) ?? 0) + 1);
-    }
-
     return selectedPipelineContexts.map((ctx) => {
-      const baseName = String(ctx.pipeline.name ?? "").trim() || "Unnamed pipeline";
-      const duplicateCount = nameCounts.get(baseName) ?? 0;
-      const suffix = duplicateCount > 1
-        ? ` (${String(ctx.pipeline.id ?? "").slice(0, 8)})`
-        : "";
-
       return {
-        pipelineName: `${baseName}${suffix}`,
+        pipelineName: String(ctx.pipeline.name ?? "").trim() || "Unnamed pipeline",
         rows: ctx.calculatedRowsForCsv,
       };
     });

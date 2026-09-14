@@ -36,6 +36,36 @@ function writeCachedPipelinesList(pipelines: Pipeline[]): void {
   }
 }
 
+export function dedupePipelinesByName(pipelines: Pipeline[]): Pipeline[] {
+  const latestByName = new Map<string, Pipeline>()
+
+  for (const pipeline of pipelines) {
+    const key = String(pipeline.name ?? '').trim().toLowerCase()
+    if (!key) continue
+
+    const prev = latestByName.get(key)
+    if (!prev) {
+      latestByName.set(key, pipeline)
+      continue
+    }
+
+    const prevTs = Date.parse(String(prev.updated_at ?? prev.created_at ?? ''))
+    const nextTs = Date.parse(String(pipeline.updated_at ?? pipeline.created_at ?? ''))
+    const prevTime = Number.isFinite(prevTs) ? prevTs : 0
+    const nextTime = Number.isFinite(nextTs) ? nextTs : 0
+
+    if (nextTime >= prevTime) {
+      latestByName.set(key, pipeline)
+    }
+  }
+
+  return Array.from(latestByName.values()).sort((a, b) => {
+    const aTs = Date.parse(String(a.updated_at ?? a.created_at ?? ''))
+    const bTs = Date.parse(String(b.updated_at ?? b.created_at ?? ''))
+    return (Number.isFinite(bTs) ? bTs : 0) - (Number.isFinite(aTs) ? aTs : 0)
+  })
+}
+
 /**
  * E1 Competitors API (EXCLUDES modSTORAGE client data)
  *

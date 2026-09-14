@@ -9,7 +9,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import type { Adjuster } from "@/lib/adjusters";
-import { createPipeline, deletePipeline, listPipelines, updatePipeline } from "@/lib/api/client/pipelines";
+import { createPipeline, dedupePipelinesByName, deletePipeline, listPipelines, updatePipeline } from "@/lib/api/client/pipelines";
 import type { Pipeline } from "@/lib/api/types";
 import { ArrowUpDown, Save, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -53,7 +53,7 @@ export function PipelineSelector({
       if (!raw) return []
       const { data, ts } = JSON.parse(raw) as { data: Pipeline[]; ts: number }
       if (Date.now() - ts > 30 * 60 * 1000) return []
-      return Array.isArray(data) ? data : []
+      return Array.isArray(data) ? dedupePipelinesByName(data) : []
     } catch {
       return []
     }
@@ -104,38 +104,11 @@ export function PipelineSelector({
     };
   }, []);
 
-  const dedupeByName = useCallback((items: Pipeline[]): Pipeline[] => {
-    const latestByName = new Map<string, Pipeline>();
-    for (const pipeline of items) {
-      const key = String(pipeline.name ?? "").trim().toLowerCase();
-      if (!key) continue;
-      const prev = latestByName.get(key);
-      if (!prev) {
-        latestByName.set(key, pipeline);
-        continue;
-      }
-
-      const prevTs = Date.parse(String(prev.updated_at ?? prev.created_at ?? ""));
-      const nextTs = Date.parse(String(pipeline.updated_at ?? pipeline.created_at ?? ""));
-      const prevTime = Number.isFinite(prevTs) ? prevTs : 0;
-      const nextTime = Number.isFinite(nextTs) ? nextTs : 0;
-      if (nextTime >= prevTime) {
-        latestByName.set(key, pipeline);
-      }
-    }
-
-    return Array.from(latestByName.values()).sort((a, b) => {
-      const aTs = Date.parse(String(a.updated_at ?? a.created_at ?? ""));
-      const bTs = Date.parse(String(b.updated_at ?? b.created_at ?? ""));
-      return (Number.isFinite(bTs) ? bTs : 0) - (Number.isFinite(aTs) ? aTs : 0);
-    });
-  }, []);
-
   const loadPipelines = useCallback(async () => {
     try {
       const data = await listPipelines();
       const extras = readLocalExtras();
-      const merged = dedupeByName(
+      const merged = dedupePipelinesByName(
         data.map((pipeline) => normalizePipelineForUi(pipeline, extras[pipeline.id]))
       );
       setPipelines(merged);
@@ -143,7 +116,7 @@ export function PipelineSelector({
       console.error("Failed to load pipelines:", error);
       // Keep whatever stale pipelines were already seeded from localStorage
     }
-  }, [dedupeByName, normalizePipelineForUi, readLocalExtras]);
+  }, [normalizePipelineForUi, readLocalExtras]);
 
   useEffect(() => {
     loadPipelines();
@@ -228,7 +201,7 @@ export function PipelineSelector({
       setPipelines((prev: Pipeline[]) => {
         const normalized = normalizePipelineForUi(newPipeline, extras[newPipeline.id]);
         const withoutSameName = prev.filter((p: Pipeline) => String(p.name ?? "").trim().toLowerCase() !== String(name).trim().toLowerCase());
-        return dedupeByName([normalized, ...withoutSameName]);
+        return dedupePipelinesByName([normalized, ...withoutSameName]);
       });
       setSelectedPipelineId(newPipeline.id);
     } catch (error) {
