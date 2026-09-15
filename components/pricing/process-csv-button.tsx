@@ -76,7 +76,7 @@ import { DEFAULT_PRICE_FALLBACK_CHAIN, evaluateSafeFunction } from "@/lib/adjust
 import { deleteProcessCsvConfiguration, listProcessCsvConfigurations, saveProcessCsvConfiguration, type ProcessCsvConfiguration, type ProcessCsvConfigurationPayload } from "@/lib/api/client/pricing";
 import type { E1DataRow } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
-import { Accessibility, ArrowDown, ArrowUp, ArrowUpDown, FileSpreadsheet, Info, Layers3, Loader2, Save } from "lucide-react";
+import { Accessibility, ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronUp, FileSpreadsheet, Info, Layers3, Loader2, Save } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { toast } from "sonner";
 
@@ -2632,6 +2632,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
   const [pipelineMappingConfigs, setPipelineMappingConfigs] = useState<PipelineMappingConfig[]>([])
   const [mappingGroups, setMappingGroups] = useState<MappingGroup[]>([])
   const [selectedMappingGroupId, setSelectedMappingGroupId] = useState("")
+  const [mappingGroupsExpanded, setMappingGroupsExpanded] = useState(true)
   const mappingDraftStorageKey = useMemo(
     () => `process-csv-mapping-draft:${snapshotId || "default"}`,
     [snapshotId]
@@ -4765,8 +4766,13 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                 </div>
                 {mappingGroups.length > 0 ? (
                   <>
-                    <div className="sticky top-0 z-10 -mx-3 mb-3 border-b bg-background/95 px-3 pb-3 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-                      <div className="mt-2 max-h-[50vh] space-y-1 overflow-y-auto pr-1">
+                    <div className="sticky top-0 z-10 -mx-3 mb-5 bg-background/95 px-3 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+                      <div
+                        className={cn(
+                          "mt-2 space-y-1 overflow-y-auto pr-1 transition-[max-height] duration-200",
+                          mappingGroupsExpanded ? "max-h-[50vh]" : "max-h-[14rem]"
+                        )}
+                      >
                         {mappingGroups.map((group) => {
                           const isActive = group.id === selectedMappingGroupId
                           return (
@@ -4782,6 +4788,19 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                             </Button>
                           )
                         })}
+                      </div>
+                      <div className="relative mt-3 border-b border-border">
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="outline"
+                          className="absolute left-1/2 top-0 h-7 w-7 -translate-x-1/2 -translate-y-1/2 rounded-full bg-background"
+                          onClick={() => setMappingGroupsExpanded((prev) => !prev)}
+                          aria-label={mappingGroupsExpanded ? "Collapse mapping groups" : "Expand mapping groups"}
+                          title={mappingGroupsExpanded ? "Collapse mapping groups" : "Expand mapping groups"}
+                        >
+                          {mappingGroupsExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                        </Button>
                       </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
