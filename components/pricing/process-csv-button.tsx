@@ -4766,7 +4766,7 @@ export function ProcessCsvButton({ snapshotId, filters, calculatedRows = [], cal
                 {mappingGroups.length > 0 ? (
                   <>
                     <div className="sticky top-0 z-10 -mx-3 mb-3 border-b bg-background/95 px-3 pb-3 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-                      <div className="mt-2 space-y-1">
+                      <div className="mt-2 max-h-[50vh] space-y-1 overflow-y-auto pr-1">
                         {mappingGroups.map((group) => {
                           const isActive = group.id === selectedMappingGroupId
                           return (
